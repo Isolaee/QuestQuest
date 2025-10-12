@@ -13,10 +13,10 @@ impl HexCoord {
         Self { q, r }
     }
 
-    // Convert axial coordinates to world position (POINTY-TOP hexagons)
+    // Convert axial coordinates to world position (FLAT-TOP hexagons)
     pub fn to_world_pos(self, hex_size: f32) -> Vec2 {
-        let x = hex_size * (3.0_f32.sqrt() * (self.q as f32 + self.r as f32 / 2.0));
-        let y = hex_size * (3.0 / 2.0 * self.r as f32);
+        let x = hex_size * (3.0 / 2.0 * self.q as f32);
+        let y = hex_size * (3.0_f32.sqrt() * (self.r as f32 + self.q as f32 / 2.0));
         Vec2::new(x, y)
     }
 
@@ -29,29 +29,31 @@ impl HexCoord {
             / 2
     }
 
-    // Get neighboring coordinates (corrected for POINTY-TOP hexagons)
+    // Get neighboring coordinates (corrected for FLAT-TOP hexagons)
     #[allow(dead_code)]
     pub fn neighbors(self) -> [HexCoord; 6] {
         [
+            HexCoord::new(self.q, self.r - 1),     // North
             HexCoord::new(self.q + 1, self.r - 1), // Northeast
-            HexCoord::new(self.q + 1, self.r),     // East
-            HexCoord::new(self.q, self.r + 1),     // Southeast
+            HexCoord::new(self.q + 1, self.r),     // Southeast
+            HexCoord::new(self.q, self.r + 1),     // South
             HexCoord::new(self.q - 1, self.r + 1), // Southwest
-            HexCoord::new(self.q - 1, self.r),     // West
-            HexCoord::new(self.q, self.r - 1),     // Northwest
+            HexCoord::new(self.q - 1, self.r),     // Northwest
         ]
     }
 }
 
 // Sprite data for hexagons
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SpriteType {
     None,
-    Tree,
-    Rock,
-    Water,
-    Grass,
-    Sand,
+    Forest,       // forest.png
+    Forest2,      // forest2.png
+    Grasslands,   // grasslands.png
+    HauntedWoods, // haunted_woods.png
+    Hills,        // hills.png
+    Mountain,     // mountain.png
+    Swamp,        // swamp.png
 }
 
 impl SpriteType {
@@ -60,23 +62,74 @@ impl SpriteType {
     pub fn get_texture_coords(self) -> [f32; 8] {
         match self {
             SpriteType::None => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // No texture
-            SpriteType::Tree => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0], // Full texture for now
-            SpriteType::Rock => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
-            SpriteType::Water => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
-            SpriteType::Grass => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
-            SpriteType::Sand => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::Forest => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0], // Full texture for now
+            SpriteType::Forest2 => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::Grasslands => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::HauntedWoods => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::Hills => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::Mountain => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::Swamp => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
         }
     }
 
-    // Get color tint for sprite (for now, until we have actual textures)
+    // Get texture file path for sprite
+    pub fn get_texture_path(self) -> Option<&'static str> {
+        match self {
+            SpriteType::None => None,
+            SpriteType::Forest => Some("terrain_sprites/forest.png"),
+            SpriteType::Forest2 => Some("terrain_sprites/forest2.png"),
+            SpriteType::Grasslands => Some("terrain_sprites/grasslands.png"),
+            SpriteType::HauntedWoods => Some("terrain_sprites/haunted_woods.png"),
+            SpriteType::Hills => Some("terrain_sprites/hills.png"),
+            SpriteType::Mountain => Some("terrain_sprites/mountain.png"),
+            SpriteType::Swamp => Some("terrain_sprites/swamp.png"),
+        }
+    }
+
+    // Get color tint for sprite (fallback when textures aren't loaded)
     pub fn get_color_tint(self) -> [f32; 3] {
         match self {
-            SpriteType::None => [1.0, 1.0, 1.0],  // White (no tint)
-            SpriteType::Tree => [0.2, 0.8, 0.2],  // Green
-            SpriteType::Rock => [0.6, 0.6, 0.6],  // Gray
-            SpriteType::Water => [0.2, 0.4, 0.8], // Blue
-            SpriteType::Grass => [0.4, 0.9, 0.3], // Light green
-            SpriteType::Sand => [0.9, 0.8, 0.5],  // Sandy yellow
+            SpriteType::None => [1.0, 1.0, 1.0],         // White (no tint)
+            SpriteType::Forest => [0.2, 0.7, 0.2],       // Dark green
+            SpriteType::Forest2 => [0.3, 0.8, 0.3],      // Medium green
+            SpriteType::Grasslands => [0.4, 0.9, 0.3],   // Light green
+            SpriteType::HauntedWoods => [0.4, 0.2, 0.6], // Dark purple
+            SpriteType::Hills => [0.7, 0.6, 0.4],        // Brown
+            SpriteType::Mountain => [0.6, 0.6, 0.7],     // Gray-blue
+            SpriteType::Swamp => [0.3, 0.5, 0.2],        // Dark green-brown
+        }
+    }
+
+    // Get all terrain sprite types (excluding None)
+    pub fn all_terrain() -> [SpriteType; 7] {
+        [
+            SpriteType::Forest,
+            SpriteType::Forest2,
+            SpriteType::Grasslands,
+            SpriteType::HauntedWoods,
+            SpriteType::Hills,
+            SpriteType::Mountain,
+            SpriteType::Swamp,
+        ]
+    }
+
+    // Get a random terrain sprite (excluding None)
+    pub fn random_terrain(seed: i32) -> SpriteType {
+        let all = Self::all_terrain();
+        all[(seed.abs() % 7) as usize]
+    }
+
+    // Get texture array index for OpenGL shader
+    pub fn get_texture_id(&self) -> f32 {
+        match self {
+            SpriteType::None => -1.0, // No texture
+            SpriteType::Forest => 0.0,
+            SpriteType::Forest2 => 1.0,
+            SpriteType::Grasslands => 2.0,
+            SpriteType::HauntedWoods => 3.0,
+            SpriteType::Hills => 4.0,
+            SpriteType::Mountain => 5.0,
+            SpriteType::Swamp => 6.0,
         }
     }
 }
@@ -100,14 +153,12 @@ impl Hexagon {
             0.5 + 0.3 * (coord.r % 5) as f32 / 5.0,
         ];
 
-        // Randomly assign sprites for demonstration
-        let sprite = match (coord.q + coord.r * 3) % 6 {
-            0 => SpriteType::None,
-            1 => SpriteType::Tree,
-            2 => SpriteType::Rock,
-            3 => SpriteType::Water,
-            4 => SpriteType::Grass,
-            _ => SpriteType::Sand,
+        // Randomly assign terrain sprites for demonstration
+        // Use a more interesting seed that creates varied patterns
+        let seed = coord.q * 17 + coord.r * 23 + coord.q * coord.r;
+        let sprite = match seed % 10 {
+            0..=1 => SpriteType::None,             // 20% empty hexes
+            _ => SpriteType::random_terrain(seed), // 80% terrain
         };
 
         Self {

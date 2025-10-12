@@ -47,7 +47,8 @@ QuestQuest/
 - **OpenGL 4.x Rendering**: Modern OpenGL with programmable shaders
 - **Hexagonal Grid System**: Efficient axial coordinate system with pointy-top hexagons
 - **Camera System**: View frustum culling for performance optimization
-- **Sprite Support**: Colored sprite rendering on hexagonal tiles
+- **Terrain System**: 7 distinct terrain sprites (Forest, Forest2, Grasslands, Haunted Woods, Hills, Mountain, Swamp)
+- **Sprite Support**: Colored sprite rendering on hexagonal tiles with procedural distribution
 - **Modular Architecture**: Clean separation of concerns with core, math, and rendering modules
 
 ### Units Crate
@@ -61,6 +62,7 @@ QuestQuest/
 ### Key Features
 - ✅ **Hexagonal Coordinates**: Proper axial coordinate system with distance calculations
 - ✅ **Camera Culling**: Only render hexagons within camera view distance
+- ✅ **Terrain Sprites**: 7 distinct terrain types with procedural distribution
 - ✅ **Equipment Bonuses**: Weapons and armor modify unit stats
 - ✅ **Range Modifiers**: Equipment can extend attack range
 - ✅ **Serialization**: Full serde support for save/load functionality
@@ -100,10 +102,33 @@ cargo test --test item_tests
 # Text-based game mechanics demo
 cargo run --bin example
 
-# Graphics rendering demo (requires graphics drivers)
+# Graphics rendering demo (requires OpenGL 4.x graphics drivers)
 cd Graphics
 cargo run
 ```
+
+## 🖼️ Graphics Window Controls
+
+**Window Title:** "Hexagon Grid - Modular"  
+**Resolution:** 1200x800 pixels
+
+**Camera Controls:**
+- **↑ Arrow Key** - Move camera up
+- **↓ Arrow Key** - Move camera down  
+- **← Arrow Key** - Move camera left
+- **→ Arrow Key** - Move camera right
+- **Close Window** - Exit application
+
+**What You'll See:**
+- Interactive hexagonal terrain grid
+- 7 different colored terrain sprites
+- Smooth camera movement across the world
+- Real-time OpenGL rendering
+
+**Requirements:**
+- OpenGL 4.x compatible graphics card
+- Updated graphics drivers
+- Windows with proper GPU support
 
 ## 🎯 Demo Output Example
 
@@ -129,6 +154,23 @@ cargo run
 Distance from Archer to Warrior: 3
 Can Archer attack Warrior? true
 Archer shoots at Warrior for 1 damage!
+
+🗺️ TERRAIN SYSTEM DEMONSTRATION:
+Available terrain sprites:
+  1. Forest - RGB(0.2, 0.7, 0.2)
+  2. Forest2 - RGB(0.3, 0.8, 0.3)  
+  3. Grasslands - RGB(0.4, 0.9, 0.3)
+  4. HauntedWoods - RGB(0.4, 0.2, 0.6)
+  5. Hills - RGB(0.7, 0.6, 0.4)
+  6. Mountain - RGB(0.6, 0.6, 0.7)
+  7. Swamp - RGB(0.3, 0.5, 0.2)
+
+Sample terrain distribution around origin:
+🌿 🗻 ⛰️ 🌚 🌱
+🌿 ⛰️ 🌱 🌲 🌱
+🌿 🌚 ⬡ 🌚 🌿
+🌿 🗻 🌱 ⬡ 🌚
+🌳 🌿 ⛰️ 🌱 🌲
 ```
 
 ## 🏛️ Architecture Highlights

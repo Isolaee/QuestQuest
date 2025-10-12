@@ -3,7 +3,7 @@ use std::ffi::CString;
 use std::mem;
 use std::ptr;
 
-/// Sets up OpenGL resources for dynamic hexagon rendering.
+/// Sets up OpenGL resources for dynamic hexagon rendering with textures.
 ///
 /// # Safety
 ///
@@ -24,7 +24,7 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
     gl::GenBuffers(1, &mut vbo);
     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
-    // Configure vertex attributes (position + color)
+    // Configure vertex attributes (position + texture coords + texture ID)
     // Position (3 floats)
     gl::VertexAttribPointer(
         0,
@@ -36,10 +36,10 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
     );
     gl::EnableVertexAttribArray(0);
 
-    // Color (3 floats)
+    // Texture coordinates (2 floats)
     gl::VertexAttribPointer(
         1,
-        3,
+        2,
         gl::FLOAT,
         gl::FALSE,
         6 * mem::size_of::<f32>() as GLsizei,
@@ -47,18 +47,32 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
     );
     gl::EnableVertexAttribArray(1);
 
+    // Texture ID (1 float)
+    gl::VertexAttribPointer(
+        2,
+        1,
+        gl::FLOAT,
+        gl::FALSE,
+        6 * mem::size_of::<f32>() as GLsizei,
+        (5 * mem::size_of::<f32>()) as *const _,
+    );
+    gl::EnableVertexAttribArray(2);
+
     // Create shaders
     let vertex_shader_source = CString::new(
         r#"
         #version 330 core
         layout (location = 0) in vec3 aPos;
-        layout (location = 1) in vec3 aColor;
+        layout (location = 1) in vec2 aTexCoord;
+        layout (location = 2) in float aTextureId;
         
-        out vec3 vertexColor;
+        out vec2 TexCoord;
+        out float TextureId;
         
         void main() {
             gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-            vertexColor = aColor;
+            TexCoord = aTexCoord;
+            TextureId = aTextureId;
         }
     "#,
     )
@@ -67,11 +81,19 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
     let fragment_shader_source = CString::new(
         r#"
         #version 330 core
-        in vec3 vertexColor;
+        in vec2 TexCoord;
+        in float TextureId;
         out vec4 FragColor;
         
+        uniform sampler2D textures[7];
+        
         void main() {
-            FragColor = vec4(vertexColor, 1.0);
+            int texId = int(TextureId);
+            if (texId >= 0 && texId < 7) {
+                FragColor = texture(textures[texId], TexCoord);
+            } else {
+                FragColor = vec4(1.0, 0.0, 1.0, 1.0); // Magenta for error
+            }
         }
     "#,
     )

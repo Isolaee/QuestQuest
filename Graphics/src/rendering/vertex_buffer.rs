@@ -25,33 +25,31 @@ impl VertexBuffer {
             let center_x = hex.world_pos.x - camera_x;
             let center_y = hex.world_pos.y - camera_y;
 
-            // Get display color (base color blended with sprite color)
-            let display_color = hex.get_display_color();
+            // Get texture ID for this hexagon's sprite
+            let texture_id = hex.sprite.get_texture_id();
 
-            // Center vertex with color
+            // Center vertex with texture coordinates (center of texture)
             vertices.extend_from_slice(&[
-                center_x,
-                center_y,
-                0.0,
-                display_color[0],
-                display_color[1],
-                display_color[2],
+                center_x, center_y, 0.0, 0.5, // u
+                0.5, // v (center is fine as-is)
+                texture_id,
             ]);
 
-            // Outer vertices (6 points of POINTY-TOP hexagon)
-            // Start at 30 degrees (π/6) to make pointy-top orientation
+            // Outer vertices (6 points of FLAT-TOP hexagon with equal sides)
+            // For flat-top hexagons, vertices should start at 0 degrees (rightmost point)
+            // and go counter-clockwise to create flat edges on top and bottom
             for i in 0..=6 {
-                let angle = (i as f32) * std::f32::consts::PI / 3.0 + std::f32::consts::PI / 6.0;
+                let angle = (i as f32) * std::f32::consts::PI / 3.0; // 60-degree steps
                 let x = center_x + hex_size * angle.cos();
                 let y = center_y + hex_size * angle.sin();
-                vertices.extend_from_slice(&[
-                    x,
-                    y,
-                    0.0,
-                    display_color[0],
-                    display_color[1],
-                    display_color[2],
-                ]);
+
+                // Calculate texture coordinates for hexagon vertices
+                // Map the hexagon vertices to a square texture (0,0) to (1,1)
+                // Fix upside-down sprites by inverting V coordinate
+                let u = 0.5 + 0.4 * angle.cos(); // Slightly smaller to keep texture within bounds
+                let v = 1.0 - (0.5 + 0.4 * angle.sin()); // Inverted V coordinate
+
+                vertices.extend_from_slice(&[x, y, 0.0, u, v, texture_id]);
             }
         }
 
