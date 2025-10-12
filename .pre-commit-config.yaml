@@ -1,0 +1,20 @@
+repos:
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: Rust Format Check
+        entry: cargo fmt
+        language: system
+        types: [rust]
+        pass_filenames: false
+        args: [--all, --, --check]
+        description: Check if Rust code is formatted correctly
+        
+      - id: cargo-clippy
+        name: Rust Clippy Lints
+        entry: cargo clippy
+        language: system
+        types: [rust]
+        pass_filenames: false
+        args: [--all-targets, --all-features, --, -D, warnings]
+        description: Run Clippy lints and treat warnings as errors
