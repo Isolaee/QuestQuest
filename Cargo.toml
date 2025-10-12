@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "Graphics",
+    # Add other Rust projects here as you create them
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
