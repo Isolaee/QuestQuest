@@ -3,9 +3,19 @@ name = "graphics"
 version = "0.1.0"
 edition = "2021"
 
+# Make it both a library and binary
+[[bin]]
+name = "graphics"
+path = "src/main.rs"
+
+[lib]
+name = "graphics"
+path = "src/lib.rs"
+
 [dependencies]
 gl = "0.14.0"
 glutin = "0.32"
 glutin-winit = "0.5"
 winit = "0.30"
 raw-window-handle = "0.6"
+serde = { version = "1.0", features = ["derive"] }

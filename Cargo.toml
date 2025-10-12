@@ -1,7 +1,22 @@
+[package]
+name = "questquest"
+version = "0.1.0"
+edition = "2021"
+
+# Example binary
+[[bin]]
+name = "example"
+path = "example.rs"
+
+[dependencies]
+graphics = { path = "Graphics" }
+units = { path = "Units" }
+
 [workspace]
+resolver = "2"
 members = [
     "Graphics",
-    # Add other Rust projects here as you create them
+    "Units",
 ]
 
 [workspace.package]

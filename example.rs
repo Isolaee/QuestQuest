@@ -1,0 +1,204 @@
+use graphics::HexCoord;
+use units::*;
+
+fn main() {
+    println!("🎮 QuestQuest: Hexagonal Game Engine Demo");
+    println!("==========================================\n");
+
+    // Create some units on a hexagonal grid
+    let mut warrior = Unit::new(
+        "Thorin the Bold".to_string(),
+        HexCoord::new(0, 0),
+        Race::Dwarf,
+        UnitClass::Warrior,
+    );
+
+    let mut archer = Unit::new(
+        "Legolas Greenleaf".to_string(),
+        HexCoord::new(3, -2),
+        Race::Elf,
+        UnitClass::Archer,
+    );
+
+    let mut mage = Unit::new(
+        "Gandalf the Grey".to_string(),
+        HexCoord::new(-2, 3),
+        Race::Human,
+        UnitClass::Mage,
+    );
+
+    println!("⚔️ INITIAL UNITS:");
+    print_unit_status(&warrior);
+    print_unit_status(&archer);
+    print_unit_status(&mage);
+
+    // Create some equipment
+    let sword = Item::new(
+        "Orcrist".to_string(),
+        "An ancient elvish blade".to_string(),
+        item::ItemProperties::Weapon {
+            attack_bonus: 5,
+            range_modifier: 0,
+            range_type_override: None,
+        },
+    );
+
+    let longbow = Item::new(
+        "Bow of the Galadhrim".to_string(),
+        "A bow crafted in Lothlórien".to_string(),
+        item::ItemProperties::Weapon {
+            attack_bonus: 3,
+            range_modifier: 2,
+            range_type_override: None,
+        },
+    );
+
+    let staff = Item::new(
+        "Staff of Power".to_string(),
+        "A wizard's staff imbued with magic".to_string(),
+        item::ItemProperties::Weapon {
+            attack_bonus: 2,
+            range_modifier: 1,
+            range_type_override: Some(RangeType::Ranged),
+        },
+    );
+
+    // Equip items
+    let sword_id = sword.id;
+    let bow_id = longbow.id;
+    let staff_id = staff.id;
+
+    warrior.add_item_to_inventory(sword);
+    archer.add_item_to_inventory(longbow);
+    mage.add_item_to_inventory(staff);
+
+    warrior.equip_item(sword_id).unwrap();
+    archer.equip_item(bow_id).unwrap();
+    mage.equip_item(staff_id).unwrap();
+
+    println!("\n🛡️ AFTER EQUIPPING WEAPONS:");
+    print_unit_status(&warrior);
+    print_unit_status(&archer);
+    print_unit_status(&mage);
+
+    // Simulate some combat
+    println!("\n⚔️ COMBAT SIMULATION:");
+
+    // Check if units can attack each other
+    let archer_pos = archer.position;
+    let warrior_pos = warrior.position;
+    let mage_pos = mage.position;
+
+    println!(
+        "Distance from Archer to Warrior: {}",
+        archer_pos.distance(warrior_pos)
+    );
+    println!(
+        "Can Archer attack Warrior? {}",
+        archer.can_attack(warrior_pos)
+    );
+
+    if archer.can_attack(warrior_pos) {
+        let damage = archer.calculate_damage_to(&warrior);
+        println!("Archer shoots at Warrior for {} damage!", damage);
+        warrior.take_damage(damage);
+    }
+
+    println!(
+        "Distance from Warrior to Mage: {}",
+        warrior_pos.distance(mage_pos)
+    );
+    println!("Can Warrior attack Mage? {}", warrior.can_attack(mage_pos));
+
+    if !warrior.can_attack(mage_pos) {
+        println!("Warrior moves closer to Mage...");
+        // Move warrior closer
+        let new_pos = HexCoord::new(-1, 2);
+        warrior.move_to(new_pos);
+        println!("Warrior moved to {:?}", warrior.position);
+
+        if warrior.can_attack(mage_pos) {
+            let damage = warrior.calculate_damage_to(&mage);
+            println!("Warrior attacks Mage for {} damage!", damage);
+            mage.take_damage(damage);
+        }
+    }
+
+    // Level up demonstration
+    println!("\n📈 LEVELING UP:");
+    println!("Giving experience to all units...");
+
+    if warrior.add_experience(100) {
+        println!("🎉 {} leveled up to level {}!", warrior.name, warrior.level);
+    }
+
+    if archer.add_experience(100) {
+        println!("🎉 {} leveled up to level {}!", archer.name, archer.level);
+    }
+
+    if mage.add_experience(100) {
+        println!("🎉 {} leveled up to level {}!", mage.name, mage.level);
+    }
+
+    println!("\n🏆 FINAL STATUS:");
+    print_unit_status(&warrior);
+    print_unit_status(&archer);
+    print_unit_status(&mage);
+
+    // Demonstrate hexagonal coordinates
+    println!("\n🗺️ HEXAGONAL GRID DEMONSTRATION:");
+    println!("Current positions:");
+    println!("  {}: {:?}", warrior.name, warrior.position);
+    println!("  {}: {:?}", archer.name, archer.position);
+    println!("  {}: {:?}", mage.name, mage.position);
+
+    println!("\nNeighbors of Warrior's position:");
+    for (i, neighbor) in warrior.position.neighbors().iter().enumerate() {
+        println!("  Direction {}: {:?}", i, neighbor);
+    }
+
+    println!("\nHexagonal distance examples:");
+    let test_coords = [
+        HexCoord::new(1, 0),
+        HexCoord::new(0, 1),
+        HexCoord::new(-1, 1),
+        HexCoord::new(-1, 0),
+        HexCoord::new(0, -1),
+        HexCoord::new(1, -1),
+    ];
+
+    println!("Distance from Warrior to nearby hexes:");
+    for coord in test_coords {
+        let distance = warrior.position.distance(coord);
+        println!("  {:?} -> distance: {}", coord, distance);
+    }
+}
+
+fn print_unit_status(unit: &Unit) {
+    let weapon_name = unit
+        .equipment
+        .weapon
+        .as_ref()
+        .map(|w| w.name.as_str())
+        .unwrap_or("None");
+
+    println!(
+        "📋 {} (Lv.{} {} {}):",
+        unit.name, unit.level, unit.race, unit.class
+    );
+    println!(
+        "   Position: {:?} | Health: {}/{} | Attack: {} | Defense: {} | Range: {} ({})",
+        unit.position,
+        unit.combat_stats.health,
+        unit.combat_stats.max_health,
+        unit.combat_stats.attack,
+        unit.combat_stats.defense,
+        unit.combat_stats.attack_range,
+        unit.combat_stats.range_type
+    );
+    println!(
+        "   Movement: {} | Weapon: {} | Exp: {}",
+        unit.combat_stats.movement_speed, weapon_name, unit.experience
+    );
+    println!();
+}
