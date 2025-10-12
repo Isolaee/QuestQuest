@@ -138,6 +138,7 @@ recordings/
 !assets/**/*.png
 !assets/**/*.jpg
 !assets/**/*.jpeg
+!Graphics/terrain_sprites/*.png
 
 # Logs
 logs/
