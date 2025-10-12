@@ -44,7 +44,7 @@ impl HexCoord {
 }
 
 // Sprite data for hexagons
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SpriteType {
     None,
     Forest,       // forest.png
@@ -54,6 +54,7 @@ pub enum SpriteType {
     Hills,        // hills.png
     Mountain,     // mountain.png
     Swamp,        // swamp.png
+    Unit,         // Red circle for units
 }
 
 impl SpriteType {
@@ -69,6 +70,7 @@ impl SpriteType {
             SpriteType::Hills => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
             SpriteType::Mountain => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
             SpriteType::Swamp => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::Unit => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // No texture --- IGNORE ---
         }
     }
 
@@ -83,6 +85,7 @@ impl SpriteType {
             SpriteType::Hills => Some("terrain_sprites/hills.png"),
             SpriteType::Mountain => Some("terrain_sprites/mountain.png"),
             SpriteType::Swamp => Some("terrain_sprites/swamp.png"),
+            SpriteType::Unit => None, // We'll render this as a colored circle
         }
     }
 
@@ -97,6 +100,7 @@ impl SpriteType {
             SpriteType::Hills => [0.7, 0.6, 0.4],        // Brown
             SpriteType::Mountain => [0.6, 0.6, 0.7],     // Gray-blue
             SpriteType::Swamp => [0.3, 0.5, 0.2],        // Dark green-brown
+            SpriteType::Unit => [0.9, 0.2, 0.2],         // Bright red for units
         }
     }
 
@@ -130,6 +134,7 @@ impl SpriteType {
             SpriteType::Hills => 4.0,
             SpriteType::Mountain => 5.0,
             SpriteType::Swamp => 6.0,
+            SpriteType::Unit => -1.0, // Use color rendering, not texture
         }
     }
 }
@@ -139,7 +144,8 @@ pub struct Hexagon {
     pub coord: HexCoord,
     pub world_pos: Vec2,
     pub color: [f32; 3],
-    pub sprite: SpriteType,
+    pub sprite: SpriteType,              // Base terrain sprite
+    pub unit_sprite: Option<SpriteType>, // Optional unit sprite on top
 }
 
 impl Hexagon {
@@ -153,34 +159,47 @@ impl Hexagon {
             0.5 + 0.3 * (coord.r % 5) as f32 / 5.0,
         ];
 
-        // Randomly assign terrain sprites for demonstration
-        // Use a more interesting seed that creates varied patterns
+        // Randomly assign terrain sprites for demonstration - NO EMPTY HEXES
         let seed = coord.q * 17 + coord.r * 23 + coord.q * coord.r;
-        let sprite = match seed % 10 {
-            0..=1 => SpriteType::None,             // 20% empty hexes
-            _ => SpriteType::random_terrain(seed), // 80% terrain
-        };
+        let sprite = SpriteType::random_terrain(seed); // 100% terrain coverage
 
         Self {
             coord,
             world_pos,
             color: base_color,
             sprite,
+            unit_sprite: None, // No unit by default
         }
     }
 
-    // Set sprite for this hexagon
-    #[allow(dead_code)]
+    // Set unit sprite (rendered on top of terrain)
+    pub fn set_unit_sprite(&mut self, unit_sprite: Option<SpriteType>) {
+        self.unit_sprite = unit_sprite;
+    }
+
+    // Set terrain sprite (base layer)
     pub fn set_sprite(&mut self, sprite: SpriteType) {
         self.sprite = sprite;
     }
 
-    // Get the final display color (base color mixed with sprite tint)
+    // Get the display sprite (unit takes priority if present)
+    pub fn get_display_sprite(&self) -> SpriteType {
+        self.unit_sprite.unwrap_or(self.sprite)
+    }
+
+    // Check if hex has a unit
+    pub fn has_unit(&self) -> bool {
+        self.unit_sprite.is_some()
+    }
+
+    // Get the final display color
     pub fn get_display_color(&self) -> [f32; 3] {
-        if self.sprite == SpriteType::None {
+        let display_sprite = self.get_display_sprite();
+
+        if display_sprite == SpriteType::None {
             self.color
         } else {
-            let sprite_color = self.sprite.get_color_tint();
+            let sprite_color = display_sprite.get_color_tint();
             // Blend base color with sprite color
             [
                 self.color[0] * 0.3 + sprite_color[0] * 0.7,
@@ -190,9 +209,8 @@ impl Hexagon {
         }
     }
 
-    // Check if hex has a sprite
-    #[allow(dead_code)]
+    // Check if hex has a sprite (terrain or unit)
     pub fn has_sprite(&self) -> bool {
-        self.sprite != SpriteType::None
+        self.sprite != SpriteType::None || self.unit_sprite.is_some()
     }
 }

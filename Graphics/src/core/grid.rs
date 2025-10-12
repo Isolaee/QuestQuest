@@ -77,14 +77,32 @@ impl HexGrid {
         self.hexagons.get_mut(&coord)
     }
 
-    // Set sprite at specific coordinate
-    #[allow(dead_code)]
-    pub fn set_sprite_at(&mut self, coord: HexCoord, sprite: SpriteType) -> bool {
+    // Set unit sprite at specific coordinate (preserving terrain)
+    pub fn set_unit_at(&mut self, coord: HexCoord, unit_sprite: SpriteType) {
+        if let Some(hex) = self.hexagons.get_mut(&coord) {
+            hex.set_unit_sprite(Some(unit_sprite));
+        }
+    }
+
+    // Remove unit sprite at specific coordinate (preserving terrain)
+    pub fn remove_unit_at(&mut self, coord: HexCoord) {
+        if let Some(hex) = self.hexagons.get_mut(&coord) {
+            hex.set_unit_sprite(None);
+        }
+    }
+
+    // Set sprite at specific coordinate (terrain layer)
+    pub fn set_sprite_at(&mut self, coord: HexCoord, sprite: SpriteType) {
         if let Some(hex) = self.hexagons.get_mut(&coord) {
             hex.set_sprite(sprite);
-            true
-        } else {
-            false
         }
+    }
+
+    // Check if there's a unit at specific coordinate
+    pub fn has_unit_at(&self, coord: HexCoord) -> bool {
+        self.hexagons
+            .get(&coord)
+            .map(|hex| hex.has_unit())
+            .unwrap_or(false)
     }
 }

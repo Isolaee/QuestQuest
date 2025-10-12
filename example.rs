@@ -210,6 +210,7 @@ fn demonstrate_terrain_sprites() {
                 SpriteType::Hills => "⛰️",
                 SpriteType::Mountain => "🗻",
                 SpriteType::Swamp => "🌿",
+                SpriteType::Unit => "🔴", // Red circle for units
             };
             print!("{} ", sprite_char);
         }

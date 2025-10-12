@@ -91,8 +91,17 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
             int texId = int(TextureId);
             if (texId >= 0 && texId < 7) {
                 FragColor = texture(textures[texId], TexCoord);
+            } else if (texId == -1) {
+                // Special case for units: render as red circle
+                vec2 center = vec2(0.5, 0.5);
+                float dist = distance(TexCoord, center);
+                if (dist < 0.4) {
+                    FragColor = vec4(0.9, 0.2, 0.2, 1.0); // Bright red
+                } else {
+                    discard; // Transparent outside circle
+                }
             } else {
-                FragColor = vec4(1.0, 0.0, 1.0, 1.0); // Magenta for error
+                FragColor = vec4(1.0, 0.0, 1.0, 1.0); // Magenta for other errors
             }
         }
     "#,

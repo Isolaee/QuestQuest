@@ -1,0 +1,17 @@
+[package]
+name = "game"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Local crates
+graphics = { path = "../Graphics" }
+units = { path = "../Units" }
+
+# External dependencies
+uuid = { version = "1.10", features = ["v4", "serde"] }
+serde = { version = "1.0", features = ["derive"] }
+
+[lib]
+name = "game"
+path = "src/lib.rs"

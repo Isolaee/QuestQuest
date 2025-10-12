@@ -11,12 +11,14 @@ path = "example.rs"
 [dependencies]
 graphics = { path = "Graphics" }
 units = { path = "Units" }
+game = { path = "Game" }
 
 [workspace]
-resolver = "2"
 members = [
     "Graphics",
-    "Units",
+    "Units", 
+    "Game",
+    "QuestApp"
 ]
 
 [workspace.package]

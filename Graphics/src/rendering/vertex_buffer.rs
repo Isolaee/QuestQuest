@@ -21,12 +21,19 @@ impl VertexBuffer {
         let mut vertices = Vec::new();
 
         for hex in visible_hexagons {
+            let display_sprite = hex.get_display_sprite();
+
+            // Skip rendering empty hexagons (no terrain or unit)
+            if display_sprite == crate::core::hexagon::SpriteType::None {
+                continue;
+            }
+
             // Generate hexagon vertices relative to camera
             let center_x = hex.world_pos.x - camera_x;
             let center_y = hex.world_pos.y - camera_y;
 
-            // Get texture ID for this hexagon's sprite
-            let texture_id = hex.sprite.get_texture_id();
+            // Get texture ID for this hexagon's display sprite (includes unit sprites)
+            let texture_id = display_sprite.get_texture_id();
 
             // Center vertex with texture coordinates (center of texture)
             vertices.extend_from_slice(&[

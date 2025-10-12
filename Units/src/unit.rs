@@ -1,7 +1,7 @@
 use crate::combat::CombatStats;
 use crate::item::{Equipment, Item, ItemId};
-use crate::race::Race;
 use crate::unit_class::UnitClass;
+use crate::unit_race::Race;
 use graphics::HexCoord;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -294,6 +294,155 @@ impl Unit {
             self.race.get_name(),
             self.class.get_name()
         )
+    }
+
+    /// Handle click event - displays detailed unit information
+    pub fn on_click(&self) {
+        self.display_unit_info();
+    }
+
+    /// Display comprehensive unit information on screen
+    pub fn display_unit_info(&self) {
+        println!("\n┌─────────────────────────────────────────────────────┐");
+        println!("│                  UNIT DETAILS                       │");
+        println!("├─────────────────────────────────────────────────────┤");
+
+        // Basic info
+        println!("│ Name: {:<45} │", self.name);
+        println!(
+            "│ Level {:<2} {:<8} {:<30} │",
+            self.level,
+            self.race.get_name(),
+            self.class.get_name()
+        );
+        println!("│ Position: {:?}{:<32} │", self.position, "");
+        println!("│ Experience: {:<37} │", self.experience);
+
+        println!("├─────────────────────────────────────────────────────┤");
+
+        // Combat stats
+        let current_hp = self.combat_stats.health;
+        let max_hp = self.combat_stats.max_health;
+        let health_bar = self.create_health_bar(current_hp, max_hp, 20);
+
+        println!("│ Health: {}/{} {:<25} │", current_hp, max_hp, health_bar);
+        println!("│ Attack: {:<41} │", self.cached_attack);
+        println!("│ Defense: {:<40} │", self.cached_defense);
+        println!("│ Movement: {:<39} │", self.cached_movement);
+        println!(
+            "│ Range: {} ({}){:<32} │",
+            self.combat_stats.attack_range,
+            self.combat_stats.range_type.get_name(),
+            ""
+        );
+
+        println!("├─────────────────────────────────────────────────────┤");
+
+        // Equipment
+        println!("│ EQUIPMENT:{:<39} │", "");
+        if let Some(weapon) = &self.equipment.weapon {
+            println!("│  🗡️  Weapon: {:<35} │", weapon.name);
+        } else {
+            println!("│  🗡️  Weapon: None{:<31} │", "");
+        }
+
+        if let Some(armor) = &self.equipment.armor {
+            println!("│  🛡️  Armor: {:<36} │", armor.name);
+        } else {
+            println!("│  🛡️  Armor: None{:<32} │", "");
+        }
+
+        // Show first accessory if any
+        if !self.equipment.accessories.is_empty() {
+            println!(
+                "│  💍  Accessories: {:<27} │",
+                self.equipment.accessories[0].name
+            );
+            if self.equipment.accessories.len() > 1 {
+                println!(
+                    "│      (+{} more){:<32} │",
+                    self.equipment.accessories.len() - 1,
+                    ""
+                );
+            }
+        } else {
+            println!("│  💍  Accessories: None{:<24} │", "");
+        }
+
+        println!("├─────────────────────────────────────────────────────┤");
+
+        // Inventory
+        println!("│ INVENTORY ({} items):{:<27} │", self.inventory.len(), "");
+        if self.inventory.is_empty() {
+            println!("│  (Empty){:<41} │", "");
+        } else {
+            for (i, item) in self.inventory.iter().take(3).enumerate() {
+                println!("│  {}. {:<43} │", i + 1, item.name);
+            }
+            if self.inventory.len() > 3 {
+                println!(
+                    "│  ... and {} more item(s){:<22} │",
+                    self.inventory.len() - 3,
+                    ""
+                );
+            }
+        }
+
+        println!("└─────────────────────────────────────────────────────┘");
+
+        // Additional status info
+        if current_hp < max_hp / 4 {
+            println!("⚠️  CRITICAL HEALTH - Unit needs healing!");
+        } else if current_hp < max_hp / 2 {
+            println!("🔸 Low health - Consider healing soon");
+        }
+
+        // Check if unit has enough experience to level up (simple check)
+        let exp_needed_for_next_level = self.level * 100; // Simple progression
+        if self.experience >= exp_needed_for_next_level {
+            println!("🌟 Ready to level up!");
+        }
+
+        println!(); // Extra spacing
+    }
+
+    /// Create a visual health bar
+    fn create_health_bar(&self, current: i32, max: i32, width: usize) -> String {
+        if max == 0 {
+            return "░".repeat(width);
+        }
+
+        let filled = ((current as f32 / max as f32) * width as f32) as usize;
+        let filled = filled.min(width);
+
+        let bar_char = if current as f32 / max as f32 > 0.75 {
+            "█" // Full health - green
+        } else if current as f32 / max as f32 > 0.5 {
+            "▓" // Medium health - yellow
+        } else if current as f32 / max as f32 > 0.25 {
+            "▒" // Low health - orange
+        } else {
+            "░" // Critical health - red
+        };
+
+        let filled_part = bar_char.repeat(filled);
+        let empty_part = "░".repeat(width - filled);
+
+        format!("[{}{}]", filled_part, empty_part)
+    }
+
+    /// Display a compact unit summary for quick reference
+    pub fn display_quick_info(&self) {
+        println!(
+            "📋 {} | Lv.{} | HP:{}/{} | ATK:{} | DEF:{} | POS:{:?}",
+            self.name,
+            self.level,
+            self.combat_stats.health,
+            self.combat_stats.max_health,
+            self.cached_attack,
+            self.cached_defense,
+            self.position
+        );
     }
 }
 
