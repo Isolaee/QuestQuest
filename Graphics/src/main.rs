@@ -13,7 +13,7 @@ use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct Vec2 {
     x: f32,
     y: f32,
@@ -29,10 +29,73 @@ impl Vec2 {
     }
 }
 
+// Axial coordinates for hexagonal grid
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct HexCoord {
+    q: i32, // column
+    r: i32, // row
+}
+
+impl HexCoord {
+    fn new(q: i32, r: i32) -> Self {
+        Self { q, r }
+    }
+
+    // Convert axial coordinates to world position (POINTY-TOP hexagons) - CORRECTED
+    // Fixed: take self by value since HexCoord is Copy
+    fn to_world_pos(self, hex_size: f32) -> Vec2 {
+        let x = hex_size * (3.0_f32.sqrt() * (self.q as f32 + self.r as f32 / 2.0));
+        let y = hex_size * (3.0 / 2.0 * self.r as f32);
+        Vec2::new(x, y)
+    }
+
+    // Get distance between two hex coordinates
+    #[allow(dead_code)]
+    fn distance(self, other: HexCoord) -> i32 {
+        ((self.q - other.q).abs()
+            + (self.q + self.r - other.q - other.r).abs()
+            + (self.r - other.r).abs())
+            / 2
+    }
+
+    // Get neighboring coordinates (corrected for POINTY-TOP hexagons)
+    #[allow(dead_code)]
+    fn neighbors(self) -> [HexCoord; 6] {
+        [
+            HexCoord::new(self.q + 1, self.r - 1), // Northeast
+            HexCoord::new(self.q + 1, self.r),     // East
+            HexCoord::new(self.q, self.r + 1),     // Southeast
+            HexCoord::new(self.q - 1, self.r + 1), // Southwest
+            HexCoord::new(self.q - 1, self.r),     // West
+            HexCoord::new(self.q, self.r - 1),     // Northwest
+        ]
+    }
+}
+
 #[derive(Clone)]
 struct Hexagon {
-    position: Vec2,
+    coord: HexCoord,
+    world_pos: Vec2,
     color: [f32; 3],
+}
+
+impl Hexagon {
+    fn new(coord: HexCoord, hex_size: f32) -> Self {
+        let world_pos = coord.to_world_pos(hex_size);
+
+        // Generate color based on coordinate for visual debugging
+        let color = [
+            0.3 + 0.4 * ((coord.q + coord.r) % 3) as f32 / 3.0,
+            0.4 + 0.3 * (coord.q % 4) as f32 / 4.0,
+            0.5 + 0.3 * (coord.r % 5) as f32 / 5.0,
+        ];
+
+        Self {
+            coord,
+            world_pos,
+            color,
+        }
+    }
 }
 
 struct Camera {
@@ -44,48 +107,49 @@ impl Camera {
     fn new() -> Self {
         Self {
             position: Vec2::new(0.0, 0.0),
-            view_distance: 2.0, // Can see 2 units in each direction
+            view_distance: 3.0,
         }
     }
 
-    fn can_see(&self, hex_position: Vec2) -> bool {
-        let distance = self.position.distance(&hex_position);
+    fn can_see(&self, world_pos: Vec2) -> bool {
+        let distance = self.position.distance(&world_pos);
         distance <= self.view_distance
+    }
+
+    // Convert camera position to hex coordinate (CORRECTED for pointy-top)
+    #[allow(dead_code)]
+    fn to_hex_coord(&self, hex_size: f32) -> HexCoord {
+        let q = (2.0 / 3.0 * self.position.x) / (hex_size * 3.0_f32.sqrt());
+        let r = (-1.0 / 3.0 * self.position.x + 3.0_f32.sqrt() / 3.0 * self.position.y)
+            / (hex_size * 3.0 / 2.0);
+        HexCoord::new(q.round() as i32, r.round() as i32)
     }
 }
 
+#[allow(dead_code)]
 struct HexGrid {
-    hexagons: Vec<Hexagon>,
+    hexagons: std::collections::HashMap<HexCoord, Hexagon>,
     camera: Camera,
     hex_size: f32,
+    #[allow(dead_code)]
+    grid_radius: i32, // How far the grid extends
 }
 
 impl HexGrid {
     fn new() -> Self {
-        let hex_size = 0.08;
-        let mut hexagons = Vec::new();
+        let hex_size = 0.2; // Larger hexagons for better visibility
+        let grid_radius = 15; // Grid extends 15 hexes in each direction
+        let mut hexagons = std::collections::HashMap::new();
 
-        // Generate hex grid
-        let hex_width = hex_size * 2.0 * 0.866; // sqrt(3)/2 * 2 * radius
-        let hex_height = hex_size * 1.5;
+        // Generate hexagonal grid using axial coordinates
+        for q in -grid_radius..=grid_radius {
+            let r1 = (-grid_radius).max(-q - grid_radius);
+            let r2 = grid_radius.min(-q + grid_radius);
 
-        for row in -20..20 {
-            for col in -25..25 {
-                let x_offset = if row % 2 == 0 { 0.0 } else { hex_width * 0.5 };
-                let x = col as f32 * hex_width + x_offset;
-                let y = row as f32 * hex_height;
-
-                // Vary colors based on position
-                let color = [
-                    0.3 + 0.3 * ((row + col) % 3) as f32 / 3.0,
-                    0.5 + 0.3 * (row % 4) as f32 / 4.0,
-                    0.4 + 0.4 * (col % 5) as f32 / 5.0,
-                ];
-
-                hexagons.push(Hexagon {
-                    position: Vec2::new(x, y),
-                    color,
-                });
+            for r in r1..=r2 {
+                let coord = HexCoord::new(q, r);
+                let hexagon = Hexagon::new(coord, hex_size);
+                hexagons.insert(coord, hexagon);
             }
         }
 
@@ -93,19 +157,37 @@ impl HexGrid {
             hexagons,
             camera: Camera::new(),
             hex_size,
+            grid_radius,
         }
     }
 
     fn get_visible_hexagons(&self) -> Vec<&Hexagon> {
+        // Get approximate camera hex coordinate for more efficient culling
+        let cam_hex = self.camera.to_hex_coord(self.hex_size);
+        let view_radius = (self.camera.view_distance / self.hex_size).ceil() as i32 + 1;
+
         self.hexagons
-            .iter()
-            .filter(|hex| self.camera.can_see(hex.position))
+            .values()
+            .filter(|hex| {
+                // Quick hex-distance check first (cheaper than world distance)
+                if cam_hex.distance(hex.coord) > view_radius {
+                    return false;
+                }
+                // Then precise world distance check
+                self.camera.can_see(hex.world_pos)
+            })
             .collect()
     }
 
     fn move_camera(&mut self, dx: f32, dy: f32) {
         self.camera.position.x += dx;
         self.camera.position.y += dy;
+    }
+
+    // Get hexagon at specific coordinate (useful for game logic)
+    #[allow(dead_code)]
+    fn get_hex_at(&self, coord: HexCoord) -> Option<&Hexagon> {
+        self.hexagons.get(&coord)
     }
 }
 
@@ -116,14 +198,14 @@ struct App {
     vao: GLuint,
     shader_program: GLuint,
     hex_grid: HexGrid,
-    dynamic_vbo: GLuint, // For dynamic vertex data
+    dynamic_vbo: GLuint,
 }
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window_attributes = winit::window::WindowAttributes::default()
-            .with_title("Hexagon Grid")
-            .with_inner_size(winit::dpi::LogicalSize::new(800, 600));
+            .with_title("Hexagon Grid - Smooth Coordinates")
+            .with_inner_size(winit::dpi::LogicalSize::new(1200, 800));
 
         let template = glutin::config::ConfigTemplateBuilder::new();
         let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
@@ -155,8 +237,8 @@ impl ApplicationHandler for App {
 
         let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
             window.window_handle().unwrap().into(),
+            std::num::NonZeroU32::new(1200).unwrap(),
             std::num::NonZeroU32::new(800).unwrap(),
-            std::num::NonZeroU32::new(600).unwrap(),
         );
 
         let gl_surface = unsafe {
@@ -178,8 +260,8 @@ impl ApplicationHandler for App {
         });
 
         unsafe {
-            gl::Viewport(0, 0, 800, 600);
-            gl::ClearColor(0.1, 0.1, 0.2, 1.0);
+            gl::Viewport(0, 0, 1200, 800);
+            gl::ClearColor(0.05, 0.05, 0.1, 1.0);
         }
 
         let (vao, shader_program, dynamic_vbo) = unsafe { setup_dynamic_hexagons() };
@@ -204,20 +286,21 @@ impl ApplicationHandler for App {
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == winit::event::ElementState::Pressed {
+                    let move_speed = 0.1;
                     match event.physical_key {
                         winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                            self.hex_grid.move_camera(0.0, 0.1);
+                            self.hex_grid.move_camera(0.0, move_speed);
                         }
                         winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                            self.hex_grid.move_camera(0.0, -0.1);
+                            self.hex_grid.move_camera(0.0, -move_speed);
                         }
                         winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                            self.hex_grid.move_camera(-0.1, 0.0);
+                            self.hex_grid.move_camera(-move_speed, 0.0);
                         }
                         winit::keyboard::PhysicalKey::Code(
                             winit::keyboard::KeyCode::ArrowRight,
                         ) => {
-                            self.hex_grid.move_camera(0.1, 0.0);
+                            self.hex_grid.move_camera(move_speed, 0.0);
                         }
                         _ => {}
                     }
@@ -227,12 +310,9 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                // Check if we have the required OpenGL objects first
                 if self.gl_context.is_some() && self.gl_surface.is_some() {
-                    // Call render first (which needs mutable access)
                     self.render();
 
-                    // Then handle the swap buffers (which only needs immutable access)
                     if let (Some(gl_context), Some(gl_surface)) =
                         (&self.gl_context, &self.gl_surface)
                     {
@@ -275,8 +355,8 @@ impl App {
             let cam_x = self.hex_grid.camera.position.x;
             let cam_y = self.hex_grid.camera.position.y;
 
-            let center_x = hex.position.x - cam_x;
-            let center_y = hex.position.y - cam_y;
+            let center_x = hex.world_pos.x - cam_x;
+            let center_y = hex.world_pos.y - cam_y;
 
             // Center vertex with color
             vertices.extend_from_slice(&[
@@ -288,9 +368,10 @@ impl App {
                 hex.color[2],
             ]);
 
-            // Outer vertices
+            // Outer vertices (6 points of POINTY-TOP hexagon)
+            // Start at 30 degrees (π/6) to make pointy-top orientation
             for i in 0..=6 {
-                let angle = (i as f32) * std::f32::consts::PI / 3.0;
+                let angle = (i as f32) * std::f32::consts::PI / 3.0 + std::f32::consts::PI / 6.0;
                 let x = center_x + self.hex_grid.hex_size * angle.cos();
                 let y = center_y + self.hex_grid.hex_size * angle.sin();
                 vertices.extend_from_slice(&[x, y, 0.0, hex.color[0], hex.color[1], hex.color[2]]);
