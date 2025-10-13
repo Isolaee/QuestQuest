@@ -139,6 +139,13 @@ impl SpriteType {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HighlightType {
+    None,
+    Selected,      // Yellow highlight for selected unit
+    MovementRange, // Blue highlight for movement range
+}
+
 #[derive(Clone)]
 pub struct Hexagon {
     pub coord: HexCoord,
@@ -146,6 +153,7 @@ pub struct Hexagon {
     pub color: [f32; 3],
     pub sprite: SpriteType,              // Base terrain sprite
     pub unit_sprite: Option<SpriteType>, // Optional unit sprite on top
+    pub highlight: HighlightType,        // Highlight state
 }
 
 impl Hexagon {
@@ -169,6 +177,7 @@ impl Hexagon {
             color: base_color,
             sprite,
             unit_sprite: None, // No unit by default
+            highlight: HighlightType::None,
         }
     }
 
@@ -180,6 +189,16 @@ impl Hexagon {
     // Set terrain sprite (base layer)
     pub fn set_sprite(&mut self, sprite: SpriteType) {
         self.sprite = sprite;
+    }
+
+    // Set highlight type
+    pub fn set_highlight(&mut self, highlight: HighlightType) {
+        self.highlight = highlight;
+    }
+
+    // Clear highlight
+    pub fn clear_highlight(&mut self) {
+        self.highlight = HighlightType::None;
     }
 
     // Get the display sprite (unit takes priority if present)
@@ -196,7 +215,7 @@ impl Hexagon {
     pub fn get_display_color(&self) -> [f32; 3] {
         let display_sprite = self.get_display_sprite();
 
-        if display_sprite == SpriteType::None {
+        let base_color = if display_sprite == SpriteType::None {
             self.color
         } else {
             let sprite_color = display_sprite.get_color_tint();
@@ -206,6 +225,27 @@ impl Hexagon {
                 self.color[1] * 0.3 + sprite_color[1] * 0.7,
                 self.color[2] * 0.3 + sprite_color[2] * 0.7,
             ]
+        };
+
+        // Apply highlight tinting
+        match self.highlight {
+            HighlightType::None => base_color,
+            HighlightType::Selected => {
+                // Yellow tint for selected unit
+                [
+                    (base_color[0] * 0.5 + 1.0 * 0.5).min(1.0),
+                    (base_color[1] * 0.5 + 0.9 * 0.5).min(1.0),
+                    (base_color[2] * 0.5 + 0.2 * 0.5).min(1.0),
+                ]
+            }
+            HighlightType::MovementRange => {
+                // Blue tint for movement range
+                [
+                    (base_color[0] * 0.6 + 0.2 * 0.4).min(1.0),
+                    (base_color[1] * 0.6 + 0.5 * 0.4).min(1.0),
+                    (base_color[2] * 0.6 + 1.0 * 0.4).min(1.0),
+                ]
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-use crate::core::{Camera, HexCoord, Hexagon, SpriteType};
+use crate::core::{Camera, HexCoord, Hexagon, HighlightType, SpriteType};
 use std::collections::HashMap;
 
 pub struct HexGrid {
@@ -104,5 +104,26 @@ impl HexGrid {
             .get(&coord)
             .map(|hex| hex.has_unit())
             .unwrap_or(false)
+    }
+
+    // Clear all highlights
+    pub fn clear_all_highlights(&mut self) {
+        for hex in self.hexagons.values_mut() {
+            hex.clear_highlight();
+        }
+    }
+
+    // Highlight a specific hex
+    pub fn highlight_hex(&mut self, coord: HexCoord, highlight_type: HighlightType) {
+        if let Some(hex) = self.hexagons.get_mut(&coord) {
+            hex.set_highlight(highlight_type);
+        }
+    }
+
+    // Highlight multiple hexes
+    pub fn highlight_hexes(&mut self, coords: &[HexCoord], highlight_type: HighlightType) {
+        for coord in coords {
+            self.highlight_hex(*coord, highlight_type);
+        }
     }
 }

@@ -4,4 +4,4 @@ pub mod hexagon;
 
 pub use camera::Camera;
 pub use grid::HexGrid;
-pub use hexagon::{HexCoord, Hexagon, SpriteType};
+pub use hexagon::{HexCoord, Hexagon, HighlightType, SpriteType};

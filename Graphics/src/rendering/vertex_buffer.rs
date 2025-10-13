@@ -35,11 +35,15 @@ impl VertexBuffer {
             // Get texture ID for this hexagon's display sprite (includes unit sprites)
             let texture_id = display_sprite.get_texture_id();
 
-            // Center vertex with texture coordinates (center of texture)
+            // Get the display color (includes highlight tinting)
+            let color = hex.get_display_color();
+
+            // Center vertex with texture coordinates and color
             vertices.extend_from_slice(&[
-                center_x, center_y, 0.0, 0.5, // u
-                0.5, // v (center is fine as-is)
-                texture_id,
+                center_x, center_y, 0.0, // position
+                0.5, 0.5,        // uv (center)
+                texture_id, // texture id
+                color[0], color[1], color[2], // RGB color
             ]);
 
             // Outer vertices (6 points of FLAT-TOP hexagon with equal sides)
@@ -56,7 +60,12 @@ impl VertexBuffer {
                 let u = 0.5 + 0.4 * angle.cos(); // Slightly smaller to keep texture within bounds
                 let v = 1.0 - (0.5 + 0.4 * angle.sin()); // Inverted V coordinate
 
-                vertices.extend_from_slice(&[x, y, 0.0, u, v, texture_id]);
+                vertices.extend_from_slice(&[
+                    x, y, 0.0, // position
+                    u, v,          // uv
+                    texture_id, // texture id
+                    color[0], color[1], color[2], // RGB color
+                ]);
             }
         }
 

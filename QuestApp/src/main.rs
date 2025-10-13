@@ -5,7 +5,7 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
-use graphics::{setup_dynamic_hexagons, HexCoord, HexGrid, Renderer};
+use graphics::{setup_dynamic_hexagons, HexCoord, HexGrid, HighlightType, Renderer};
 use raw_window_handle::HasWindowHandle;
 use std::ffi::CString;
 use units::*;
@@ -24,7 +24,8 @@ struct GameApp {
     selected_unit: Option<uuid::Uuid>,
     show_unit_info: bool,
     unit_info_text: Vec<String>,
-    cursor_position: (f64, f64), // Track cursor position for clicks
+    cursor_position: (f64, f64),   // Track cursor position for clicks
+    movement_range: Vec<HexCoord>, // Available movement hexes for selected unit
 }
 
 impl GameApp {
@@ -91,37 +92,110 @@ impl GameApp {
             show_unit_info: false,
             unit_info_text: Vec::new(),
             cursor_position: (0.0, 0.0),
+            movement_range: Vec::new(),
         }
     }
 
-    fn handle_mouse_click(&mut self, x: f64, y: f64) {
-        // Convert screen coordinates to world coordinates
-        let world_x = (x - 600.0) / 600.0 * 2.0; // Assuming 1200x800 window
-        let world_y = -(y - 400.0) / 400.0 * 1.5; // Convert to OpenGL coords
+    fn handle_left_click(&mut self, x: f64, y: f64) {
+        let hex_coord = self.screen_to_hex_coord(x, y);
 
-        // Convert world coordinates to hex coordinates (approximate)
-        let hex_coord = self.screen_to_hex_coord(world_x as f32, world_y as f32);
+        println!("Left-clicked hex {:?}", hex_coord);
 
-        println!(
-            "Clicked at screen ({}, {}), world ({}, {}), hex {:?}",
-            x, y, world_x, world_y, hex_coord
-        );
+        // If we have a unit selected and clicked on a valid movement hex, move the unit
+        if let Some(unit_id) = self.selected_unit {
+            if self.movement_range.contains(&hex_coord) {
+                // Move the unit
+                if let Err(error) = self.game_world.move_unit(unit_id, hex_coord) {
+                    println!("Failed to move unit: {}", error);
+                } else {
+                    println!("Unit moved to {:?}", hex_coord);
+                    // Clear selection after successful move
+                    self.clear_selection();
+                }
+            } else {
+                // Clicked outside movement range, clear selection
+                self.clear_selection();
+                println!("Cleared selection (clicked outside movement range)");
+            }
+        } else {
+            // No unit selected, try to select a unit at this position
+            if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
+                self.select_unit(unit_id);
+            }
+        }
+    }
+
+    fn handle_right_click(&mut self, x: f64, y: f64) {
+        let hex_coord = self.screen_to_hex_coord(x, y);
+
+        println!("Right-clicked hex {:?}", hex_coord);
 
         // Check if there's a unit at this hex coordinate
         if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
-            self.selected_unit = Some(unit_id);
-            self.show_unit_info = true;
-            self.update_unit_info_display(unit_id);
-            println!("Unit selected: {:?}", unit_id);
+            self.select_unit(unit_id);
+        } else {
+            self.clear_selection();
+            println!("No unit found at hex {:?}", hex_coord);
+        }
+    }
+
+    fn select_unit(&mut self, unit_id: uuid::Uuid) {
+        self.selected_unit = Some(unit_id);
+        self.show_unit_info = true;
+        self.update_unit_info_display(unit_id);
+
+        // Get movement range for the selected unit
+        if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+            let all_coords = game_unit.unit().get_movement_range();
+
+            // Filter movement range by world validity
+            self.movement_range = all_coords
+                .into_iter()
+                .filter(|&coord| {
+                    self.game_world
+                        .is_position_valid_for_movement(coord, Some(unit_id))
+                })
+                .collect();
+
+            // Update hex grid highlighting
+            self.update_highlight_display();
+
+            println!(
+                "Unit selected: {:?} with {} valid movement options",
+                unit_id,
+                self.movement_range.len()
+            );
 
             // Call the unit's on_click method to show detailed info in console
             self.call_unit_on_click(unit_id);
-        } else {
-            self.selected_unit = None;
-            self.show_unit_info = false;
-            self.unit_info_text.clear();
-            println!("No unit found at hex {:?}", hex_coord);
         }
+    }
+
+    fn clear_selection(&mut self) {
+        self.selected_unit = None;
+        self.show_unit_info = false;
+        self.unit_info_text.clear();
+        self.movement_range.clear();
+
+        // Clear all highlights
+        self.hex_grid.clear_all_highlights();
+    }
+
+    fn update_highlight_display(&mut self) {
+        // Clear existing highlights
+        self.hex_grid.clear_all_highlights();
+
+        // Highlight selected unit position
+        if let Some(unit_id) = self.selected_unit {
+            if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                self.hex_grid
+                    .highlight_hex(game_unit.position(), HighlightType::Selected);
+            }
+        }
+
+        // Highlight movement range
+        self.hex_grid
+            .highlight_hexes(&self.movement_range, HighlightType::MovementRange);
     }
 
     fn call_unit_on_click(&self, unit_id: uuid::Uuid) {
@@ -139,15 +213,47 @@ impl GameApp {
         }
     }
 
-    fn screen_to_hex_coord(&self, world_x: f32, world_y: f32) -> HexCoord {
+    fn screen_to_hex_coord(&self, screen_x: f64, screen_y: f64) -> HexCoord {
+        // Convert screen coordinates to world coordinates
+        // Account for camera offset
+        let world_x = ((screen_x - 600.0) / 600.0 * 2.0) as f32 + self.hex_grid.camera.position.x;
+        let world_y = (-(screen_y - 400.0) / 400.0 * 1.5) as f32 + self.hex_grid.camera.position.y;
+
         // Convert world coordinates to hex coordinates for flat-top hexagons
+        // Using the inverse of: x = hex_size * (3/2 * q), y = hex_size * (sqrt(3) * (r + q/2))
         let hex_size = self.hex_grid.hex_size;
 
-        // For flat-top hexagons (corrected formula)
-        let q = (2.0 / 3.0 * world_x) / hex_size;
-        let r = (-1.0 / 3.0 * world_x + (3.0_f32.sqrt()) / 3.0 * world_y) / hex_size;
+        // For flat-top hexagons - inverse transformation to fractional coordinates
+        let q_frac = (2.0 / 3.0 * world_x) / hex_size;
+        let r_frac = (-1.0 / 3.0 * world_x + (3.0_f32.sqrt()) / 3.0 * world_y) / hex_size;
 
-        HexCoord::new(q.round() as i32, r.round() as i32)
+        // Convert to cube coordinates for proper rounding
+        // In axial: q, r; In cube: x=q, z=r, y=(-x-z)
+        let x = q_frac;
+        let z = r_frac;
+        let y = -x - z;
+
+        // Round to nearest integer cube coordinates
+        let mut rx = x.round();
+        let mut ry = y.round();
+        let mut rz = z.round();
+
+        // Calculate rounding errors
+        let x_diff = (rx - x).abs();
+        let y_diff = (ry - y).abs();
+        let z_diff = (rz - z).abs();
+
+        // Reset the component with the largest error to maintain x+y+z=0
+        if x_diff > y_diff && x_diff > z_diff {
+            rx = -ry - rz;
+        } else if y_diff > z_diff {
+            ry = -rx - rz;
+        } else {
+            rz = -rx - ry;
+        }
+
+        // Convert back to axial coordinates
+        HexCoord::new(rx as i32, rz as i32)
     }
 
     fn find_unit_at_hex(&self, hex_coord: HexCoord) -> Option<uuid::Uuid> {
@@ -279,10 +385,12 @@ impl ApplicationHandler for GameApp {
             Ok(renderer) => {
                 self.renderer = Some(renderer);
                 println!("🎮 QuestQuest Game Window Started!");
-                println!("📍 Units placed at (0,0) and (2,1)");
-                println!("🖱️  Click on hexagons to select units");
+                println!("📍 Units placed at (0,0)");
+                println!("🖱️  RIGHT-CLICK on a unit to select it and show movement range");
+                println!("🖱️  LEFT-CLICK on blue hexes to move the selected unit");
                 println!("⌨️  Use arrow keys to move camera");
                 println!("🔤 Press 'C' to show detailed unit info in console");
+                println!("🔤 Press ESC to deselect unit");
             }
             Err(e) => {
                 println!("Failed to create renderer: {}", e);
@@ -312,11 +420,18 @@ impl ApplicationHandler for GameApp {
             }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
-                button: MouseButton::Left,
+                button,
                 ..
             } => {
-                // Use the actual cursor position
-                self.handle_mouse_click(self.cursor_position.0, self.cursor_position.1);
+                match button {
+                    MouseButton::Left => {
+                        self.handle_left_click(self.cursor_position.0, self.cursor_position.1);
+                    }
+                    MouseButton::Right => {
+                        self.handle_right_click(self.cursor_position.0, self.cursor_position.1);
+                    }
+                    _ => {}
+                }
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
@@ -348,9 +463,7 @@ impl ApplicationHandler for GameApp {
                             }
                         }
                         winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
-                            self.show_unit_info = false;
-                            self.selected_unit = None;
-                            self.unit_info_text.clear();
+                            self.clear_selection();
                         }
                         _ => {}
                     }

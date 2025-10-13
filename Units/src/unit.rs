@@ -150,6 +150,27 @@ impl Unit {
         distance <= self.combat_stats.movement_speed
     }
 
+    /// Get all hexagonal coordinates within movement range
+    pub fn get_movement_range(&self) -> Vec<HexCoord> {
+        let mut coords = Vec::new();
+        let range = self.combat_stats.movement_speed;
+
+        // Iterate through all hexes in a radius around the unit
+        for q in -range..=range {
+            for r in -range..=range {
+                let coord = HexCoord::new(self.position.q + q, self.position.r + r);
+                let distance = self.position.distance(coord);
+
+                // Only include hexes within movement range (excluding current position)
+                if distance > 0 && distance <= range {
+                    coords.push(coord);
+                }
+            }
+        }
+
+        coords
+    }
+
     /// Equip an item from inventory
     pub fn equip_item(&mut self, item_id: ItemId) -> Result<(), String> {
         if let Some(pos) = self.inventory.iter().position(|item| item.id == item_id) {

@@ -24,14 +24,14 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
     gl::GenBuffers(1, &mut vbo);
     gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
 
-    // Configure vertex attributes (position + texture coords + texture ID)
+    // Configure vertex attributes (position + texture coords + texture ID + color)
     // Position (3 floats)
     gl::VertexAttribPointer(
         0,
         3,
         gl::FLOAT,
         gl::FALSE,
-        6 * mem::size_of::<f32>() as GLsizei,
+        9 * mem::size_of::<f32>() as GLsizei,
         ptr::null(),
     );
     gl::EnableVertexAttribArray(0);
@@ -42,7 +42,7 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
         2,
         gl::FLOAT,
         gl::FALSE,
-        6 * mem::size_of::<f32>() as GLsizei,
+        9 * mem::size_of::<f32>() as GLsizei,
         (3 * mem::size_of::<f32>()) as *const _,
     );
     gl::EnableVertexAttribArray(1);
@@ -53,10 +53,21 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
         1,
         gl::FLOAT,
         gl::FALSE,
-        6 * mem::size_of::<f32>() as GLsizei,
+        9 * mem::size_of::<f32>() as GLsizei,
         (5 * mem::size_of::<f32>()) as *const _,
     );
     gl::EnableVertexAttribArray(2);
+
+    // Color (3 floats - RGB)
+    gl::VertexAttribPointer(
+        3,
+        3,
+        gl::FLOAT,
+        gl::FALSE,
+        9 * mem::size_of::<f32>() as GLsizei,
+        (6 * mem::size_of::<f32>()) as *const _,
+    );
+    gl::EnableVertexAttribArray(3);
 
     // Create shaders
     let vertex_shader_source = CString::new(
@@ -65,14 +76,17 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
         layout (location = 0) in vec3 aPos;
         layout (location = 1) in vec2 aTexCoord;
         layout (location = 2) in float aTextureId;
+        layout (location = 3) in vec3 aColor;
         
         out vec2 TexCoord;
         out float TextureId;
+        out vec3 Color;
         
         void main() {
             gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
             TexCoord = aTexCoord;
             TextureId = aTextureId;
+            Color = aColor;
         }
     "#,
     )
@@ -83,6 +97,7 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
         #version 330 core
         in vec2 TexCoord;
         in float TextureId;
+        in vec3 Color;
         out vec4 FragColor;
         
         uniform sampler2D textures[7];
@@ -90,18 +105,20 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
         void main() {
             int texId = int(TextureId);
             if (texId >= 0 && texId < 7) {
-                FragColor = texture(textures[texId], TexCoord);
+                // Apply color tint to texture
+                vec4 texColor = texture(textures[texId], TexCoord);
+                FragColor = vec4(texColor.rgb * Color, texColor.a);
             } else if (texId == -1) {
-                // Special case for units: render as red circle
+                // Special case for units: render as colored circle
                 vec2 center = vec2(0.5, 0.5);
                 float dist = distance(TexCoord, center);
                 if (dist < 0.4) {
-                    FragColor = vec4(0.9, 0.2, 0.2, 1.0); // Bright red
+                    FragColor = vec4(Color * 0.7 + vec3(0.9, 0.2, 0.2) * 0.3, 1.0); // Tint red with color
                 } else {
                     discard; // Transparent outside circle
                 }
             } else {
-                FragColor = vec4(1.0, 0.0, 1.0, 1.0); // Magenta for other errors
+                FragColor = vec4(Color, 1.0); // Use color directly for non-textured
             }
         }
     "#,
