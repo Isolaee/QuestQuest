@@ -6,7 +6,9 @@ use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
 use graphics::math::Vec2;
-use graphics::{setup_dynamic_hexagons, HexCoord, HexGrid, HighlightType, Renderer};
+use graphics::{
+    setup_dynamic_hexagons, HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitDisplayInfo,
+};
 use raw_window_handle::HasWindowHandle;
 use std::ffi::CString;
 use winit::application::ApplicationHandler;
@@ -24,6 +26,7 @@ struct GameApp {
     gl_surface: Option<Surface<WindowSurface>>,
     hex_grid: HexGrid,
     renderer: Option<Renderer>,
+    ui_panel: Option<UiPanel>,
     game_world: GameWorld,
     selected_unit: Option<uuid::Uuid>,
     show_unit_info: bool,
@@ -72,6 +75,7 @@ impl GameApp {
             gl_surface: None,
             hex_grid: HexGrid::new(),
             renderer: None,
+            ui_panel: None,
             game_world,
             selected_unit: None,
             show_unit_info: false,
@@ -162,6 +166,11 @@ impl GameApp {
 
         // Clear all highlights
         self.hex_grid.clear_all_highlights();
+
+        // Clear UI panel
+        if let Some(ui_panel) = &mut self.ui_panel {
+            ui_panel.clear_unit_info();
+        }
     }
 
     fn update_highlight_display(&mut self) {
@@ -217,6 +226,7 @@ impl GameApp {
         if let Some(game_unit) = self.game_world.units.get(&unit_id) {
             let position = game_unit.position();
             let name = game_unit.name();
+            let unit = game_unit.unit();
 
             // Create formatted text for display
             self.unit_info_text = vec![
@@ -230,19 +240,28 @@ impl GameApp {
                 "│ Press ESC to close this panel                       │".to_string(),
                 "└─────────────────────────────────────────────────────┘".to_string(),
             ];
+
+            // Update UI panel with unit info
+            if let Some(ui_panel) = &mut self.ui_panel {
+                let display_info = UnitDisplayInfo {
+                    name: unit.name.clone(),
+                    race: format!("{:?}", unit.race),
+                    class: format!("{:?}", unit.class),
+                    level: unit.level,
+                    experience: unit.experience,
+                    health: unit.combat_stats.health as u32,
+                    max_health: unit.combat_stats.max_health as u32,
+                    terrain: format!("{:?}", unit.current_terrain),
+                    position_q: position.q,
+                    position_r: position.r,
+                };
+                ui_panel.set_unit_info(display_info);
+            }
         }
     }
 
     fn render_ui(&self) {
-        if self.show_unit_info && !self.unit_info_text.is_empty() {
-            // In a real implementation, you'd render text to the screen using OpenGL
-            // For now, we'll just print to indicate the UI would be shown
-            println!("\n=== ON-SCREEN UNIT INFO ===");
-            for line in &self.unit_info_text {
-                println!("{}", line);
-            }
-            println!("=============================\n");
-        }
+        // UI info now rendered by UiPanel, no terminal output needed
     }
 
     // Add this method to update the hex grid when units move
@@ -364,6 +383,18 @@ impl ApplicationHandler for GameApp {
         match Renderer::new(vao, shader_program, dynamic_vbo) {
             Ok(renderer) => {
                 self.renderer = Some(renderer);
+
+                // Initialize UI panel
+                match UiPanel::new(SCREEN_WIDTH, SCREEN_HEIGHT) {
+                    Ok(ui_panel) => {
+                        self.ui_panel = Some(ui_panel);
+                        println!("✅ UI Panel initialized!");
+                    }
+                    Err(e) => {
+                        println!("⚠️  Failed to create UI panel: {}", e);
+                    }
+                }
+
                 println!("🎮 QuestQuest Game Window Started!");
                 println!("📍 Units: Thorin at (0,0), Legolas at (2,-1), Gimli at (-2,1)");
                 println!("🖱️  RIGHT-CLICK on a unit to select it and show movement range");
@@ -489,6 +520,11 @@ impl ApplicationHandler for GameApp {
 
                 if let Some(renderer) = &self.renderer {
                     renderer.render(&self.hex_grid);
+
+                    // Render UI panel
+                    if let Some(ui_panel) = &mut self.ui_panel {
+                        ui_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT);
+                    }
 
                     // Render UI overlay (in a real implementation)
                     self.render_ui();
