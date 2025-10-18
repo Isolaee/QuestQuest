@@ -20,6 +20,40 @@ impl HexCoord {
         Vec2::new(x, y)
     }
 
+    /// Robust rounding function for axial coordinates
+    /// Converts fractional hex coordinates to the nearest integer hex coordinate
+    pub fn axial_round(q: f32, r: f32) -> Self {
+        // Convert to cube coordinates for easier rounding
+        let x = q;
+        let z = r;
+        let y = -x - z;
+
+        // Round each coordinate
+        let mut rx = x.round();
+        let mut ry = y.round();
+        let mut rz = z.round();
+
+        // Calculate rounding errors
+        let x_diff = (rx - x).abs();
+        let y_diff = (ry - y).abs();
+        let z_diff = (rz - z).abs();
+
+        // Correct the coordinate with the largest error to maintain x + y + z = 0
+        if x_diff > y_diff && x_diff > z_diff {
+            rx = -ry - rz;
+        } else if y_diff > z_diff {
+            ry = -rx - rz;
+        } else {
+            rz = -rx - ry;
+        }
+
+        // Suppress unused variable warning
+        let _ = ry;
+
+        // Convert back to axial coordinates
+        Self::new(rx as i32, rz as i32)
+    }
+
     // Get distance between two hex coordinates
     #[allow(dead_code)]
     pub fn distance(self, other: HexCoord) -> i32 {

@@ -1,4 +1,5 @@
 use crate::core::{Camera, HexCoord, Hexagon, HighlightType, SpriteType};
+use crate::math::Vec2;
 use std::collections::HashMap;
 
 pub struct HexGrid {
@@ -124,6 +125,30 @@ impl HexGrid {
     pub fn highlight_hexes(&mut self, coords: &[HexCoord], highlight_type: HighlightType) {
         for coord in coords {
             self.highlight_hex(*coord, highlight_type);
+        }
+    }
+
+    /// Convert screen coordinates (mouse position) to hex coordinate
+    /// screen_pos: Mouse position in screen coordinates (pixels from top-left)
+    /// window_size: Window dimensions (width, height in pixels)
+    /// Returns the hex coordinate at that screen position, or None if out of bounds
+    pub fn screen_to_hex_coord(&self, screen_pos: Vec2, window_size: Vec2) -> Option<HexCoord> {
+        // Convert screen coordinates to world coordinates using camera
+        let world_pos = self.camera.screen_to_world(screen_pos, window_size);
+
+        // Convert world coordinates to hex coordinates
+        // Using axial coordinate conversion for flat-top hexagons
+        let q = (2.0 / 3.0 * world_pos.x) / self.hex_size;
+        let r = (-1.0 / 3.0 * world_pos.x + 3.0_f32.sqrt() / 3.0 * world_pos.y) / self.hex_size;
+
+        // Round to nearest hex coordinate
+        let hex_coord = HexCoord::axial_round(q, r);
+
+        // Check if this hex exists in the grid
+        if self.hexagons.contains_key(&hex_coord) {
+            Some(hex_coord)
+        } else {
+            None
         }
     }
 }

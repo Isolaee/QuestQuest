@@ -5,14 +5,18 @@ use glutin::prelude::*;
 use glutin::surface::{Surface, SurfaceAttributesBuilder, WindowSurface};
 use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
+use graphics::math::Vec2;
 use graphics::{setup_dynamic_hexagons, HexCoord, HexGrid, HighlightType, Renderer};
 use raw_window_handle::HasWindowHandle;
 use std::ffi::CString;
-use units::*;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
+
+// Screen size constants
+const SCREEN_WIDTH: f32 = 1200.0;
+const SCREEN_HEIGHT: f32 = 800.0;
 
 struct GameApp {
     window: Option<Window>,
@@ -24,118 +28,67 @@ struct GameApp {
     selected_unit: Option<uuid::Uuid>,
     show_unit_info: bool,
     unit_info_text: Vec<String>,
-    cursor_position: (f64, f64),   // Track cursor position for clicks
-    movement_range: Vec<HexCoord>, // Available movement hexes for selected unit
+    cursor_position: (f64, f64),       // Track cursor position for clicks
+    movement_range: Vec<HexCoord>,     // Available movement hexes for selected unit
+    hower_debug_hex: Option<HexCoord>, // Debug: hex under cursor
+    hower_debug_enabled: bool,         // Toggle for hower debug mode
 }
 
 impl GameApp {
     fn new() -> Self {
-        let mut game_world = GameWorld::new(8); // World radius of 8
-        let mut hex_grid = HexGrid::new();
-
-        // Create some test units
-        let mut warrior = Unit::new(
-            "Thorin Okenshield".to_string(),
-            HexCoord::new(0, 0),
-            unit_race::Race::Dwarf,
-            unit_class::UnitClass::Warrior,
-        );
-        warrior.experience = 150;
-        warrior.level = 2;
-        warrior.recalculate_stats();
-
-        // Add equipment to warrior
-        let sword = Item::new(
-            "Orcrist".to_string(),
-            "An ancient elvish blade".to_string(),
-            item::ItemProperties::Weapon {
-                attack_bonus: 8,
-                range_modifier: 0,
-                range_type_override: None,
-            },
-        );
-
-        let armor = Item::new(
-            "Mithril Chainmail".to_string(),
-            "Lightweight but strong armor".to_string(),
-            item::ItemProperties::Armor {
-                defense_bonus: 12,
-                movement_penalty: -1,
-            },
-        );
-
-        warrior.add_item_to_inventory(sword.clone());
-        warrior.add_item_to_inventory(armor.clone());
-        let _ = warrior.equip_item(sword.id);
-        let _ = warrior.equip_item(armor.id);
-
-        // Damage warrior for demonstration
-        warrior.combat_stats.health = warrior.combat_stats.max_health / 3;
-
-        // Add units to game world
-        let warrior_unit = GameUnit::new(warrior);
-        let unit_pos = warrior_unit.position();
-
-        game_world.add_unit(warrior_unit);
-
-        // IMPORTANT: Add unit ON TOP of terrain (not replacing it)
-        hex_grid.set_unit_at(unit_pos, SpriteType::Unit);
-
-        Self {
+        let app = Self {
             window: None,
             gl_context: None,
             gl_surface: None,
-            hex_grid,
+            hex_grid: HexGrid::new(),
             renderer: None,
-            game_world,
+            game_world: GameWorld::new(8), // World radius of 8
             selected_unit: None,
             show_unit_info: false,
             unit_info_text: Vec::new(),
             cursor_position: (0.0, 0.0),
             movement_range: Vec::new(),
-        }
+            hower_debug_hex: None,
+            hower_debug_enabled: true, // Start with debug enabled
+        };
+
+        app
     }
 
     fn handle_left_click(&mut self, x: f64, y: f64) {
-        let hex_coord = self.screen_to_hex_coord(x, y);
-
-        println!("Left-clicked hex {:?}", hex_coord);
-
-        // If we have a unit selected and clicked on a valid movement hex, move the unit
-        if let Some(unit_id) = self.selected_unit {
-            if self.movement_range.contains(&hex_coord) {
-                // Move the unit
-                if let Err(error) = self.game_world.move_unit(unit_id, hex_coord) {
-                    println!("Failed to move unit: {}", error);
+        if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
+            if let Some(unit_id) = self.selected_unit {
+                // STATE 1: Unit is already selected
+                if self.movement_range.contains(&hex_coord) {
+                    // Valid move - execute movement
+                    if let Err(e) = self.game_world.move_unit(unit_id, hex_coord) {
+                        println!("Failed to move unit: {}", e);
+                    }
+                    self.clear_selection(); // Reset state
                 } else {
-                    println!("Unit moved to {:?}", hex_coord);
-                    // Clear selection after successful move
+                    // Invalid move - clear selection
                     self.clear_selection();
                 }
             } else {
-                // Clicked outside movement range, clear selection
-                self.clear_selection();
-                println!("Cleared selection (clicked outside movement range)");
-            }
-        } else {
-            // No unit selected, try to select a unit at this position
-            if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
-                self.select_unit(unit_id);
+                // STATE 2: No unit selected
+                if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
+                    self.select_unit(unit_id); // Enter selection state
+                }
             }
         }
     }
 
     fn handle_right_click(&mut self, x: f64, y: f64) {
-        let hex_coord = self.screen_to_hex_coord(x, y);
+        if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
+            println!("Right-clicked hex {:?}", hex_coord);
 
-        println!("Right-clicked hex {:?}", hex_coord);
-
-        // Check if there's a unit at this hex coordinate
-        if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
-            self.select_unit(unit_id);
-        } else {
-            self.clear_selection();
-            println!("No unit found at hex {:?}", hex_coord);
+            // Check if there's a unit at this hex coordinate
+            if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
+                self.select_unit(unit_id);
+            } else {
+                self.clear_selection();
+                println!("No unit found at hex {:?}", hex_coord);
+            }
         }
     }
 
@@ -148,7 +101,7 @@ impl GameApp {
         if let Some(game_unit) = self.game_world.units.get(&unit_id) {
             let all_coords = game_unit.unit().get_movement_range();
 
-            // Filter movement range by world validity
+            // Filter movement range to only include valid hexes
             self.movement_range = all_coords
                 .into_iter()
                 .filter(|&coord| {
@@ -213,47 +166,11 @@ impl GameApp {
         }
     }
 
-    fn screen_to_hex_coord(&self, screen_x: f64, screen_y: f64) -> HexCoord {
-        // Convert screen coordinates to world coordinates
-        // Account for camera offset
-        let world_x = ((screen_x - 600.0) / 600.0 * 2.0) as f32 + self.hex_grid.camera.position.x;
-        let world_y = (-(screen_y - 400.0) / 400.0 * 1.5) as f32 + self.hex_grid.camera.position.y;
-
-        // Convert world coordinates to hex coordinates for flat-top hexagons
-        // Using the inverse of: x = hex_size * (3/2 * q), y = hex_size * (sqrt(3) * (r + q/2))
-        let hex_size = self.hex_grid.hex_size;
-
-        // For flat-top hexagons - inverse transformation to fractional coordinates
-        let q_frac = (2.0 / 3.0 * world_x) / hex_size;
-        let r_frac = (-1.0 / 3.0 * world_x + (3.0_f32.sqrt()) / 3.0 * world_y) / hex_size;
-
-        // Convert to cube coordinates for proper rounding
-        // In axial: q, r; In cube: x=q, z=r, y=(-x-z)
-        let x = q_frac;
-        let z = r_frac;
-        let y = -x - z;
-
-        // Round to nearest integer cube coordinates
-        let mut rx = x.round();
-        let mut ry = y.round();
-        let mut rz = z.round();
-
-        // Calculate rounding errors
-        let x_diff = (rx - x).abs();
-        let y_diff = (ry - y).abs();
-        let z_diff = (rz - z).abs();
-
-        // Reset the component with the largest error to maintain x+y+z=0
-        if x_diff > y_diff && x_diff > z_diff {
-            rx = -ry - rz;
-        } else if y_diff > z_diff {
-            ry = -rx - rz;
-        } else {
-            rz = -rx - ry;
-        }
-
-        // Convert back to axial coordinates
-        HexCoord::new(rx as i32, rz as i32)
+    fn screen_to_hex_coord(&self, x: f64, y: f64) -> Option<HexCoord> {
+        // Prefer geometric conversion via renderer's camera and grid
+        let screen = Vec2::new(x as f32, y as f32);
+        let window = Vec2::new(SCREEN_WIDTH, SCREEN_HEIGHT);
+        self.hex_grid.screen_to_hex_coord(screen, window)
     }
 
     fn find_unit_at_hex(&self, hex_coord: HexCoord) -> Option<uuid::Uuid> {
@@ -315,13 +232,49 @@ impl GameApp {
             self.hex_grid.set_unit_at(pos, SpriteType::Unit);
         }
     }
+
+    /// hower method: Debug method to highlight hex under cursor
+    fn hower(&mut self, x: f64, y: f64) {
+        if !self.hower_debug_enabled {
+            return;
+        }
+
+        // Convert to hex coordinate using geometric conversion
+        if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
+            // Clear previous debug highlighting
+            if let Some(prev_hex) = self.hower_debug_hex {
+                if let Some(hex) = self.hex_grid.hexagons.get_mut(&prev_hex) {
+                    // Reset to original color
+                    hex.color = [
+                        0.3 + 0.4 * ((prev_hex.q + prev_hex.r) % 3) as f32 / 3.0,
+                        0.4 + 0.3 * (prev_hex.q % 4) as f32 / 4.0,
+                        0.5 + 0.3 * (prev_hex.r % 5) as f32 / 5.0,
+                    ];
+                }
+            }
+
+            // Set new debug hex
+            self.hower_debug_hex = Some(hex_coord);
+
+            // Apply bright debug color to current hex under cursor
+            if let Some(hex) = self.hex_grid.hexagons.get_mut(&hex_coord) {
+                hex.color = [1.0, 1.0, 0.0]; // Bright yellow for debugging
+
+                // Debug info showing coordinate conversion
+                println!("🔍 Screen({:.0},{:.0}) → Hex{:?}", x, y, hex_coord);
+            }
+        }
+    }
 }
 
 impl ApplicationHandler for GameApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window_attributes = winit::window::WindowAttributes::default()
             .with_title("QuestQuest - Interactive Game Window")
-            .with_inner_size(winit::dpi::LogicalSize::new(1200, 800));
+            .with_inner_size(winit::dpi::LogicalSize::new(
+                SCREEN_WIDTH as u32,
+                SCREEN_HEIGHT as u32,
+            ));
 
         let template = glutin::config::ConfigTemplateBuilder::new();
         let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
@@ -353,8 +306,8 @@ impl ApplicationHandler for GameApp {
 
         let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
             window.window_handle().unwrap().into(),
-            std::num::NonZeroU32::new(1200).unwrap(),
-            std::num::NonZeroU32::new(800).unwrap(),
+            std::num::NonZeroU32::new(SCREEN_WIDTH as u32).unwrap(),
+            std::num::NonZeroU32::new(SCREEN_HEIGHT as u32).unwrap(),
         );
 
         let gl_surface = unsafe {
@@ -376,7 +329,7 @@ impl ApplicationHandler for GameApp {
         });
 
         unsafe {
-            gl::Viewport(0, 0, 1200, 800);
+            gl::Viewport(0, 0, SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32);
             gl::ClearColor(0.05, 0.05, 0.1, 1.0);
         }
 
@@ -390,7 +343,9 @@ impl ApplicationHandler for GameApp {
                 println!("🖱️  LEFT-CLICK on blue hexes to move the selected unit");
                 println!("⌨️  Use arrow keys to move camera");
                 println!("🔤 Press 'C' to show detailed unit info in console");
+                println!("🔤 Press 'H' to toggle hower debug mode (highlights hex under cursor)");
                 println!("🔤 Press ESC to deselect unit");
+                println!("🔍 hower DEBUG: Currently ENABLED - cursor highlights hexes in yellow");
             }
             Err(e) => {
                 println!("Failed to create renderer: {}", e);
@@ -417,6 +372,14 @@ impl ApplicationHandler for GameApp {
             WindowEvent::CursorMoved { position, .. } => {
                 // Store cursor position for click handling
                 self.cursor_position = (position.x, position.y);
+
+                // hower DEBUG: Highlight hex under cursor
+                self.hower(position.x, position.y);
+
+                // Request redraw to show the debug highlighting
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
             }
             WindowEvent::MouseInput {
                 state: ElementState::Pressed,
@@ -464,6 +427,27 @@ impl ApplicationHandler for GameApp {
                         }
                         winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
                             self.clear_selection();
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyH) => {
+                            // Toggle hower debug mode
+                            self.hower_debug_enabled = !self.hower_debug_enabled;
+                            if self.hower_debug_enabled {
+                                println!("🔍 hower DEBUG: Enabled - cursor will highlight hexes");
+                            } else {
+                                println!("🔍 hower DEBUG: Disabled");
+                                // Clear any existing debug highlighting
+                                if let Some(prev_hex) = self.hower_debug_hex {
+                                    if let Some(hex) = self.hex_grid.hexagons.get_mut(&prev_hex) {
+                                        hex.color = [
+                                            0.3 + 0.4 * ((prev_hex.q + prev_hex.r) % 3) as f32
+                                                / 3.0,
+                                            0.4 + 0.3 * (prev_hex.q % 4) as f32 / 4.0,
+                                            0.5 + 0.3 * (prev_hex.r % 5) as f32 / 5.0,
+                                        ];
+                                    }
+                                }
+                                self.hower_debug_hex = None;
+                            }
                         }
                         _ => {}
                     }
