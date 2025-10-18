@@ -44,6 +44,7 @@ impl GameApp {
             HexCoord::new(0, 0),
             units::Race::Human,
             units::UnitClass::Warrior,
+            units::Terrain::Grasslands,
         );
         game_world.add_unit(GameUnit::new(hero));
 
@@ -52,6 +53,7 @@ impl GameApp {
             HexCoord::new(2, -1),
             units::Race::Elf,
             units::UnitClass::Archer,
+            units::Terrain::Forest0,
         );
         game_world.add_unit(GameUnit::new(archer));
 
@@ -60,6 +62,7 @@ impl GameApp {
             HexCoord::new(-2, 1),
             units::Race::Dwarf,
             units::UnitClass::Paladin,
+            units::Terrain::Mountain,
         );
         game_world.add_unit(GameUnit::new(paladin));
 

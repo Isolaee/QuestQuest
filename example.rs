@@ -11,6 +11,7 @@ fn main() {
         HexCoord::new(0, 0),
         Race::Dwarf,
         UnitClass::Warrior,
+        Terrain::Mountain,
     );
 
     let mut archer = Unit::new(
@@ -18,6 +19,7 @@ fn main() {
         HexCoord::new(3, -2),
         Race::Elf,
         UnitClass::Archer,
+        Terrain::Forest0,
     );
 
     let mut mage = Unit::new(
@@ -25,6 +27,7 @@ fn main() {
         HexCoord::new(-2, 3),
         Race::Human,
         UnitClass::Mage,
+        Terrain::Grasslands,
     );
 
     println!("⚔️ INITIAL UNITS:");
@@ -101,7 +104,7 @@ fn main() {
     if archer.can_attack(warrior_pos) {
         let damage = archer.calculate_damage_to(&warrior);
         println!("Archer shoots at Warrior for {} damage!", damage);
-        warrior.take_damage(damage);
+        warrior.take_damage(damage as u32);
     }
 
     println!(
@@ -120,7 +123,7 @@ fn main() {
         if warrior.can_attack(mage_pos) {
             let damage = warrior.calculate_damage_to(&mage);
             println!("Warrior attacks Mage for {} damage!", damage);
-            mage.take_damage(damage);
+            mage.take_damage(damage as u32);
         }
     }
 

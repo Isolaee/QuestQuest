@@ -1,7 +1,7 @@
 use crate::combat::CombatStats;
 use crate::item::{Equipment, Item, ItemId};
 use crate::unit_class::UnitClass;
-use crate::unit_race::Race;
+use crate::unit_race::{Race, Terrain};
 use graphics::HexCoord;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -30,14 +30,22 @@ pub struct Unit {
     cached_attack: i32,
     cached_movement: i32,
     cached_max_health: i32,
+
+    pub current_terrain: Terrain, // Add this field
 }
 
 impl Unit {
     /// Create a new unit
-    pub fn new(name: String, position: HexCoord, race: Race, class: UnitClass) -> Self {
+    pub fn new(
+        name: String,
+        position: HexCoord,
+        race: Race,
+        class: UnitClass,
+        terrain: Terrain,
+    ) -> Self {
         let base_health = class.get_base_health();
         let base_attack = class.get_attack_bonus() + race.get_attack_bonus();
-        let base_defense = class.get_defense_bonus() + race.get_defense_bonus();
+        let base_defense = class.get_defense_bonus();
         let base_movement = class.get_movement_speed() + race.get_movement_bonus();
         let range_type = class.get_default_range();
 
@@ -64,6 +72,7 @@ impl Unit {
             cached_attack: 0,
             cached_movement: 0,
             cached_max_health: 0,
+            current_terrain: terrain,
         };
 
         // Calculate initial cached values
@@ -80,7 +89,7 @@ impl Unit {
         level: i32,
         experience: i32,
     ) -> Self {
-        let mut unit = Self::new(name, position, race, class);
+        let mut unit = Self::new(name, position, race, class, Terrain::default());
         unit.level = level.max(1);
         unit.experience = experience.max(0);
         unit.recalculate_stats();
@@ -92,7 +101,7 @@ impl Unit {
         // Base stats from race and class
         let base_health = self.class.get_base_health();
         let base_attack = self.class.get_attack_bonus() + self.race.get_attack_bonus();
-        let base_defense = self.class.get_defense_bonus() + self.race.get_defense_bonus();
+        let base_defense = self.class.get_defense_bonus();
         let base_movement = self.class.get_movement_speed() + self.race.get_movement_bonus();
 
         // Level bonuses (each level adds small bonuses)
@@ -245,9 +254,14 @@ impl Unit {
         self.combat_stats.calculate_damage(&target.combat_stats)
     }
 
-    /// Take damage and return true if unit dies
-    pub fn take_damage(&mut self, damage: i32) -> bool {
-        self.combat_stats.take_damage(damage)
+    /// Get the unit's attack power
+    pub fn get_attack_power(&self) -> u32 {
+        self.cached_attack.max(0) as u32
+    }
+
+    /// Take damage
+    pub fn take_damage(&mut self, damage: u32) {
+        self.combat_stats.take_damage(damage as i32);
     }
 
     /// Heal the unit
@@ -257,7 +271,7 @@ impl Unit {
 
     /// Check if unit is alive
     pub fn is_alive(&self) -> bool {
-        self.combat_stats.is_alive()
+        self.combat_stats.health > 0
     }
 
     /// Get unit's display color based on race
@@ -465,6 +479,21 @@ impl Unit {
             self.position
         );
     }
+
+    /// Update the unit's current terrain
+    pub fn set_terrain(&mut self, terrain: Terrain) {
+        self.current_terrain = terrain;
+    }
+
+    /// Get the unit's current terrain
+    pub fn get_terrain(&self) -> Terrain {
+        self.current_terrain
+    }
+
+    /// Get the unit's defense value based on current terrain
+    pub fn get_defense(&self) -> u8 {
+        self.race.get_base_defense(self.current_terrain)
+    }
 }
 
 /// Unit creation builder for easier unit construction
@@ -523,7 +552,13 @@ impl UnitBuilder {
         let mut unit = if let (Some(level), Some(exp)) = (self.level, self.experience) {
             Unit::new_with_level(self.name, self.position, self.race, self.class, level, exp)
         } else {
-            Unit::new(self.name, self.position, self.race, self.class)
+            Unit::new(
+                self.name,
+                self.position,
+                self.race,
+                self.class,
+                Terrain::default(),
+            )
         };
 
         // Add equipment and inventory

@@ -9,4 +9,4 @@ pub use combat::{CombatStats, RangeType};
 pub use item::{Equipment, Item, ItemType};
 pub use unit::{Unit, UnitId};
 pub use unit_class::UnitClass;
-pub use unit_race::Race;
+pub use unit_race::{Race, Terrain};
