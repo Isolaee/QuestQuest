@@ -36,13 +36,40 @@ struct GameApp {
 
 impl GameApp {
     fn new() -> Self {
+        let mut game_world = GameWorld::new(8); // World radius of 8
+
+        // Add demo units to the world
+        let hero = units::Unit::new(
+            "Thorin".to_string(),
+            HexCoord::new(0, 0),
+            units::Race::Human,
+            units::UnitClass::Warrior,
+        );
+        game_world.add_unit(GameUnit::new(hero));
+
+        let archer = units::Unit::new(
+            "Legolas".to_string(),
+            HexCoord::new(2, -1),
+            units::Race::Elf,
+            units::UnitClass::Archer,
+        );
+        game_world.add_unit(GameUnit::new(archer));
+
+        let paladin = units::Unit::new(
+            "Gimli".to_string(),
+            HexCoord::new(-2, 1),
+            units::Race::Dwarf,
+            units::UnitClass::Paladin,
+        );
+        game_world.add_unit(GameUnit::new(paladin));
+
         let app = Self {
             window: None,
             gl_context: None,
             gl_surface: None,
             hex_grid: HexGrid::new(),
             renderer: None,
-            game_world: GameWorld::new(8), // World radius of 8
+            game_world,
             selected_unit: None,
             show_unit_info: false,
             unit_info_text: Vec::new(),
@@ -259,9 +286,6 @@ impl GameApp {
             // Apply bright debug color to current hex under cursor
             if let Some(hex) = self.hex_grid.hexagons.get_mut(&hex_coord) {
                 hex.color = [1.0, 1.0, 0.0]; // Bright yellow for debugging
-
-                // Debug info showing coordinate conversion
-                println!("🔍 Screen({:.0},{:.0}) → Hex{:?}", x, y, hex_coord);
             }
         }
     }
@@ -338,7 +362,7 @@ impl ApplicationHandler for GameApp {
             Ok(renderer) => {
                 self.renderer = Some(renderer);
                 println!("🎮 QuestQuest Game Window Started!");
-                println!("📍 Units placed at (0,0)");
+                println!("📍 Units: Thorin at (0,0), Legolas at (2,-1), Gimli at (-2,1)");
                 println!("🖱️  RIGHT-CLICK on a unit to select it and show movement range");
                 println!("🖱️  LEFT-CLICK on blue hexes to move the selected unit");
                 println!("⌨️  Use arrow keys to move camera");
