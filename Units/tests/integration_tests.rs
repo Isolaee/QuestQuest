@@ -9,6 +9,7 @@ fn test_unit_creation() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     assert_eq!(unit.name, "Test Warrior");
@@ -43,11 +44,13 @@ fn test_combat_stats_calculation() {
         position,
         Race::Dwarf,        // +2 defense, +0 attack
         UnitClass::Warrior, // +3 defense, +2 attack
+        Terrain::Grasslands,
     );
 
-    // Dwarf Warrior should have: base defense (3+2=5) + base attack (2+0=2)
-    assert_eq!(unit.combat_stats.defense, 5);
+    // Dwarf Warrior should have base attack (2+0=2)
+    // Defense is now terrain-based: Dwarf in Grasslands = 54% hit chance
     assert_eq!(unit.combat_stats.attack, 2);
+    assert_eq!(unit.get_defense(), 54); // Terrain-based defense
 }
 
 #[test]
@@ -58,6 +61,7 @@ fn test_equipment_bonuses() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     // Create a weapon with attack bonus
@@ -87,6 +91,7 @@ fn test_experience_and_leveling() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     let initial_health = unit.combat_stats.max_health;
@@ -108,6 +113,7 @@ fn test_movement_validation() {
         start_pos,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     let movement_speed = unit.combat_stats.movement_speed;
@@ -131,6 +137,7 @@ fn test_attack_range() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     assert_eq!(warrior.combat_stats.range_type, RangeType::Melee);
@@ -143,6 +150,7 @@ fn test_attack_range() {
         position,
         Race::Human,
         UnitClass::Archer,
+        Terrain::Grasslands,
     );
 
     assert_eq!(archer.combat_stats.range_type, RangeType::Ranged);
@@ -158,6 +166,7 @@ fn test_damage_calculation() {
         position,
         Race::Orc,          // +2 attack
         UnitClass::Warrior, // +2 attack
+        Terrain::Grasslands,
     );
 
     let defender = Unit::new(
@@ -165,6 +174,7 @@ fn test_damage_calculation() {
         HexCoord::new(1, 0),
         Race::Dwarf,        // +2 defense
         UnitClass::Warrior, // +3 defense
+        Terrain::Grasslands,
     );
 
     let damage = attacker.calculate_damage_to(&defender);
@@ -175,15 +185,15 @@ fn test_damage_calculation() {
 fn test_race_bonuses() {
     // Test different racial bonuses
     let races_and_expected = [
-        (Race::Human, (0, 0, 0)),  // Balanced
-        (Race::Elf, (1, -1, 1)),   // +1 attack, -1 defense, +1 movement
-        (Race::Dwarf, (0, 2, -1)), // +0 attack, +2 defense, -1 movement
-        (Race::Orc, (2, 1, 0)),    // +2 attack, +1 defense, +0 movement
+        (Race::Human, (0, 48, 0)),  // Balanced - 48% defense in grasslands
+        (Race::Elf, (1, 45, 1)),    // +1 attack, 45% defense in grasslands, +1 movement
+        (Race::Dwarf, (0, 54, -1)), // +0 attack, 54% defense in grasslands, -1 movement
+        (Race::Orc, (2, 52, 0)),    // +2 attack, 52% defense in grasslands, +0 movement
     ];
 
     for (race, (expected_attack, expected_defense, expected_movement)) in races_and_expected {
         assert_eq!(race.get_attack_bonus(), expected_attack);
-        assert_eq!(race.get_defense_bonus(), expected_defense);
+        assert_eq!(race.get_base_defense(Terrain::Grasslands), expected_defense);
         assert_eq!(race.get_movement_bonus(), expected_movement);
     }
 }

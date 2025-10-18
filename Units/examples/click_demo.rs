@@ -11,6 +11,7 @@ fn main() {
         HexCoord::new(2, -1),
         unit_race::Race::Dwarf,
         unit_class::UnitClass::Warrior,
+        unit_race::Terrain::Mountain,
     );
 
     // Add some experience and damage for demonstration
@@ -92,6 +93,7 @@ fn main() {
         HexCoord::new(0, 3),
         unit_race::Race::Elf,
         unit_class::UnitClass::Archer,
+        unit_race::Terrain::Forest0,
     );
 
     archer.experience = 250; // Ready to level up

@@ -77,6 +77,7 @@ fn test_inventory_management() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     let sword = Item::new(
@@ -104,6 +105,7 @@ fn test_equipment_system() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     let sword = Item::new(
@@ -150,6 +152,7 @@ fn test_consumable_usage() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     // Damage the unit first
@@ -197,6 +200,7 @@ fn test_weapon_range_override() {
         position,
         Race::Human,
         UnitClass::Warrior, // Normally melee
+        Terrain::Grasslands,
     );
 
     let throwing_weapon = Item::new(

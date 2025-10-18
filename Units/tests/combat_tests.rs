@@ -9,6 +9,7 @@ fn test_combat_damage_calculation() {
         position,
         Race::Orc,          // +2 attack
         UnitClass::Warrior, // +2 attack, total 4 attack
+        Terrain::Grasslands,
     );
 
     let defender = Unit::new(
@@ -16,6 +17,7 @@ fn test_combat_damage_calculation() {
         HexCoord::new(1, 0),
         Race::Dwarf,        // +2 defense
         UnitClass::Warrior, // +3 defense, total 5 defense
+        Terrain::Grasslands,
     );
 
     let damage = attacker.calculate_damage_to(&defender);
@@ -33,6 +35,7 @@ fn test_combat_high_damage() {
         position,
         Race::Orc,          // +2 attack
         UnitClass::Warrior, // +2 attack
+        Terrain::Grasslands,
     );
 
     // Add a powerful weapon
@@ -55,6 +58,7 @@ fn test_combat_high_damage() {
         HexCoord::new(1, 0),
         Race::Human,     // No bonuses
         UnitClass::Mage, // Low defense
+        Terrain::Grasslands,
     );
 
     let damage = strong_attacker.calculate_damage_to(&weak_defender);
@@ -71,6 +75,7 @@ fn test_death_and_revival() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     // Reduce health to 0
@@ -91,6 +96,7 @@ fn test_healing_cap() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     let max_health = unit.combat_stats.max_health;
@@ -110,6 +116,7 @@ fn test_experience_thresholds() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     // Test level 1 to 2 (needs 1*1*100 = 100 exp)
@@ -137,6 +144,7 @@ fn test_level_up_stat_increases() {
         position,
         Race::Human,
         UnitClass::Warrior,
+        Terrain::Grasslands,
     );
 
     let initial_health = unit.combat_stats.max_health;
@@ -163,6 +171,7 @@ fn test_movement_range_calculation() {
         start,
         Race::Elf,         // +1 movement
         UnitClass::Archer, // Base movement
+        Terrain::Grasslands,
     );
 
     let movement_speed = unit.combat_stats.movement_speed;
@@ -193,6 +202,7 @@ fn test_attack_range_with_modifiers() {
         position,
         Race::Human,
         UnitClass::Archer, // 3 range
+        Terrain::Grasslands,
     );
 
     // Add weapon with range modifier
@@ -213,4 +223,264 @@ fn test_attack_range_with_modifiers() {
     // Should now have 5 range (3 + 2)
     assert!(archer.can_attack(HexCoord::new(5, 0)));
     assert!(!archer.can_attack(HexCoord::new(6, 0)));
+}
+
+#[test]
+fn test_hit_chance_accuracy_with_terrain() {
+    const ITERATIONS: usize = 2000;
+    const ERROR_MARGIN: f64 = 5.0; // 5% error margin
+
+    let position = HexCoord::new(0, 0);
+
+    // Test 1: Kobold in Mountain (should be very hard to hit - 34%)
+    let attacker = Unit::new(
+        "Attacker".to_string(),
+        position,
+        Race::Human,
+        UnitClass::Warrior,
+        Terrain::Grasslands,
+    );
+
+    let defender = Unit::new(
+        "Kobold Defender".to_string(),
+        HexCoord::new(1, 0),
+        Race::Kobold,
+        UnitClass::Warrior,
+        Terrain::Mountain, // Kobolds have 34% defense in mountains
+    );
+
+    let expected_hit_chance = 34.0; // Base defense for Kobold in Mountain
+    let actual_hit_rate = run_combat_iterations(&attacker, &defender, ITERATIONS);
+
+    println!(
+        "Kobold in Mountain - Expected: {:.1}%, Actual: {:.1}%, Diff: {:.1}%",
+        expected_hit_chance,
+        actual_hit_rate,
+        (actual_hit_rate - expected_hit_chance).abs()
+    );
+
+    assert!(
+        (actual_hit_rate - expected_hit_chance).abs() <= ERROR_MARGIN,
+        "Hit rate {:.1}% outside error margin of {:.1}% from expected {:.1}%",
+        actual_hit_rate,
+        ERROR_MARGIN,
+        expected_hit_chance
+    );
+
+    // Test 2: Elf in Forest (should be hard to hit - 42%)
+    let elf_defender = Unit::new(
+        "Elf Defender".to_string(),
+        HexCoord::new(1, 0),
+        Race::Elf,
+        UnitClass::Archer,
+        Terrain::Forest0, // Elves have 42% defense in forests
+    );
+
+    let expected_hit_chance = 42.0;
+    let actual_hit_rate = run_combat_iterations(&attacker, &elf_defender, ITERATIONS);
+
+    println!(
+        "Elf in Forest - Expected: {:.1}%, Actual: {:.1}%, Diff: {:.1}%",
+        expected_hit_chance,
+        actual_hit_rate,
+        (actual_hit_rate - expected_hit_chance).abs()
+    );
+
+    assert!(
+        (actual_hit_rate - expected_hit_chance).abs() <= ERROR_MARGIN,
+        "Hit rate {:.1}% outside error margin of {:.1}% from expected {:.1}%",
+        actual_hit_rate,
+        ERROR_MARGIN,
+        expected_hit_chance
+    );
+
+    // Test 3: Zombie (slow, easy to hit - 60% in grasslands)
+    let zombie_defender = Unit::new(
+        "Zombie Defender".to_string(),
+        HexCoord::new(1, 0),
+        Race::Zombie,
+        UnitClass::Warrior,
+        Terrain::Grasslands, // Zombies have 61% defense in grasslands
+    );
+
+    let expected_hit_chance = 61.0;
+    let actual_hit_rate = run_combat_iterations(&attacker, &zombie_defender, ITERATIONS);
+
+    println!(
+        "Zombie in Grasslands - Expected: {:.1}%, Actual: {:.1}%, Diff: {:.1}%",
+        expected_hit_chance,
+        actual_hit_rate,
+        (actual_hit_rate - expected_hit_chance).abs()
+    );
+
+    assert!(
+        (actual_hit_rate - expected_hit_chance).abs() <= ERROR_MARGIN,
+        "Hit rate {:.1}% outside error margin of {:.1}% from expected {:.1}%",
+        actual_hit_rate,
+        ERROR_MARGIN,
+        expected_hit_chance
+    );
+}
+
+#[test]
+fn test_attack_bonus_affects_hit_chance() {
+    const ITERATIONS: usize = 2000;
+    const ERROR_MARGIN: f64 = 5.0;
+
+    let position = HexCoord::new(0, 0);
+
+    // Orc has +2 attack bonus, each point reduces hit chance by 2%
+    let orc_attacker = Unit::new(
+        "Orc Attacker".to_string(),
+        position,
+        Race::Orc, // +2 attack bonus
+        UnitClass::Warrior,
+        Terrain::Grasslands,
+    );
+
+    let defender = Unit::new(
+        "Human Defender".to_string(),
+        HexCoord::new(1, 0),
+        Race::Human,
+        UnitClass::Warrior,
+        Terrain::Grasslands, // 48% base defense
+    );
+
+    // Base: 48%, with +2 attack bonus: 48 - (2 * 2) = 44%
+    let expected_hit_chance = 44.0;
+    let actual_hit_rate = run_combat_iterations(&orc_attacker, &defender, ITERATIONS);
+
+    println!(
+        "Orc (+2 attack) vs Human - Expected: {:.1}%, Actual: {:.1}%, Diff: {:.1}%",
+        expected_hit_chance,
+        actual_hit_rate,
+        (actual_hit_rate - expected_hit_chance).abs()
+    );
+
+    assert!(
+        (actual_hit_rate - expected_hit_chance).abs() <= ERROR_MARGIN,
+        "Hit rate {:.1}% outside error margin of {:.1}% from expected {:.1}%",
+        actual_hit_rate,
+        ERROR_MARGIN,
+        expected_hit_chance
+    );
+}
+
+#[test]
+fn test_hit_chance_clamping() {
+    const ITERATIONS: usize = 2000;
+    const ERROR_MARGIN: f64 = 5.0;
+
+    let position = HexCoord::new(0, 0);
+
+    // Test lower clamp (minimum 10%)
+    // Kobold (-2 attack) vs Kobold in Mountain (34% defense)
+    // 34 - (-2 * 2) = 34 + 4 = 38% (normal, not clamped)
+    let weak_attacker = Unit::new(
+        "Kobold Attacker".to_string(),
+        position,
+        Race::Kobold, // -2 attack bonus
+        UnitClass::Warrior,
+        Terrain::Grasslands,
+    );
+
+    let agile_defender = Unit::new(
+        "Kobold Defender".to_string(),
+        HexCoord::new(1, 0),
+        Race::Kobold,
+        UnitClass::Warrior,
+        Terrain::Mountain, // 34% base defense
+    );
+
+    // 34 - (-2 * 2) = 34 + 4 = 38%
+    let expected_hit_chance = 38.0;
+    let actual_hit_rate = run_combat_iterations(&weak_attacker, &agile_defender, ITERATIONS);
+
+    println!(
+        "Kobold vs Kobold (clamp test) - Expected: {:.1}%, Actual: {:.1}%, Diff: {:.1}%",
+        expected_hit_chance,
+        actual_hit_rate,
+        (actual_hit_rate - expected_hit_chance).abs()
+    );
+
+    assert!(
+        (actual_hit_rate - expected_hit_chance).abs() <= ERROR_MARGIN,
+        "Hit rate {:.1}% outside error margin of {:.1}% from expected {:.1}%",
+        actual_hit_rate,
+        ERROR_MARGIN,
+        expected_hit_chance
+    );
+}
+
+#[test]
+fn test_multiple_terrain_types() {
+    const ITERATIONS: usize = 1000;
+    const ERROR_MARGIN: f64 = 5.0;
+
+    let position = HexCoord::new(0, 0);
+    let attacker = Unit::new(
+        "Human Attacker".to_string(),
+        position,
+        Race::Human, // 0 attack bonus
+        UnitClass::Warrior,
+        Terrain::Grasslands,
+    );
+
+    // Test Dwarf in different terrains
+    let terrains_and_defenses = vec![
+        (Terrain::Mountain, 48.0),   // Dwarf excels in mountains
+        (Terrain::Hills, 50.0),      // Good in hills
+        (Terrain::Grasslands, 54.0), // Average in grasslands
+        (Terrain::Swamp, 60.0),      // Poor in swamps
+    ];
+
+    for (terrain, expected_defense) in terrains_and_defenses {
+        let defender = Unit::new(
+            "Dwarf Defender".to_string(),
+            HexCoord::new(1, 0),
+            Race::Dwarf,
+            UnitClass::Warrior,
+            terrain,
+        );
+
+        let actual_hit_rate = run_combat_iterations(&attacker, &defender, ITERATIONS);
+
+        println!(
+            "Dwarf in {:?} - Expected: {:.1}%, Actual: {:.1}%, Diff: {:.1}%",
+            terrain,
+            expected_defense,
+            actual_hit_rate,
+            (actual_hit_rate - expected_defense).abs()
+        );
+
+        assert!(
+            (actual_hit_rate - expected_defense).abs() <= ERROR_MARGIN,
+            "Terrain {:?}: Hit rate {:.1}% outside error margin of {:.1}% from expected {:.1}%",
+            terrain,
+            actual_hit_rate,
+            ERROR_MARGIN,
+            expected_defense
+        );
+    }
+}
+
+/// Helper function to run multiple combat iterations and calculate hit rate
+fn run_combat_iterations(attacker: &Unit, defender: &Unit, iterations: usize) -> f64 {
+    let mut hits = 0;
+
+    for i in 0..iterations {
+        // Create fresh copies for each iteration
+        let mut att = attacker.clone();
+        let mut def = defender.clone();
+
+        // Modify attacker slightly each iteration to vary the hash
+        att.experience = i as i32;
+
+        let result = units::combat::resolve_combat(&mut att, &mut def);
+        if result.attacker_hit {
+            hits += 1;
+        }
+    }
+
+    (hits as f64 / iterations as f64) * 100.0
 }

@@ -1,6 +1,6 @@
 use game::*;
 use graphics::HexCoord;
-use units::{item::ItemProperties, Item, Race, Unit, UnitClass};
+use units::{item::ItemProperties, Item, Race, Terrain, Unit, UnitClass};
 
 fn main() {
     println!("🎮 Game Object System Demo");
@@ -19,6 +19,7 @@ fn main() {
         HexCoord::new(0, 0),
         Race::Dwarf,
         UnitClass::Warrior,
+        Terrain::Mountain,
     );
 
     let archer_unit = Unit::new(
@@ -26,6 +27,7 @@ fn main() {
         HexCoord::new(2, -1),
         Race::Elf,
         UnitClass::Archer,
+        Terrain::Forest0,
     );
 
     // Wrap them as game objects
