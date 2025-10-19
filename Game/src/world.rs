@@ -153,12 +153,24 @@ impl GameWorld {
             }
         }
 
-        // Check if another unit is blocking (except the moving unit itself)
+        // Check if another unit is blocking
+        // Allow movement onto enemy units (for combat), but not allied units
         for unit in self.units.values() {
             if unit.position() == position {
                 if let Some(moving_unit_id) = unit_id {
                     if unit.id() != moving_unit_id {
-                        return false; // Another unit is blocking
+                        // There's another unit at this position
+                        // Check if it's an enemy (allow) or ally (block)
+                        if let Some(moving_unit) = self.units.get(&moving_unit_id) {
+                            if moving_unit.team() == unit.team() {
+                                // Same team - block movement
+                                return false;
+                            }
+                            // Different team - allow movement (combat will be initiated)
+                        } else {
+                            // Moving unit not found - block to be safe
+                            return false;
+                        }
                     }
                 } else {
                     return false; // A unit is blocking and no exception
@@ -177,7 +189,34 @@ impl GameWorld {
     }
 
     /// Move a unit to a new position (with validation)
+    /// Returns Ok(()) for normal movement, or a combat result message
     pub fn move_unit(&mut self, unit_id: Uuid, new_position: HexCoord) -> Result<(), String> {
+        // Check if there's an enemy unit at the target position
+        let units_at_target: Vec<Uuid> = self
+            .get_units_at_position(new_position)
+            .iter()
+            .map(|u| u.id())
+            .collect();
+
+        let target_unit_id = units_at_target.first().copied();
+
+        if let Some(target_id) = target_unit_id {
+            // There's a unit at the target position - check if it's an enemy
+            let moving_unit_team = self.units.get(&unit_id).map(|u| u.team());
+            let target_unit_team = self.units.get(&target_id).map(|u| u.team());
+
+            if let (Some(mover_team), Some(target_team)) = (moving_unit_team, target_unit_team) {
+                if mover_team != target_team {
+                    // Enemy units - initiate combat!
+                    return self.initiate_combat(unit_id, target_id);
+                } else {
+                    // Same team - can't move there
+                    return Err("Cannot move onto allied unit".to_string());
+                }
+            }
+        }
+
+        // No enemy at target - check normal movement validation
         if !self.is_position_valid_for_movement(new_position, Some(unit_id)) {
             return Err("Position is blocked or invalid".to_string());
         }
@@ -188,6 +227,107 @@ impl GameWorld {
         } else {
             Err("Unit not found".to_string())
         }
+    }
+
+    /// Initiate combat between two units
+    fn initiate_combat(&mut self, attacker_id: Uuid, defender_id: Uuid) -> Result<(), String> {
+        // Get unit info before combat for reporting
+        let (attacker_name, defender_name, defender_pos) = {
+            let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
+            let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+            (attacker.name(), defender.name(), defender.position())
+        };
+
+        println!("⚔️  COMBAT INITIATED!");
+        println!("⚔️  {} attacks {}!", attacker_name, defender_name);
+
+        // Get combat stats (clone to get owned copies)
+        let (mut attacker_stats, mut defender_stats, attacker_damage_type, defender_damage_type) = {
+            let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
+            let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+            (
+                attacker.unit().combat_stats().clone(),
+                defender.unit().combat_stats().clone(),
+                attacker.unit().class().get_default_damage_type(),
+                defender.unit().class().get_default_damage_type(),
+            )
+        };
+
+        // Resolve attacker's attack
+        let attack_result = combat::resolve_combat(
+            &mut attacker_stats,
+            &mut defender_stats,
+            attacker_damage_type,
+        );
+        let attacker_damage = attack_result.attacker_damage_dealt;
+
+        // Apply damage to defender
+        if let Some(defender) = self.units.get_mut(&defender_id) {
+            defender.unit_mut().take_damage(attacker_damage);
+        }
+
+        println!("⚔️  {} dealt {} damage", attacker_name, attacker_damage);
+
+        // Check if defender is still alive for counter-attack
+        let defender_alive = self
+            .units
+            .get(&defender_id)
+            .map(|u| u.unit().combat_stats().health > 0)
+            .unwrap_or(false);
+
+        if defender_alive {
+            // Defender counter-attacks
+            let counter_result = combat::resolve_combat(
+                &mut defender_stats,
+                &mut attacker_stats,
+                defender_damage_type,
+            );
+            let damage = counter_result.attacker_damage_dealt;
+
+            // Apply counter-attack damage to attacker
+            if let Some(attacker) = self.units.get_mut(&attacker_id) {
+                attacker.unit_mut().take_damage(damage);
+            }
+
+            println!(
+                "🛡️  {} dealt {} damage (counter-attack)",
+                defender_name, damage
+            );
+        }
+
+        // Check final status and remove defeated units
+        let defender_still_alive = self
+            .units
+            .get(&defender_id)
+            .map(|u| u.unit().combat_stats().health > 0)
+            .unwrap_or(false);
+
+        if !defender_still_alive {
+            println!("💀 {} has been defeated!", defender_name);
+            self.units.remove(&defender_id);
+
+            // Move attacker to defender's position
+            if let Some(attacker) = self.units.get_mut(&attacker_id) {
+                attacker.set_position(defender_pos);
+                println!(
+                    "⚔️  {} moves to ({}, {})",
+                    attacker_name, defender_pos.q, defender_pos.r
+                );
+            }
+        }
+
+        let attacker_alive = self
+            .units
+            .get(&attacker_id)
+            .map(|u| u.unit().combat_stats().health > 0)
+            .unwrap_or(false);
+
+        if !attacker_alive {
+            println!("💀 {} has been defeated by counter-attack!", attacker_name);
+            self.units.remove(&attacker_id);
+        }
+
+        Ok(())
     }
 
     /// Get movement cost for a position

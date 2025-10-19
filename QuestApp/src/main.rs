@@ -61,17 +61,17 @@ impl GameApp {
             units::UnitClass::Warrior,
             units::Terrain::Grasslands,
         );
-        game_world.add_unit(GameUnit::new(hero));
+        game_world.add_unit(GameUnit::new_with_team(hero, game::Team::Player));
 
         // Enemy unit
         let orc_warrior = units::UnitFactory::create_unit(
             "Orc Grunt".to_string(),
-            HexCoord::new(4, 2),
+            HexCoord::new(1, 1),
             units::Race::Orc,
             units::UnitClass::Warrior,
             units::Terrain::Grasslands,
         );
-        game_world.add_unit(GameUnit::new(orc_warrior));
+        game_world.add_unit(GameUnit::new_with_team(orc_warrior, game::Team::Enemy));
 
         // Add a test item on the ground for pickup testing
         let test_sword = items::Item::new(
@@ -172,8 +172,20 @@ impl GameApp {
         if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
             if let Some(unit_id) = self.selected_unit {
                 // STATE 1: Unit is already selected
-                if self.movement_range.contains(&hex_coord) {
-                    // Valid move - execute movement
+
+                // Check if clicking on an enemy within attack range
+                if self.is_within_attack_range(unit_id, hex_coord)
+                    && self.has_enemy_unit(unit_id, hex_coord)
+                {
+                    // Enemy in range - initiate attack/combat
+                    if let Err(e) = self.game_world.move_unit(unit_id, hex_coord) {
+                        println!("Failed to attack: {}", e);
+                    } else {
+                        // Combat succeeded, clear selection
+                        self.clear_selection();
+                    }
+                } else if self.movement_range.contains(&hex_coord) {
+                    // Valid move - execute movement (non-combat)
                     if let Err(e) = self.game_world.move_unit(unit_id, hex_coord) {
                         println!("Failed to move unit: {}", e);
                     }
@@ -239,12 +251,21 @@ impl GameApp {
         if let Some(game_unit) = self.game_world.units.get(&unit_id) {
             let all_coords = game_unit.unit().get_movement_range();
 
-            // Filter movement range to only include valid hexes
+            // Filter movement range to only include valid hexes for movement
+            // Exclude hexes with enemy units (those are for attack only when adjacent)
             self.movement_range = all_coords
                 .into_iter()
                 .filter(|&coord| {
-                    self.game_world
+                    // Must be valid for movement
+                    if !self
+                        .game_world
                         .is_position_valid_for_movement(coord, Some(unit_id))
+                    {
+                        return false;
+                    }
+
+                    // Exclude hexes with enemy units (attack only, not movement)
+                    !self.has_enemy_unit(unit_id, coord)
                 })
                 .collect();
 
@@ -277,6 +298,33 @@ impl GameApp {
         }
     }
 
+    /// Check if a hex is within the unit's attack range
+    fn is_within_attack_range(&self, unit_id: uuid::Uuid, target_hex: HexCoord) -> bool {
+        if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+            let unit_pos = game_unit.position();
+            let distance = unit_pos.distance(target_hex);
+            let attack_range = game_unit.unit().combat_stats().attack_range;
+            distance <= attack_range && distance > 0 // Within range but not same hex
+        } else {
+            false
+        }
+    }
+
+    /// Check if target hex contains an enemy unit
+    fn has_enemy_unit(&self, attacker_id: uuid::Uuid, target_hex: HexCoord) -> bool {
+        if let Some(attacker) = self.game_world.units.get(&attacker_id) {
+            let attacker_team = attacker.team();
+
+            // Check all units at target hex
+            for unit in self.game_world.units.values() {
+                if unit.position() == target_hex && unit.id() != attacker_id {
+                    return unit.team() != attacker_team;
+                }
+            }
+        }
+        false
+    }
+
     fn update_highlight_display(&mut self) {
         // Clear existing highlights
         self.hex_grid.clear_all_highlights();
@@ -286,10 +334,27 @@ impl GameApp {
             if let Some(game_unit) = self.game_world.units.get(&unit_id) {
                 self.hex_grid
                     .highlight_hex(game_unit.position(), HighlightType::Selected);
+
+                // Highlight enemies within attack range in red
+                let unit_pos = game_unit.position();
+                let attacker_team = game_unit.team();
+                let attack_range = game_unit.unit().combat_stats().attack_range;
+
+                for enemy in self.game_world.units.values() {
+                    if enemy.id() != unit_id && enemy.team() != attacker_team {
+                        let enemy_pos = enemy.position();
+                        let distance = unit_pos.distance(enemy_pos);
+                        if distance <= attack_range && distance > 0 {
+                            // Enemy within range - highlight in red
+                            self.hex_grid
+                                .highlight_hex(enemy_pos, HighlightType::Selected);
+                        }
+                    }
+                }
             }
         }
 
-        // Highlight movement range
+        // Highlight movement range in blue
         self.hex_grid
             .highlight_hexes(&self.movement_range, HighlightType::MovementRange);
     }

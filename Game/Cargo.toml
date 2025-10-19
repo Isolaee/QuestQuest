@@ -8,6 +8,7 @@ edition = "2021"
 graphics = { path = "../Graphics" }
 units = { path = "../Units" }
 items = { path = "../Items" }
+combat = { path = "../Combat" }
 
 # External dependencies
 uuid = { version = "1.10", features = ["v4", "serde"] }

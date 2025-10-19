@@ -3,6 +3,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+/// Team affiliation for units
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Team {
+    Player,
+    Enemy,
+    Neutral,
+}
+
 /// Base trait for all game objects
 pub trait GameObject {
     /// Get the unique identifier for this object
@@ -135,6 +143,7 @@ impl GameObject for TerrainTile {
 pub struct GameUnit {
     id: Uuid,
     unit: Box<dyn units::Unit>,
+    team: Team,
     last_action_time: f32,
     action_cooldown: f32,
 }
@@ -145,9 +154,31 @@ impl GameUnit {
         Self {
             id: Uuid::new_v4(),
             unit,
+            team: Team::Player, // Default to Player team
             last_action_time: 0.0,
             action_cooldown: 1.0, // 1 second default cooldown
         }
+    }
+
+    /// Create a new game unit with specified team
+    pub fn new_with_team(unit: Box<dyn units::Unit>, team: Team) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            unit,
+            team,
+            last_action_time: 0.0,
+            action_cooldown: 1.0,
+        }
+    }
+
+    /// Get the team affiliation
+    pub fn team(&self) -> Team {
+        self.team
+    }
+
+    /// Set the team affiliation
+    pub fn set_team(&mut self, team: Team) {
+        self.team = team;
     }
 
     /// Get reference to the underlying unit
