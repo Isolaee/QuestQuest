@@ -933,7 +933,7 @@ impl ApplicationHandler for GameApp {
                 // Update unit positions on hex grid before rendering
                 self.update_hex_grid_units();
 
-                if let Some(renderer) = &self.renderer {
+                if let Some(renderer) = &mut self.renderer {
                     renderer.render(&self.hex_grid);
 
                     // Render UI panel

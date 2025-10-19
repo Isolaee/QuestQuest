@@ -1,5 +1,6 @@
 use crate::core::{HexGrid, Hexagon};
 use crate::rendering::{TextureManager, VertexBuffer};
+use crate::ui::TextRenderer;
 use gl::types::*;
 use std::ffi::CString;
 
@@ -412,6 +413,7 @@ pub struct Renderer {
     pub menu_display: MenuDisplay,
     pub effects_display: EffectsDisplay,
     pub combat_log_display: CombatLogDisplay,
+    pub text_renderer: TextRenderer,
 }
 
 impl Renderer {
@@ -444,6 +446,8 @@ impl Renderer {
             }
         }
 
+        let text_renderer = TextRenderer::new()?;
+
         Ok(Self {
             vao,
             shader_program,
@@ -453,10 +457,11 @@ impl Renderer {
             menu_display: MenuDisplay::new(),
             effects_display: EffectsDisplay::new(),
             combat_log_display: CombatLogDisplay::new(),
+            text_renderer,
         })
     }
 
-    pub fn render(&self, hex_grid: &HexGrid) {
+    pub fn render(&mut self, hex_grid: &HexGrid) {
         let visible_hexagons = hex_grid.get_visible_hexagons();
 
         unsafe {
@@ -846,7 +851,7 @@ impl Renderer {
     }
 
     /// Render the menu UI overlay
-    unsafe fn render_menu_layer(&self) {
+    unsafe fn render_menu_layer(&mut self) {
         // Only render if menu is active
         if !self.menu_display.active {
             return;
@@ -1108,9 +1113,68 @@ impl Renderer {
             gl::DrawArrays(gl::TRIANGLES, vertex_offset, 6);
         }
 
-        // TODO: Render text labels on buttons
-        // For now, buttons are drawn as colored rectangles
-        // Text rendering will show button labels like "Continue", "Settings", etc.
+        // Render text labels
+        self.render_menu_text();
+    }
+
+    unsafe fn render_menu_text(&mut self) {
+        let window_width = 1200.0;
+        let window_height = 800.0;
+
+        // Render title
+        let title = "GAME MENU";
+        let title_size = 35.0;
+        let panel_width = self.menu_display.size.0;
+        let title_x = self.menu_display.position.0
+            + (panel_width - title.len() as f32 * title_size * 0.6) / 2.0;
+        let title_y = self.menu_display.position.1 + 30.0;
+
+        self.text_renderer.render_text(
+            title,
+            title_x,
+            title_y,
+            title_size,
+            [1.0, 0.9, 0.4, 1.0], // Gold color
+            window_width,
+            window_height,
+        );
+
+        // Render button labels
+        for button in &self.menu_display.buttons {
+            let button_label = match button.action {
+                MenuAction::Continue => "Continue",
+                MenuAction::Settings => "Settings",
+                MenuAction::Save => "Save Game",
+                MenuAction::Load => "Load Game",
+                MenuAction::ExitToMainMenu => "Main Menu",
+                MenuAction::ExitGame => "Exit Game",
+            };
+
+            let text_size = 22.0;
+            let char_width = text_size * 0.6;
+            let text_width = button_label.len() as f32 * char_width;
+
+            // Center text in button
+            let text_x = button.position.0 + (button.size.0 - text_width) / 2.0;
+            let text_y = button.position.1 + (button.size.1 - text_size) / 2.0 + 5.0;
+
+            // Color based on hover state
+            let text_color = if button.hovered {
+                [1.0, 1.0, 0.8, 1.0] // Light yellow when hovered
+            } else {
+                [1.0, 1.0, 1.0, 1.0] // White normally
+            };
+
+            self.text_renderer.render_text(
+                button_label,
+                text_x,
+                text_y,
+                text_size,
+                text_color,
+                window_width,
+                window_height,
+            );
+        }
     }
 
     unsafe fn render_effects_layer(&self) {
@@ -1124,12 +1188,15 @@ impl Renderer {
         }
     }
 
-    unsafe fn render_combat_log_layer(&self) {
+    unsafe fn render_combat_log_layer(&mut self) {
         // Layer 7: Combat log display
         if self.combat_log_display.active {
             // If there's a pending combat confirmation, show the dialog
             if let Some(ref confirmation) = self.combat_log_display.pending_combat {
                 self.render_combat_confirmation_dialog(confirmation);
+                // Clone confirmation to avoid borrow checker issues
+                let confirmation_clone = confirmation.clone();
+                self.render_combat_dialog_text(&confirmation_clone);
             } else {
                 // Otherwise, show the combat log entries
                 self.render_combat_log_entries();
@@ -1137,7 +1204,7 @@ impl Renderer {
         }
     }
 
-    unsafe fn render_combat_confirmation_dialog(&self, confirmation: &CombatConfirmation) {
+    unsafe fn render_combat_confirmation_dialog(&self, _confirmation: &CombatConfirmation) {
         let mut vertices: Vec<f32> = Vec::new();
         let (dialog_x, dialog_y) = self.combat_log_display.position;
         let (dialog_width, dialog_height) = self.combat_log_display.size;
@@ -1633,30 +1700,208 @@ impl Renderer {
         );
         gl::BindVertexArray(self.vao);
         gl::DrawArrays(gl::TRIANGLES, 0, (vertices.len() / 9) as GLint);
+    }
 
-        // TODO: Render text for:
-        // - Dialog title: "Combat!"
-        // - Attacker stats: name, HP, attack, defense, attacks/round
-        // - Defender stats: name, HP, attack, defense, attacks/round
-        // - Button labels: "OK" and "Cancel"
-        println!("🎯 Combat Confirmation Dialog:");
-        println!(
-            "   Attacker: {} ({}/{} HP, ATK:{}, DEF:{}, {}/round)",
-            confirmation.attacker_name,
-            confirmation.attacker_hp,
-            confirmation.attacker_max_hp,
-            confirmation.attacker_attack,
-            confirmation.attacker_defense,
-            confirmation.attacker_attacks_per_round
+    unsafe fn render_combat_dialog_text(&mut self, confirmation: &CombatConfirmation) {
+        let (dialog_x, dialog_y) = self.combat_log_display.position;
+        let (dialog_width, _dialog_height) = self.combat_log_display.size;
+        let window_width = 1200.0;
+        let window_height = 800.0;
+
+        // Title
+        let title = "COMBAT!";
+        let title_size = 30.0;
+        let title_x = dialog_x + (dialog_width - title.len() as f32 * title_size * 0.6) / 2.0;
+        let title_y = dialog_y + 10.0;
+        self.text_renderer.render_text(
+            title,
+            title_x,
+            title_y,
+            title_size,
+            [1.0, 0.9, 0.4, 1.0], // Gold color
+            window_width,
+            window_height,
         );
-        println!(
-            "   Defender: {} ({}/{} HP, ATK:{}, DEF:{}, {}/round)",
-            confirmation.defender_name,
-            confirmation.defender_hp,
-            confirmation.defender_max_hp,
-            confirmation.defender_attack,
-            confirmation.defender_defense,
-            confirmation.defender_attacks_per_round
+
+        // Attacker stats (left panel)
+        let attacker_x = dialog_x + 40.0;
+        let mut attacker_y = dialog_y + 70.0;
+        let text_size = 16.0;
+        let line_height = 25.0;
+
+        self.text_renderer.render_text(
+            "ATTACKER",
+            attacker_x,
+            attacker_y,
+            18.0,
+            [0.6, 0.8, 1.0, 1.0], // Light blue
+            window_width,
+            window_height,
+        );
+        attacker_y += line_height + 5.0;
+
+        self.text_renderer.render_text(
+            &confirmation.attacker_name,
+            attacker_x,
+            attacker_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+        attacker_y += line_height;
+
+        let hp_text = format!(
+            "HP: {}/{}",
+            confirmation.attacker_hp, confirmation.attacker_max_hp
+        );
+        self.text_renderer.render_text(
+            &hp_text,
+            attacker_x,
+            attacker_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+        attacker_y += line_height;
+
+        let atk_text = format!("ATK: {}", confirmation.attacker_attack);
+        self.text_renderer.render_text(
+            &atk_text,
+            attacker_x,
+            attacker_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+        attacker_y += line_height;
+
+        let def_text = format!("DEF: {}", confirmation.attacker_defense);
+        self.text_renderer.render_text(
+            &def_text,
+            attacker_x,
+            attacker_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+        attacker_y += line_height;
+
+        let atkr_text = format!("{}/round", confirmation.attacker_attacks_per_round);
+        self.text_renderer.render_text(
+            &atkr_text,
+            attacker_x,
+            attacker_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+
+        // Defender stats (right panel)
+        let defender_x = dialog_x + dialog_width / 2.0 + 40.0;
+        let mut defender_y = dialog_y + 70.0;
+
+        self.text_renderer.render_text(
+            "DEFENDER",
+            defender_x,
+            defender_y,
+            18.0,
+            [1.0, 0.7, 0.7, 1.0], // Light red
+            window_width,
+            window_height,
+        );
+        defender_y += line_height + 5.0;
+
+        self.text_renderer.render_text(
+            &confirmation.defender_name,
+            defender_x,
+            defender_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+        defender_y += line_height;
+
+        let hp_text = format!(
+            "HP: {}/{}",
+            confirmation.defender_hp, confirmation.defender_max_hp
+        );
+        self.text_renderer.render_text(
+            &hp_text,
+            defender_x,
+            defender_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+        defender_y += line_height;
+
+        let atk_text = format!("ATK: {}", confirmation.defender_attack);
+        self.text_renderer.render_text(
+            &atk_text,
+            defender_x,
+            defender_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+        defender_y += line_height;
+
+        let def_text = format!("DEF: {}", confirmation.defender_defense);
+        self.text_renderer.render_text(
+            &def_text,
+            defender_x,
+            defender_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+        defender_y += line_height;
+
+        let atkr_text = format!("{}/round", confirmation.defender_attacks_per_round);
+        self.text_renderer.render_text(
+            &atkr_text,
+            defender_x,
+            defender_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+
+        // Button labels
+        let ok_btn = &self.combat_log_display.ok_button;
+        let ok_label_x = ok_btn.position.0 + (ok_btn.size.0 - 2.0 * 12.0 * 0.6) / 2.0; // Center "OK"
+        let ok_label_y = ok_btn.position.1 + (ok_btn.size.1 - 20.0) / 2.0 + 5.0;
+        self.text_renderer.render_text(
+            "OK",
+            ok_label_x,
+            ok_label_y,
+            20.0,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
+        );
+
+        let cancel_btn = &self.combat_log_display.cancel_button;
+        let cancel_label_x = cancel_btn.position.0 + (cancel_btn.size.0 - 6.0 * 12.0 * 0.6) / 2.0; // Center "Cancel"
+        let cancel_label_y = cancel_btn.position.1 + (cancel_btn.size.1 - 20.0) / 2.0 + 5.0;
+        self.text_renderer.render_text(
+            "Cancel",
+            cancel_label_x,
+            cancel_label_y,
+            20.0,
+            [1.0, 1.0, 1.0, 1.0],
+            window_width,
+            window_height,
         );
     }
 

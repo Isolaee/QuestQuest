@@ -128,7 +128,7 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if let Some(renderer) = &self.renderer {
+                if let Some(renderer) = &mut self.renderer {
                     renderer.render(&self.hex_grid);
 
                     if let (Some(gl_context), Some(gl_surface)) =
