@@ -284,21 +284,32 @@ impl Default for CombatLogDisplay {
 
 impl CombatLogDisplay {
     pub fn new() -> Self {
-        // Center the combat dialog on screen (assuming 800x600 window)
-        let dialog_width = 600.0;
-        let dialog_height = 300.0;
-        let dialog_x = (800.0 - dialog_width) / 2.0;
-        let dialog_y = (600.0 - dialog_height) / 2.0;
+        // Window size constants (should match main.rs)
+        let window_width = 1200.0;
+        let window_height = 800.0;
 
-        // Create OK button (centered at bottom)
-        let button_width = 100.0;
-        let button_height = 40.0;
-        let ok_x = dialog_x + dialog_width / 2.0 - button_width - 10.0;
-        let ok_y = dialog_y + dialog_height - button_height - 20.0;
+        // Dialog is 50% of the smaller dimension (height), making it square
+        let dialog_size = window_height * 0.5; // 400x400
+        let dialog_width = dialog_size;
+        let dialog_height = dialog_size;
 
-        // Create Cancel button
-        let cancel_x = dialog_x + dialog_width / 2.0 + 10.0;
-        let cancel_y = ok_y;
+        // Center the dialog on screen
+        let dialog_x = (window_width - dialog_width) / 2.0;
+        let dialog_y = (window_height - dialog_height) / 2.0;
+
+        // Create buttons at bottom of dialog
+        let button_width = 120.0;
+        let button_height = 50.0;
+        let button_spacing = 20.0;
+        let button_margin_bottom = 30.0;
+
+        // Position buttons centered at bottom
+        let total_button_width = button_width * 2.0 + button_spacing;
+        let buttons_start_x = dialog_x + (dialog_width - total_button_width) / 2.0;
+        let buttons_y = dialog_y + dialog_height - button_height - button_margin_bottom;
+
+        let ok_x = buttons_start_x;
+        let cancel_x = buttons_start_x + button_width + button_spacing;
 
         Self {
             active: false,
@@ -308,10 +319,10 @@ impl CombatLogDisplay {
             size: (dialog_width, dialog_height),
             auto_hide: false,
             pending_combat: None,
-            ok_button: CombatButton::new(ok_x, ok_y, button_width, button_height, "OK"),
+            ok_button: CombatButton::new(ok_x, buttons_y, button_width, button_height, "OK"),
             cancel_button: CombatButton::new(
                 cancel_x,
-                cancel_y,
+                buttons_y,
                 button_width,
                 button_height,
                 "Cancel",
@@ -1132,8 +1143,8 @@ impl Renderer {
         let (dialog_width, dialog_height) = self.combat_log_display.size;
 
         // Convert screen coordinates to normalized device coordinates (-1 to 1)
-        let window_width = 800.0; // TODO: Get from actual window size
-        let window_height = 600.0;
+        let window_width = 1200.0; // Matches SCREEN_WIDTH in main.rs
+        let window_height = 800.0; // Matches SCREEN_HEIGHT in main.rs
 
         let to_ndc_x = |x: f32| (x / window_width) * 2.0 - 1.0;
         let to_ndc_y = |y: f32| 1.0 - (y / window_height) * 2.0;
@@ -1273,11 +1284,77 @@ impl Renderer {
             border_color[2],
         ]);
 
+        // Title area (top of dialog)
+        let title_height = 50.0;
+        let title_color = [0.15, 0.15, 0.2]; // Slightly lighter than background
+
+        let tx1 = to_ndc_x(dialog_x + border_width);
+        let ty1 = to_ndc_y(dialog_y + border_width);
+        let tx2 = to_ndc_x(dialog_x + dialog_width - border_width);
+        let ty2 = to_ndc_y(dialog_y + title_height);
+        vertices.extend_from_slice(&[
+            tx1,
+            ty1,
+            depth,
+            0.0,
+            0.0,
+            -1.0,
+            title_color[0],
+            title_color[1],
+            title_color[2],
+            tx2,
+            ty1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            title_color[0],
+            title_color[1],
+            title_color[2],
+            tx1,
+            ty2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            title_color[0],
+            title_color[1],
+            title_color[2],
+            tx2,
+            ty1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            title_color[0],
+            title_color[1],
+            title_color[2],
+            tx2,
+            ty2,
+            depth,
+            1.0,
+            1.0,
+            -1.0,
+            title_color[0],
+            title_color[1],
+            title_color[2],
+            tx1,
+            ty2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            title_color[0],
+            title_color[1],
+            title_color[2],
+        ]);
+
         // Attacker panel (left side)
-        let panel_margin = 20.0;
-        let panel_width = (dialog_width - 3.0 * panel_margin) / 2.0;
-        let panel_height = 180.0;
-        let panel_y = dialog_y + 40.0;
+        let panel_margin = 30.0;
+        let panel_spacing = 20.0;
+        let panel_width = (dialog_width - 2.0 * panel_margin - panel_spacing) / 2.0;
+        let panel_height = dialog_height - title_height - 120.0; // Leave room for buttons at bottom
+        let panel_y = dialog_y + title_height + 10.0;
 
         let attacker_x = dialog_x + panel_margin;
         let ax1 = to_ndc_x(attacker_x);
@@ -1344,7 +1421,7 @@ impl Renderer {
         ]);
 
         // Defender panel (right side)
-        let defender_x = dialog_x + 2.0 * panel_margin + panel_width;
+        let defender_x = dialog_x + panel_margin + panel_width + panel_spacing;
         let dx1 = to_ndc_x(defender_x);
         let dy1 = to_ndc_y(panel_y);
         let dx2 = to_ndc_x(defender_x + panel_width);
