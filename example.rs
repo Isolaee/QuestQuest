@@ -214,6 +214,7 @@ fn demonstrate_terrain_sprites() {
                 SpriteType::Mountain => "🗻",
                 SpriteType::Swamp => "🌿",
                 SpriteType::Unit => "🔴", // Red circle for units
+                SpriteType::Item => "📦", // Box for items
             };
             print!("{} ", sprite_char);
         }

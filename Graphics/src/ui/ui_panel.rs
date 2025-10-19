@@ -4,6 +4,29 @@ use std::ffi::CString;
 
 const UI_PANEL_WIDTH: f32 = 350.0;
 
+#[derive(Debug, Clone, Copy)]
+pub struct Button {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl Button {
+    pub fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    pub fn contains(&self, px: f32, py: f32) -> bool {
+        px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct UnitDisplayInfo {
     pub name: String,
@@ -28,6 +51,9 @@ pub struct UiPanel {
     shader_program: GLuint,
     unit_info: Option<UnitDisplayInfo>,
     text_renderer: TextRenderer,
+    pickup_prompt: Option<String>,     // Item name for pickup prompt
+    pickup_yes_button: Option<Button>, // Pick up button
+    pickup_no_button: Option<Button>,  // Leave it button
 }
 
 impl UiPanel {
@@ -50,6 +76,9 @@ impl UiPanel {
             shader_program,
             unit_info: None,
             text_renderer,
+            pickup_prompt: None,
+            pickup_yes_button: None,
+            pickup_no_button: None,
         })
     }
 
@@ -212,6 +241,37 @@ impl UiPanel {
         self.unit_info = None;
     }
 
+    /// Set the pickup prompt with item name
+    pub fn set_pickup_prompt(&mut self, item_name: String) {
+        self.pickup_prompt = Some(item_name);
+        // Buttons will be created during rendering based on screen size
+    }
+
+    /// Clear the pickup prompt
+    pub fn clear_pickup_prompt(&mut self) {
+        self.pickup_prompt = None;
+        self.pickup_yes_button = None;
+        self.pickup_no_button = None;
+    }
+
+    /// Check if a click position hits the "Yes" button
+    pub fn check_yes_button_click(&self, x: f32, y: f32) -> bool {
+        if let Some(button) = &self.pickup_yes_button {
+            button.contains(x, y)
+        } else {
+            false
+        }
+    }
+
+    /// Check if a click position hits the "No" button
+    pub fn check_no_button_click(&self, x: f32, y: f32) -> bool {
+        if let Some(button) = &self.pickup_no_button {
+            button.contains(x, y)
+        } else {
+            false
+        }
+    }
+
     pub fn render(&mut self, screen_width: f32, screen_height: f32) {
         unsafe {
             // Disable depth testing for UI rendering
@@ -247,11 +307,14 @@ impl UiPanel {
             // Render equipment slots placeholders
             self.render_equipment_slots(screen_width, screen_height);
 
-            gl::BindVertexArray(0);
-        }
+            // Render pickup prompt if active (clone to avoid borrow issues)
+            if let Some(item_name) = self.pickup_prompt.clone() {
+                self.render_pickup_prompt(screen_width, screen_height, &item_name);
+            }
 
-        // Render text on top of everything else
-        unsafe {
+            gl::BindVertexArray(0);
+
+            // Render text on top of everything else
             self.render_unit_text(screen_width, screen_height);
         }
     }
@@ -561,6 +624,96 @@ impl UiPanel {
 
             self.render_box(*x, *y, slot_size, slot_size, color);
         }
+    }
+
+    unsafe fn render_pickup_prompt(
+        &mut self,
+        screen_width: f32,
+        screen_height: f32,
+        _item_name: &str,
+    ) {
+        // Render at the bottom of the UI panel (not bottom of screen)
+        let margin = 10.0;
+        let prompt_width = self.width - (margin * 2.0);
+        let prompt_x = self.x + margin;
+        // Position at bottom of UI panel
+        let prompt_y = self.y + self.height - 60.0; // Just enough height for two buttons
+
+        // Calculate button dimensions
+        let button_width = (prompt_width - 30.0) / 2.0;
+        let button_height = 50.0;
+        let button_spacing = 10.0;
+
+        // "Pick Up" button (left, green)
+        let yes_button_x = prompt_x + 10.0;
+        let button_y = prompt_y;
+
+        self.render_box(
+            yes_button_x,
+            button_y,
+            button_width,
+            button_height,
+            [0.2, 0.6, 0.2, 1.0],
+        );
+        self.render_border(
+            yes_button_x,
+            button_y,
+            button_width,
+            button_height,
+            [0.3, 1.0, 0.3, 1.0],
+        );
+
+        self.text_renderer.render_text(
+            "Pick Up",
+            yes_button_x + button_width / 2.0 - 35.0,
+            button_y + button_height / 2.0 + 5.0,
+            0.5,
+            [1.0, 1.0, 1.0, 1.0],
+            screen_width,
+            screen_height,
+        );
+
+        // "Leave It" button (right, red)
+        let no_button_x = yes_button_x + button_width + button_spacing;
+
+        self.render_box(
+            no_button_x,
+            button_y,
+            button_width,
+            button_height,
+            [0.6, 0.2, 0.2, 1.0],
+        );
+        self.render_border(
+            no_button_x,
+            button_y,
+            button_width,
+            button_height,
+            [1.0, 0.3, 0.3, 1.0],
+        );
+
+        self.text_renderer.render_text(
+            "Leave It",
+            no_button_x + button_width / 2.0 - 40.0,
+            button_y + button_height / 2.0 + 5.0,
+            0.5,
+            [1.0, 1.0, 1.0, 1.0],
+            screen_width,
+            screen_height,
+        );
+
+        // Store button positions for click detection
+        self.pickup_yes_button = Some(Button::new(
+            yes_button_x,
+            button_y,
+            button_width,
+            button_height,
+        ));
+        self.pickup_no_button = Some(Button::new(
+            no_button_x,
+            button_y,
+            button_width,
+            button_height,
+        ));
     }
 
     unsafe fn render_box(&self, x: f32, y: f32, width: f32, height: f32, color: [f32; 4]) {

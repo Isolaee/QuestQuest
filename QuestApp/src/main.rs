@@ -11,6 +11,7 @@ use graphics::{
 };
 use raw_window_handle::HasWindowHandle;
 use std::ffi::CString;
+use units::item::ItemProperties;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
@@ -35,6 +36,14 @@ struct GameApp {
     movement_range: Vec<HexCoord>,     // Available movement hexes for selected unit
     hower_debug_hex: Option<HexCoord>, // Debug: hex under cursor
     hower_debug_enabled: bool,         // Toggle for hower debug mode
+    pickup_prompt: Option<PickupPrompt>, // Item pickup prompt state
+}
+
+#[derive(Clone)]
+struct PickupPrompt {
+    unit_id: uuid::Uuid,
+    item_id: uuid::Uuid,
+    item_name: String,
 }
 
 impl GameApp {
@@ -69,6 +78,19 @@ impl GameApp {
         );
         game_world.add_unit(GameUnit::new(paladin));
 
+        // Add a test item on the ground for pickup testing
+        let test_sword = units::Item::new(
+            "Iron Sword".to_string(),
+            "A sturdy iron sword with a sharp blade.".to_string(),
+            ItemProperties::Weapon {
+                attack_bonus: 5,
+                range_modifier: 0,
+                range_type_override: None,
+            },
+        );
+        let item_pickup = InteractiveObject::new_item_pickup(HexCoord::new(1, 1), test_sword);
+        game_world.add_interactive_object(item_pickup);
+
         let app = Self {
             window: None,
             gl_context: None,
@@ -84,12 +106,42 @@ impl GameApp {
             movement_range: Vec::new(),
             hower_debug_hex: None,
             hower_debug_enabled: true, // Start with debug enabled
+            pickup_prompt: None,
         };
 
         app
     }
 
     fn handle_left_click(&mut self, x: f64, y: f64) {
+        // First check if clicking on UI buttons
+        if let Some(ui_panel) = &self.ui_panel {
+            // Check pickup prompt buttons
+            if self.pickup_prompt.is_some() {
+                if ui_panel.check_yes_button_click(x as f32, y as f32) {
+                    // Handle "Pick Up" button click
+                    if let Some(prompt) = self.pickup_prompt.take() {
+                        self.handle_item_pickup(prompt.unit_id, prompt.item_id);
+                        // Clear UI prompt
+                        if let Some(ui_panel) = &mut self.ui_panel {
+                            ui_panel.clear_pickup_prompt();
+                        }
+                    }
+                    return; // Don't process hex click
+                } else if ui_panel.check_no_button_click(x as f32, y as f32) {
+                    // Handle "Leave It" button click
+                    if let Some(prompt) = self.pickup_prompt.take() {
+                        println!("❌ Declined to pick up '{}'", prompt.item_name);
+                        // Clear UI prompt
+                        if let Some(ui_panel) = &mut self.ui_panel {
+                            ui_panel.clear_pickup_prompt();
+                        }
+                    }
+                    return; // Don't process hex click
+                }
+            }
+        }
+
+        // Process hex clicks if no button was clicked
         if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
             if let Some(unit_id) = self.selected_unit {
                 // STATE 1: Unit is already selected
@@ -98,6 +150,31 @@ impl GameApp {
                     if let Err(e) = self.game_world.move_unit(unit_id, hex_coord) {
                         println!("Failed to move unit: {}", e);
                     }
+
+                    // Check if there's an item at the destination
+                    if let Some(item_obj_id) = self.find_item_at_hex(hex_coord) {
+                        if let Some(item_obj) =
+                            self.game_world.interactive_objects.get(&item_obj_id)
+                        {
+                            if item_obj.can_interact() {
+                                let item_name = item_obj.name().to_string();
+                                // Show pickup prompt
+                                self.pickup_prompt = Some(PickupPrompt {
+                                    unit_id,
+                                    item_id: item_obj_id,
+                                    item_name: item_name.clone(),
+                                });
+
+                                // Show prompt in UI panel
+                                if let Some(ui_panel) = &mut self.ui_panel {
+                                    ui_panel.set_pickup_prompt(item_name);
+                                }
+
+                                println!("📦 Item found! Click 'Pick Up' button or press 'Y' to pick up.");
+                            }
+                        }
+                    }
+
                     self.clear_selection(); // Reset state
                 } else {
                     // Invalid move - clear selection
@@ -222,6 +299,39 @@ impl GameApp {
         None
     }
 
+    fn find_item_at_hex(&self, hex_coord: HexCoord) -> Option<uuid::Uuid> {
+        // Find if there's an interactive object (item) at the given hex coordinate
+        for (id, obj) in &self.game_world.interactive_objects {
+            if obj.position() == hex_coord {
+                return Some(*id);
+            }
+        }
+        None
+    }
+
+    fn handle_item_pickup(&mut self, unit_id: uuid::Uuid, item_id: uuid::Uuid) {
+        // Get the item from the interactive object
+        if let Some(item_obj) = self.game_world.interactive_objects.get_mut(&item_id) {
+            if let Some(item) = item_obj.take_item() {
+                // Add item to unit's inventory
+                if let Some(game_unit) = self.game_world.units.get_mut(&unit_id) {
+                    let item_name = item.name.clone();
+                    game_unit.unit_mut().add_item_to_inventory(item);
+                    println!("✅ Picked up '{}'!", item_name);
+
+                    // Remove the interactive object from the world (it's been picked up)
+                    self.game_world.remove_interactive_object(item_id);
+                } else {
+                    println!("⚠️  Unit not found!");
+                }
+            } else {
+                println!("⚠️  Item no longer available!");
+            }
+        } else {
+            println!("⚠️  Item object not found!");
+        }
+    }
+
     fn update_unit_info_display(&mut self, unit_id: uuid::Uuid) {
         if let Some(game_unit) = self.game_world.units.get(&unit_id) {
             let position = game_unit.position();
@@ -269,7 +379,7 @@ impl GameApp {
         // Clear all existing unit sprites (but keep terrain)
         for hex in self.hex_grid.hexagons.values_mut() {
             if let Some(unit_sprite) = hex.unit_sprite {
-                if unit_sprite == SpriteType::Unit {
+                if unit_sprite == SpriteType::Unit || unit_sprite == SpriteType::Item {
                     hex.set_unit_sprite(None);
                 }
             }
@@ -279,6 +389,12 @@ impl GameApp {
         for unit in self.game_world.units.values() {
             let pos = unit.position();
             self.hex_grid.set_unit_at(pos, SpriteType::Unit);
+        }
+
+        // Add items on the ground
+        for item_obj in self.game_world.interactive_objects.values() {
+            let pos = item_obj.position();
+            self.hex_grid.set_unit_at(pos, SpriteType::Item);
         }
     }
 
@@ -397,6 +513,7 @@ impl ApplicationHandler for GameApp {
 
                 println!("🎮 QuestQuest Game Window Started!");
                 println!("📍 Units: Thorin at (0,0), Legolas at (2,-1), Gimli at (-2,1)");
+                println!("🎁 Item: Iron Sword at (1,1) - available for pickup!");
                 println!("🖱️  RIGHT-CLICK on a unit to select it and show movement range");
                 println!("🖱️  LEFT-CLICK on blue hexes to move the selected unit");
                 println!("⌨️  Use arrow keys to move camera");
@@ -505,6 +622,26 @@ impl ApplicationHandler for GameApp {
                                     }
                                 }
                                 self.hower_debug_hex = None;
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyY) => {
+                            // Accept item pickup
+                            if let Some(prompt) = self.pickup_prompt.take() {
+                                self.handle_item_pickup(prompt.unit_id, prompt.item_id);
+                                // Clear UI prompt
+                                if let Some(ui_panel) = &mut self.ui_panel {
+                                    ui_panel.clear_pickup_prompt();
+                                }
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyN) => {
+                            // Decline item pickup
+                            if let Some(prompt) = self.pickup_prompt.take() {
+                                println!("❌ Declined to pick up '{}'", prompt.item_name);
+                                // Clear UI prompt
+                                if let Some(ui_panel) = &mut self.ui_panel {
+                                    ui_panel.clear_pickup_prompt();
+                                }
                             }
                         }
                         _ => {}

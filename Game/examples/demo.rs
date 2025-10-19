@@ -31,8 +31,8 @@ fn main() {
     );
 
     // Wrap them as game objects
-    let mut game_warrior = GameUnit::new(warrior_unit);
-    let mut game_archer = GameUnit::new(archer_unit);
+    let game_warrior = GameUnit::new(warrior_unit);
+    let game_archer = GameUnit::new(archer_unit);
 
     println!("⚔️ Created game units:");
     println!(
@@ -48,7 +48,7 @@ fn main() {
 
     // Add units to the world
     let warrior_id = world.add_unit(game_warrior);
-    let archer_id = world.add_unit(game_archer);
+    let _archer_id = world.add_unit(game_archer);
 
     // Create some interactive objects (item pickups)
     let sword = Item::new(
@@ -62,7 +62,7 @@ fn main() {
     );
 
     let item_pickup = InteractiveObject::new_item_pickup(HexCoord::new(1, 0), sword);
-    let item_id = world.add_interactive_object(item_pickup);
+    let _item_id = world.add_interactive_object(item_pickup);
 
     println!("💎 Created item pickup at {:?}", HexCoord::new(1, 0));
 

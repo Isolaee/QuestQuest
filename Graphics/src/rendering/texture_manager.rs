@@ -57,6 +57,52 @@ impl TextureManager {
         Ok(())
     }
 
+    /// Load all item sprites
+    ///
+    /// # Safety
+    /// Must be called with a valid OpenGL context. All OpenGL texture operations
+    /// are unsafe and require proper context management.
+    pub unsafe fn load_item_sprites(&mut self) -> Result<(), String> {
+        // Load item sprites (currently just Item/sword)
+        let item_sprites = [SpriteType::Item];
+
+        for sprite_type in item_sprites {
+            if let Some(path) = sprite_type.get_texture_path() {
+                // Try multiple possible paths
+                let paths_to_try = [
+                    path.to_string(),
+                    format!("Graphics/{}", path),
+                    format!("C:/Users/eero/Documents/QuestQuest/Graphics/{}", path),
+                ];
+
+                let mut last_error = String::new();
+                let mut texture_id = None;
+
+                for attempt_path in &paths_to_try {
+                    match self.load_texture_from_file(attempt_path) {
+                        Ok(id) => {
+                            texture_id = Some(id);
+                            break;
+                        }
+                        Err(e) => {
+                            last_error = e;
+                        }
+                    }
+                }
+
+                let texture_id = texture_id.ok_or_else(|| {
+                    format!(
+                        "Failed to load {} from any path. Last error: {}",
+                        path, last_error
+                    )
+                })?;
+
+                self.textures.insert(sprite_type, texture_id);
+            }
+        }
+        Ok(())
+    }
+
     /// Load a single texture from file
     unsafe fn load_texture_from_file(&self, path: &str) -> Result<GLuint, String> {
         // Load image using the image crate
@@ -120,6 +166,7 @@ impl TextureManager {
     }
 
     /// Binds all terrain textures to their respective texture units (0-6)
+    /// and item textures to texture unit 7
     ///
     /// # Safety
     /// Must be called with a valid OpenGL context. All textures must be loaded first.
@@ -139,6 +186,12 @@ impl TextureManager {
                 gl::ActiveTexture(gl::TEXTURE0 + i as u32);
                 gl::BindTexture(gl::TEXTURE_2D, texture_id);
             }
+        }
+
+        // Bind item texture to texture unit 7
+        if let Some(&texture_id) = self.textures.get(&SpriteType::Item) {
+            gl::ActiveTexture(gl::TEXTURE7);
+            gl::BindTexture(gl::TEXTURE_2D, texture_id);
         }
     }
 

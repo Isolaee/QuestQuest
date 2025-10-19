@@ -100,11 +100,11 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
         in vec3 Color;
         out vec4 FragColor;
         
-        uniform sampler2D textures[7];
+        uniform sampler2D textures[8];
         
         void main() {
             int texId = int(TextureId);
-            if (texId >= 0 && texId < 7) {
+            if (texId >= 0 && texId < 8) {
                 // Apply color tint to texture
                 vec4 texColor = texture(textures[texId], TexCoord);
                 FragColor = vec4(texColor.rgb * Color, texColor.a);

@@ -89,6 +89,7 @@ pub enum SpriteType {
     Mountain,     // mountain.png
     Swamp,        // swamp.png
     Unit,         // Red circle for units
+    Item,         // Gold/yellow circle for items
 }
 
 impl SpriteType {
@@ -105,6 +106,7 @@ impl SpriteType {
             SpriteType::Mountain => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
             SpriteType::Swamp => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
             SpriteType::Unit => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // No texture --- IGNORE ---
+            SpriteType::Item => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // No texture --- IGNORE ---
         }
     }
 
@@ -120,6 +122,7 @@ impl SpriteType {
             SpriteType::Mountain => Some("terrain_sprites/mountain.png"),
             SpriteType::Swamp => Some("terrain_sprites/swamp.png"),
             SpriteType::Unit => None, // We'll render this as a colored circle
+            SpriteType::Item => Some("item_sprites/sword.png"), // Sword sprite for items
         }
     }
 
@@ -135,6 +138,7 @@ impl SpriteType {
             SpriteType::Mountain => [0.6, 0.6, 0.7],     // Gray-blue
             SpriteType::Swamp => [0.3, 0.5, 0.2],        // Dark green-brown
             SpriteType::Unit => [0.9, 0.2, 0.2],         // Bright red for units
+            SpriteType::Item => [1.0, 0.84, 0.0],        // Gold/yellow for items
         }
     }
 
@@ -169,6 +173,7 @@ impl SpriteType {
             SpriteType::Mountain => 5.0,
             SpriteType::Swamp => 6.0,
             SpriteType::Unit => -1.0, // Use color rendering, not texture
+            SpriteType::Item => 7.0,  // Item texture at unit 7
         }
     }
 }
