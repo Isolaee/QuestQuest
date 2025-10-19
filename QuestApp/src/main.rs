@@ -50,7 +50,10 @@ impl GameApp {
     fn new() -> Self {
         let mut game_world = GameWorld::new(8); // World radius of 8
 
-        // Add demo units to the world using the new UnitFactory
+        // ========================================
+        // DEMO UNITS (2 units for simplicity)
+        // ========================================
+        // Player unit
         let hero = units::UnitFactory::create_unit(
             "Thorin".to_string(),
             HexCoord::new(0, 0),
@@ -60,23 +63,15 @@ impl GameApp {
         );
         game_world.add_unit(GameUnit::new(hero));
 
-        let archer = units::UnitFactory::create_unit(
-            "Legolas".to_string(),
-            HexCoord::new(2, -1),
-            units::Race::Elf,
-            units::UnitClass::Archer,
-            units::Terrain::Forest0,
+        // Enemy unit
+        let orc_warrior = units::UnitFactory::create_unit(
+            "Orc Grunt".to_string(),
+            HexCoord::new(4, 2),
+            units::Race::Orc,
+            units::UnitClass::Warrior,
+            units::Terrain::Grasslands,
         );
-        game_world.add_unit(GameUnit::new(archer));
-
-        let paladin = units::UnitFactory::create_unit(
-            "Gimli".to_string(),
-            HexCoord::new(-2, 1),
-            units::Race::Dwarf,
-            units::UnitClass::Paladin,
-            units::Terrain::Mountain,
-        );
-        game_world.add_unit(GameUnit::new(paladin));
+        game_world.add_unit(GameUnit::new(orc_warrior));
 
         // Add a test item on the ground for pickup testing
         let test_sword = items::Item::new(
@@ -542,7 +537,11 @@ impl ApplicationHandler for GameApp {
                 }
 
                 println!("🎮 QuestQuest Game Window Started!");
-                println!("📍 Units: Thorin at (0,0), Legolas at (2,-1), Gimli at (-2,1)");
+                println!();
+                println!("=== DEMO UNITS ===");
+                println!("⚔️  Thorin (Human Warrior) at (0,0) - Player Unit");
+                println!("👹 Orc Grunt (Orc Warrior) at (4,2) - Enemy Unit");
+                println!();
                 println!("🎁 Item: Iron Sword at (1,1) - available for pickup!");
                 println!();
                 println!("=== CONTROLS ===");
@@ -555,7 +554,7 @@ impl ApplicationHandler for GameApp {
                 println!("🔤 H - Toggle hover debug mode");
                 println!("🔤 G - Toggle guide display on/off");
                 println!("🔤 I - Show info for selected unit");
-                println!("🔤 ESC - Deselect unit / Close guide");
+                println!("🔤 ESC - Deselect unit / Close guide / Toggle menu");
                 println!();
                 println!("=== GUIDE ENCYCLOPEDIA (F-Keys) ===");
                 println!("📚 F1 - Combat System Guide");
