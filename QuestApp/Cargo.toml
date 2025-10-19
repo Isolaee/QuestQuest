@@ -7,6 +7,7 @@ edition = "2021"
 game = { path = "../Game" }
 graphics = { path = "../Graphics" }
 units = { path = "../Units" }
+items = { path = "../Items" }
 uuid = { version = "1.10", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

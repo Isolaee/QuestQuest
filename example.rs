@@ -1,4 +1,5 @@
 use graphics::HexCoord;
+use items::ItemProperties;
 use units::*;
 
 fn main() {
@@ -39,7 +40,7 @@ fn main() {
     let sword = Item::new(
         "Orcrist".to_string(),
         "An ancient elvish blade".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 5,
             range_modifier: 0,
             range_type_override: None,
@@ -49,7 +50,7 @@ fn main() {
     let longbow = Item::new(
         "Bow of the Galadhrim".to_string(),
         "A bow crafted in Lothlórien".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 3,
             range_modifier: 2,
             range_type_override: None,
@@ -59,7 +60,7 @@ fn main() {
     let staff = Item::new(
         "Staff of Power".to_string(),
         "A wizard's staff imbued with magic".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 2,
             range_modifier: 1,
             range_type_override: Some(RangeType::Ranged),

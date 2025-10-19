@@ -68,7 +68,7 @@ fn test_equipment_bonuses() {
     let sword = Item::new(
         "Iron Sword".to_string(),
         "A sturdy iron sword".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 3,
             range_modifier: 0,
             range_type_override: None,

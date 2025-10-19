@@ -11,6 +11,7 @@ path = "example.rs"
 [dependencies]
 graphics = { path = "Graphics" }
 units = { path = "Units" }
+items = { path = "Items" }
 game = { path = "Game" }
 
 [workspace]
@@ -18,6 +19,7 @@ members = [
     "Graphics",
     "Units",
     "Items",
+    "Combat",
     "Game",
     "QuestApp"
 ]

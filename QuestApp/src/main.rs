@@ -9,9 +9,9 @@ use graphics::math::Vec2;
 use graphics::{
     setup_dynamic_hexagons, HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitDisplayInfo,
 };
+use items::ItemProperties;
 use raw_window_handle::HasWindowHandle;
 use std::ffi::CString;
-use units::item::ItemProperties;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};

@@ -6,7 +6,7 @@ fn test_item_creation() {
     let weapon = Item::new(
         "Test Sword".to_string(),
         "A basic sword for testing".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 5,
             range_modifier: 0,
             range_type_override: None,
@@ -16,7 +16,7 @@ fn test_item_creation() {
     assert_eq!(weapon.name, "Test Sword");
     assert_eq!(weapon.description, "A basic sword for testing");
 
-    if let item::ItemProperties::Weapon { attack_bonus, .. } = weapon.properties {
+    if let ItemProperties::Weapon { attack_bonus, .. } = weapon.properties {
         assert_eq!(attack_bonus, 5);
     } else {
         panic!("Expected weapon properties");
@@ -28,13 +28,13 @@ fn test_armor_properties() {
     let armor = Item::new(
         "Chain Mail".to_string(),
         "Protective chain mail".to_string(),
-        item::ItemProperties::Armor {
+        ItemProperties::Armor {
             defense_bonus: 3,
             movement_penalty: 1,
         },
     );
 
-    if let item::ItemProperties::Armor {
+    if let ItemProperties::Armor {
         defense_bonus,
         movement_penalty,
     } = armor.properties
@@ -51,15 +51,15 @@ fn test_consumable_item() {
     let potion = Item::new(
         "Health Potion".to_string(),
         "Restores health when consumed".to_string(),
-        item::ItemProperties::Consumable {
+        ItemProperties::Consumable {
             uses: 3,
-            effect: item::ConsumableEffect::Heal { amount: 50 },
+            effect: ConsumableEffect::Heal { amount: 50 },
         },
     );
 
-    if let item::ItemProperties::Consumable { effect, uses } = potion.properties {
+    if let ItemProperties::Consumable { effect, uses } = potion.properties {
         assert_eq!(uses, 3);
-        if let item::ConsumableEffect::Heal { amount } = effect {
+        if let ConsumableEffect::Heal { amount } = effect {
             assert_eq!(amount, 50);
         } else {
             panic!("Expected health heal effect");
@@ -83,7 +83,7 @@ fn test_inventory_management() {
     let sword = Item::new(
         "Iron Sword".to_string(),
         "A sturdy iron sword".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 3,
             range_modifier: 0,
             range_type_override: None,
@@ -111,7 +111,7 @@ fn test_equipment_system() {
     let sword = Item::new(
         "Iron Sword".to_string(),
         "A sturdy iron sword".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 3,
             range_modifier: 0,
             range_type_override: None,
@@ -121,7 +121,7 @@ fn test_equipment_system() {
     let armor = Item::new(
         "Leather Armor".to_string(),
         "Basic leather protection".to_string(),
-        item::ItemProperties::Armor {
+        ItemProperties::Armor {
             defense_bonus: 2,
             movement_penalty: 0,
         },
@@ -162,9 +162,9 @@ fn test_consumable_usage() {
     let potion = Item::new(
         "Health Potion".to_string(),
         "Restores health when consumed".to_string(),
-        item::ItemProperties::Consumable {
+        ItemProperties::Consumable {
             uses: 1,
-            effect: item::ConsumableEffect::Heal { amount: 25 },
+            effect: ConsumableEffect::Heal { amount: 25 },
         },
     );
 
@@ -174,10 +174,8 @@ fn test_consumable_usage() {
     // Use the consumable (simulate manual use for now since method doesn't exist)
     // Find the potion and apply its effect
     if let Some(potion_pos) = unit.inventory.iter().position(|item| item.id == potion_id) {
-        if let item::ItemProperties::Consumable { effect, .. } =
-            &unit.inventory[potion_pos].properties
-        {
-            if let item::ConsumableEffect::Heal { amount } = effect {
+        if let ItemProperties::Consumable { effect, .. } = &unit.inventory[potion_pos].properties {
+            if let ConsumableEffect::Heal { amount } = effect {
                 unit.heal(*amount);
             }
         }
@@ -206,7 +204,7 @@ fn test_weapon_range_override() {
     let throwing_weapon = Item::new(
         "Throwing Spear".to_string(),
         "A spear that can be thrown".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 2,
             range_modifier: 1,
             range_type_override: Some(RangeType::Ranged),

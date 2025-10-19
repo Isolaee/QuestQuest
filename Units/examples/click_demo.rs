@@ -26,7 +26,7 @@ fn main() {
     let sword = Item::new(
         "Orcrist".to_string(),
         "An ancient elvish blade that glows blue when orcs are near".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 8,
             range_modifier: 0,
             range_type_override: None,
@@ -36,7 +36,7 @@ fn main() {
     let armor = Item::new(
         "Mithril Chainmail".to_string(),
         "Lightweight but incredibly strong armor made of mithril".to_string(),
-        item::ItemProperties::Armor {
+        ItemProperties::Armor {
             defense_bonus: 12,
             movement_penalty: -1, // Light armor, minimal penalty
         },
@@ -45,7 +45,7 @@ fn main() {
     let ring = Item::new(
         "Ring of Power".to_string(),
         "A magical ring that enhances the wearer's abilities".to_string(),
-        item::ItemProperties::Accessory {
+        ItemProperties::Accessory {
             attack_bonus: 2,
             defense_bonus: 2,
             health_bonus: 10,
@@ -67,9 +67,9 @@ fn main() {
     let potion = Item::new(
         "Health Potion".to_string(),
         "Restores 50 health points".to_string(),
-        item::ItemProperties::Consumable {
+        ItemProperties::Consumable {
             uses: 3,
-            effect: item::ConsumableEffect::Heal { amount: 50 },
+            effect: ConsumableEffect::Heal { amount: 50 },
         },
     );
     warrior.add_item_to_inventory(potion);

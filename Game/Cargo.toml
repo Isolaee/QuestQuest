@@ -7,6 +7,7 @@ edition = "2021"
 # Local crates
 graphics = { path = "../Graphics" }
 units = { path = "../Units" }
+items = { path = "../Items" }
 
 # External dependencies
 uuid = { version = "1.10", features = ["v4", "serde"] }

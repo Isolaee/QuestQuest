@@ -1,6 +1,6 @@
-use crate::combat::CombatStats;
 use crate::unit_class::UnitClass;
 use crate::unit_race::{Race, Terrain};
+use combat::CombatStats;
 use graphics::HexCoord;
 use items::{Equipment, Item, ItemId};
 use serde::{Deserialize, Serialize};

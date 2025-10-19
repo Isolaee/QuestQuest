@@ -42,7 +42,7 @@ fn test_combat_high_damage() {
     let weapon = Item::new(
         "Great Sword".to_string(),
         "A massive two-handed sword".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 10,
             range_modifier: 0,
             range_type_override: None,
@@ -209,7 +209,7 @@ fn test_attack_range_with_modifiers() {
     let longbow = Item::new(
         "Longbow".to_string(),
         "A bow with extended range".to_string(),
-        item::ItemProperties::Weapon {
+        ItemProperties::Weapon {
             attack_bonus: 1,
             range_modifier: 2, // +2 range
             range_type_override: None,

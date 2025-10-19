@@ -373,6 +373,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
+name = "combat"
+version = "0.1.0"
+dependencies = [
+ "items",
+ "serde",
+ "uuid",
+]
+
+[[package]]
 name = "combine"
 version = "4.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -684,6 +693,7 @@ name = "game"
 version = "0.1.0"
 dependencies = [
  "graphics",
+ "items",
  "serde",
  "units",
  "uuid",
@@ -1706,6 +1716,7 @@ dependencies = [
  "glutin",
  "glutin-winit",
  "graphics",
+ "items",
  "raw-window-handle",
  "serde",
  "serde_json",
@@ -1720,6 +1731,7 @@ version = "0.1.0"
 dependencies = [
  "game",
  "graphics",
+ "items",
  "units",
 ]
 
@@ -2304,6 +2316,7 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 name = "units"
 version = "0.1.0"
 dependencies = [
+ "combat",
  "criterion",
  "graphics",
  "items",

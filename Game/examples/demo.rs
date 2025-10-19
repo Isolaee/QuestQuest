@@ -1,6 +1,7 @@
 use game::*;
 use graphics::HexCoord;
-use units::{item::ItemProperties, Item, Race, Terrain, Unit, UnitClass};
+use items::ItemProperties;
+use units::{Item, Race, Terrain, Unit, UnitClass};
 
 fn main() {
     println!("🎮 Game Object System Demo");
