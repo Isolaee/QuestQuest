@@ -192,6 +192,7 @@ pub struct Hexagon {
     pub color: [f32; 3],
     pub sprite: SpriteType,              // Base terrain sprite
     pub unit_sprite: Option<SpriteType>, // Optional unit sprite on top
+    pub item_sprite: Option<SpriteType>, // Optional item sprite on top
     pub highlight: HighlightType,        // Highlight state
 }
 
@@ -216,6 +217,7 @@ impl Hexagon {
             color: base_color,
             sprite,
             unit_sprite: None, // No unit by default
+            item_sprite: None, // No item by default
             highlight: HighlightType::None,
         }
     }
@@ -223,6 +225,11 @@ impl Hexagon {
     // Set unit sprite (rendered on top of terrain)
     pub fn set_unit_sprite(&mut self, unit_sprite: Option<SpriteType>) {
         self.unit_sprite = unit_sprite;
+    }
+
+    // Set item sprite (rendered on top of terrain and units)
+    pub fn set_item_sprite(&mut self, item_sprite: Option<SpriteType>) {
+        self.item_sprite = item_sprite;
     }
 
     // Set terrain sprite (base layer)

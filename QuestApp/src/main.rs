@@ -376,13 +376,10 @@ impl GameApp {
 
     // Add this method to update the hex grid when units move
     fn update_hex_grid_units(&mut self) {
-        // Clear all existing unit sprites (but keep terrain)
+        // Clear existing unit and item sprites (keep terrain)
         for hex in self.hex_grid.hexagons.values_mut() {
-            if let Some(unit_sprite) = hex.unit_sprite {
-                if unit_sprite == SpriteType::Unit || unit_sprite == SpriteType::Item {
-                    hex.set_unit_sprite(None);
-                }
-            }
+            hex.set_unit_sprite(None);
+            hex.set_item_sprite(None);
         }
 
         // Add current unit positions as unit sprites on top of terrain
@@ -394,7 +391,7 @@ impl GameApp {
         // Add items on the ground
         for item_obj in self.game_world.interactive_objects.values() {
             let pos = item_obj.position();
-            self.hex_grid.set_unit_at(pos, SpriteType::Item);
+            self.hex_grid.set_item_at(pos, SpriteType::Item);
         }
     }
 

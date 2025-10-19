@@ -85,10 +85,24 @@ impl HexGrid {
         }
     }
 
+    // Set item sprite at specific coordinate (preserving terrain and unit)
+    pub fn set_item_at(&mut self, coord: HexCoord, item_sprite: SpriteType) {
+        if let Some(hex) = self.hexagons.get_mut(&coord) {
+            hex.set_item_sprite(Some(item_sprite));
+        }
+    }
+
     // Remove unit sprite at specific coordinate (preserving terrain)
     pub fn remove_unit_at(&mut self, coord: HexCoord) {
         if let Some(hex) = self.hexagons.get_mut(&coord) {
             hex.set_unit_sprite(None);
+        }
+    }
+
+    // Remove item sprite at specific coordinate (preserving terrain and unit)
+    pub fn remove_item_at(&mut self, coord: HexCoord) {
+        if let Some(hex) = self.hexagons.get_mut(&coord) {
+            hex.set_item_sprite(None);
         }
     }
 
