@@ -1,4 +1,4 @@
-use crate::combat::RangeType;
+use items::RangeType;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

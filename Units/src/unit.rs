@@ -1,8 +1,8 @@
 use crate::combat::CombatStats;
-use crate::item::{Equipment, Item, ItemId};
 use crate::unit_class::UnitClass;
 use crate::unit_race::{Race, Terrain};
 use graphics::HexCoord;
+use items::{Equipment, Item, ItemId};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -136,12 +136,12 @@ impl Unit {
         if let Some(range_override) = self.equipment.get_range_type_override() {
             self.combat_stats.range_type = range_override;
             self.combat_stats.attack_range =
-                range_override.get_range_distance() + self.equipment.get_total_range_modifier();
+                range_override.base_range() + self.equipment.get_total_range_modifier();
         } else {
             let default_range = self.class.get_default_range();
             self.combat_stats.range_type = default_range;
             self.combat_stats.attack_range =
-                default_range.get_range_distance() + self.equipment.get_total_range_modifier();
+                default_range.base_range() + self.equipment.get_total_range_modifier();
         }
 
         // Ensure minimum range of 1
@@ -367,7 +367,7 @@ impl Unit {
         println!(
             "│ Range: {} ({}){:<32} │",
             self.combat_stats.attack_range,
-            self.combat_stats.range_type.get_name(),
+            self.combat_stats.range_type.name(),
             ""
         );
 

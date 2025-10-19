@@ -16,7 +16,8 @@ game = { path = "Game" }
 [workspace]
 members = [
     "Graphics",
-    "Units", 
+    "Units",
+    "Items",
     "Game",
     "QuestApp"
 ]

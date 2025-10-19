@@ -1,6 +1,6 @@
 use crate::unit::Unit;
+use items::RangeType;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 
 #[derive(Debug, Clone)]
 pub struct CombatResult {
@@ -112,34 +112,6 @@ pub fn resolve_stack_combat(attackers: &mut Vec<Unit>, defenders: &mut Vec<Unit>
     total_result
 }
 
-/// Represents the range type of a unit's attacks
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum RangeType {
-    Melee,  // Adjacent hexes only
-    Ranged, // Multiple hex range
-    Siege,  // Long range, area effect
-}
-
-impl RangeType {
-    /// Get the maximum attack range in hexes
-    pub fn get_range_distance(self) -> i32 {
-        match self {
-            RangeType::Melee => 1,  // 1 hex away
-            RangeType::Ranged => 3, // 3 hexes away
-            RangeType::Siege => 6,  // 6 hexes away
-        }
-    }
-
-    /// Get the display name
-    pub fn get_name(self) -> &'static str {
-        match self {
-            RangeType::Melee => "Melee",
-            RangeType::Ranged => "Ranged",
-            RangeType::Siege => "Siege",
-        }
-    }
-}
-
 /// Combat statistics for a unit
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CombatStats {
@@ -168,7 +140,7 @@ impl CombatStats {
             defense,
             movement_speed,
             range_type,
-            attack_range: range_type.get_range_distance(),
+            attack_range: range_type.base_range(),
         }
     }
 
@@ -222,16 +194,6 @@ impl CombatAction {
             CombatAction::Heal { .. } => "Heal",
             CombatAction::Defend => "Defend",
             CombatAction::Skip => "Skip",
-        }
-    }
-}
-
-impl fmt::Display for RangeType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RangeType::Melee => write!(f, "Melee"),
-            RangeType::Ranged => write!(f, "Ranged"),
-            RangeType::Siege => write!(f, "Siege"),
         }
     }
 }
