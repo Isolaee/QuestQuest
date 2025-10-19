@@ -7,7 +7,8 @@ use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
 use graphics::math::Vec2;
 use graphics::{
-    setup_dynamic_hexagons, HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitDisplayInfo,
+    setup_dynamic_hexagons, GuideLibrary, HexCoord, HexGrid, HighlightType, Renderer, UiPanel,
+    UnitDisplayInfo,
 };
 use raw_window_handle::HasWindowHandle;
 use std::ffi::CString;
@@ -90,7 +91,7 @@ impl GameApp {
         let item_pickup = InteractiveObject::new_item_pickup(HexCoord::new(1, 1), test_sword);
         game_world.add_interactive_object(item_pickup);
 
-        let app = Self {
+        Self {
             window: None,
             gl_context: None,
             gl_surface: None,
@@ -106,13 +107,45 @@ impl GameApp {
             hower_debug_hex: None,
             hower_debug_enabled: true, // Start with debug enabled
             pickup_prompt: None,
-        };
-
-        app
+        }
     }
 
     fn handle_left_click(&mut self, x: f64, y: f64) {
-        // First check if clicking on UI buttons
+        // Priority 1: Check if clicking on menu buttons (highest priority)
+        if let Some(renderer) = &mut self.renderer {
+            if renderer.menu_display.active {
+                if let Some(action) = renderer.menu_display.get_button_action(x as f32, y as f32) {
+                    use graphics::MenuAction;
+                    match action {
+                        MenuAction::Continue => {
+                            renderer.menu_display.hide();
+                            println!("🎮 Menu: Closed - Continuing game");
+                        }
+                        MenuAction::Settings => {
+                            println!("⚙️  Settings: Not yet implemented");
+                        }
+                        MenuAction::Save => {
+                            println!("💾 Save Game: Not yet implemented");
+                        }
+                        MenuAction::Load => {
+                            println!("📂 Load Game: Not yet implemented");
+                        }
+                        MenuAction::ExitToMainMenu => {
+                            println!("🏠 Exit to Main Menu: Not yet implemented");
+                        }
+                        MenuAction::ExitGame => {
+                            println!("👋 Exit Game: Not yet implemented");
+                            // TODO: Implement proper exit
+                        }
+                    }
+                    return; // Don't process other clicks when menu is active
+                }
+                // If menu is active but no button was clicked, ignore the click
+                return;
+            }
+        }
+
+        // Priority 2: Check if clicking on UI buttons
         if let Some(ui_panel) = &self.ui_panel {
             // Check pickup prompt buttons
             if self.pickup_prompt.is_some() {
@@ -511,13 +544,28 @@ impl ApplicationHandler for GameApp {
                 println!("🎮 QuestQuest Game Window Started!");
                 println!("📍 Units: Thorin at (0,0), Legolas at (2,-1), Gimli at (-2,1)");
                 println!("🎁 Item: Iron Sword at (1,1) - available for pickup!");
+                println!();
+                println!("=== CONTROLS ===");
                 println!("🖱️  RIGHT-CLICK on a unit to select it and show movement range");
                 println!("🖱️  LEFT-CLICK on blue hexes to move the selected unit");
-                println!("⌨️  Use arrow keys to move camera");
-                println!("🔤 Press 'C' to show detailed unit info in console");
-                println!("🔤 Press 'H' to toggle hower debug mode (highlights hex under cursor)");
-                println!("🔤 Press ESC to deselect unit");
-                println!("🔍 hower DEBUG: Currently ENABLED - cursor highlights hexes in yellow");
+                println!("⌨️  Arrow Keys - Move camera");
+                println!();
+                println!("=== HOTKEYS ===");
+                println!("🔤 C - Show detailed unit info in console");
+                println!("🔤 H - Toggle hover debug mode");
+                println!("🔤 G - Toggle guide display on/off");
+                println!("🔤 I - Show info for selected unit");
+                println!("🔤 ESC - Deselect unit / Close guide");
+                println!();
+                println!("=== GUIDE ENCYCLOPEDIA (F-Keys) ===");
+                println!("📚 F1 - Combat System Guide");
+                println!("📚 F2 - Movement System Guide");
+                println!("� F3 - Character Classes Guide");
+                println!("📚 F4 - Character Races Guide");
+                println!("📚 F5 - Equipment System Guide");
+                println!("📚 F6 - Terrain Types Guide");
+                println!();
+                println!("🔍 Hover Debug: Currently ENABLED - cursor highlights hexes in yellow");
             }
             Err(e) => {
                 println!("Failed to create renderer: {}", e);
@@ -544,6 +592,15 @@ impl ApplicationHandler for GameApp {
             WindowEvent::CursorMoved { position, .. } => {
                 // Store cursor position for click handling
                 self.cursor_position = (position.x, position.y);
+
+                // Update menu button hover states
+                if let Some(renderer) = &mut self.renderer {
+                    if renderer.menu_display.active {
+                        renderer
+                            .menu_display
+                            .update_hover(position.x as f32, position.y as f32);
+                    }
+                }
 
                 // hower DEBUG: Highlight hex under cursor
                 self.hower(position.x, position.y);
@@ -598,7 +655,33 @@ impl ApplicationHandler for GameApp {
                             }
                         }
                         winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
-                            self.clear_selection();
+                            // Priority 1: Check if guide is open, close it
+                            let mut handled = false;
+                            if let Some(renderer) = &mut self.renderer {
+                                if renderer.guide_display.active {
+                                    renderer.guide_display.hide();
+                                    println!("📚 Guide: Closed");
+                                    handled = true;
+                                }
+                            }
+
+                            // Priority 2: Toggle menu (only if guide wasn't closed)
+                            if !handled {
+                                if let Some(renderer) = &mut self.renderer {
+                                    renderer.menu_display.toggle();
+                                    if renderer.menu_display.active {
+                                        println!("🎮 Menu: Opened (Press ESC again to close)");
+                                    } else {
+                                        println!("🎮 Menu: Closed");
+                                    }
+                                    handled = true;
+                                }
+                            }
+
+                            // Priority 3: Clear unit selection (only if nothing else was handled)
+                            if !handled {
+                                self.clear_selection();
+                            }
                         }
                         winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyH) => {
                             // Toggle hower debug mode
@@ -639,6 +722,82 @@ impl ApplicationHandler for GameApp {
                                 if let Some(ui_panel) = &mut self.ui_panel {
                                     ui_panel.clear_pickup_prompt();
                                 }
+                            }
+                        }
+                        // Guide/Encyclopedia Hotkeys (F1-F6)
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F1) => {
+                            // Show combat system guide
+                            if let Some(renderer) = &mut self.renderer {
+                                let guide = GuideLibrary::combat_system();
+                                renderer.guide_display.show(guide);
+                                println!("📚 Guide: Combat System");
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F2) => {
+                            // Show movement system guide
+                            if let Some(renderer) = &mut self.renderer {
+                                let guide = GuideLibrary::movement_system();
+                                renderer.guide_display.show(guide);
+                                println!("📚 Guide: Movement System");
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F3) => {
+                            // Show character classes guide
+                            if let Some(renderer) = &mut self.renderer {
+                                let guide = GuideLibrary::character_classes();
+                                renderer.guide_display.show(guide);
+                                println!("📚 Guide: Character Classes");
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F4) => {
+                            // Show character races guide
+                            if let Some(renderer) = &mut self.renderer {
+                                let guide = GuideLibrary::character_races();
+                                renderer.guide_display.show(guide);
+                                println!("📚 Guide: Character Races");
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F5) => {
+                            // Show equipment system guide
+                            if let Some(renderer) = &mut self.renderer {
+                                let guide = GuideLibrary::equipment_system();
+                                renderer.guide_display.show(guide);
+                                println!("📚 Guide: Equipment System");
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F6) => {
+                            // Show terrain types guide
+                            if let Some(renderer) = &mut self.renderer {
+                                let guide = GuideLibrary::terrain_types();
+                                renderer.guide_display.show(guide);
+                                println!("📚 Guide: Terrain Types");
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyG) => {
+                            // Toggle guide display (hide if already showing)
+                            if let Some(renderer) = &mut self.renderer {
+                                renderer.guide_display.toggle();
+                                if renderer.guide_display.active {
+                                    println!("📚 Guide: Shown");
+                                } else {
+                                    println!("📚 Guide: Hidden");
+                                }
+                            }
+                        }
+                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyI) => {
+                            // Show info for selected unit (class-specific guide)
+                            if let Some(unit_id) = self.selected_unit {
+                                if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                                    let class_name =
+                                        format!("{:?}", game_unit.unit().class()).to_lowercase();
+                                    if let Some(renderer) = &mut self.renderer {
+                                        let guide = GuideLibrary::unit_class_guide(&class_name);
+                                        renderer.guide_display.show(guide);
+                                        println!("📚 Guide: {} Info", class_name);
+                                    }
+                                }
+                            } else {
+                                println!("❌ No unit selected. Select a unit first!");
                             }
                         }
                         _ => {}

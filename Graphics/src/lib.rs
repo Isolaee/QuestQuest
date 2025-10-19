@@ -8,5 +8,8 @@ pub use core::{
     Camera, HexCoord, HexGrid, Hexagon, HighlightType, SpriteType, WorldHexLookupTable,
 };
 pub use math::Vec2;
-pub use rendering::{setup_dynamic_hexagons, Renderer};
+pub use rendering::{
+    setup_dynamic_hexagons, GuideBuilder, GuideDisplay, GuideEntry, GuideLibrary, MenuAction,
+    Renderer,
+};
 pub use ui::{UiPanel, UnitDisplayInfo};
