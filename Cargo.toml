@@ -9,6 +9,7 @@ name = "example"
 path = "example.rs"
 
 [dependencies]
+combat = { path = "Combat" }
 graphics = { path = "Graphics" }
 units = { path = "Units" }
 items = { path = "Items" }

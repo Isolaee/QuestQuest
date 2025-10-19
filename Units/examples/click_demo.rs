@@ -1,29 +1,26 @@
+use ::units::*;
 use graphics::HexCoord;
-use units::*;
-
-// Import the old Unit struct for this example (not yet migrated)
-use units::unit::Unit as LegacyUnit;
 
 fn main() {
     println!("🖱️  Unit Click Demo");
     println!("==================\n");
 
-    // Create a test unit
-    let mut warrior = LegacyUnit::new(
+    // Create a test unit using the new system
+    let mut warrior = UnitFactory::create_unit(
         "Thorin Ironbeard".to_string(),
         HexCoord::new(2, -1),
-        unit_race::Race::Dwarf,
-        unit_class::UnitClass::Warrior,
-        unit_race::Terrain::Mountain,
+        Race::Dwarf,
+        UnitClass::Warrior,
+        Terrain::Mountain,
     );
 
-    // Add some experience and damage for demonstration
-    warrior.experience = 150;
-    warrior.level = 2;
-    warrior.recalculate_stats();
+    // Add some experience and level up for demonstration
+    warrior.add_experience(150);
+    warrior.add_experience(250); // Should level up to level 2
 
-    // Damage the unit to show health bar
-    warrior.combat_stats.health = warrior.combat_stats.max_health / 3; // 1/3 health remaining
+    // Damage the unit to show health in different states
+    let max_health = warrior.combat_stats().max_health;
+    warrior.take_damage((max_health * 2 / 3) as u32); // Take 2/3 damage, leaving 1/3 health
 
     // Create some equipment
     let sword = Item::new(
@@ -91,14 +88,14 @@ fn main() {
     println!("\n\n🖱️  Second Unit (Full Health)");
     println!("════════════════════════════════\n");
 
-    let mut archer = LegacyUnit::new(
+    let mut archer = UnitFactory::create_unit(
         "Legolas Greenleaf".to_string(),
         HexCoord::new(0, 3),
-        unit_race::Race::Elf,
-        unit_class::UnitClass::Archer,
-        unit_race::Terrain::Forest0,
+        Race::Elf,
+        UnitClass::Archer,
+        Terrain::Forest0,
     );
 
-    archer.experience = 250; // Ready to level up
+    archer.add_experience(250); // Add experience
     archer.on_click();
 }

@@ -27,15 +27,19 @@ fn main() {
         Terrain::Forest0,
     );
 
-    let mage = UnitFactory::create_unit_with_level(
+    let mut mage = UnitFactory::create_unit(
         "Gandalf the Grey".to_string(),
         HexCoord::new(-2, 3),
         Race::Human,
         UnitClass::Mage,
-        5,   // level
-        500, // experience
         Terrain::Grasslands,
     );
+
+    // Level up the mage manually
+    for _ in 0..4 {
+        mage.add_experience(100); // Level up 4 times to reach level 5
+    }
+    mage.add_experience(100); // Add extra XP
 
     // Display unit information using trait methods
     println!("⚔️ CREATED UNITS:");

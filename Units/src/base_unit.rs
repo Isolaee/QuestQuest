@@ -48,17 +48,17 @@ impl BaseUnit {
         terrain: Terrain,
     ) -> Self {
         let base_health = class.get_base_health();
-        let base_attack = class.get_attack_bonus() + race.get_attack_bonus();
-        let base_defense = class.get_defense_bonus();
+        let base_attack = class.get_base_attack();
         let base_movement = class.get_movement_speed() + race.get_movement_bonus();
-        let range_type = class.get_default_range();
+        let range_category = class.get_default_range();
+        let resistances = class.get_resistances();
 
         let combat_stats = CombatStats::new(
             base_health,
             base_attack,
-            base_defense,
             base_movement,
-            range_type,
+            range_category,
+            resistances,
         );
 
         Self {
@@ -72,8 +72,8 @@ impl BaseUnit {
             combat_stats,
             equipment: Equipment::new(),
             inventory: Vec::new(),
-            cached_defense: base_defense,
-            cached_attack: base_attack,
+            cached_defense: 0, // No longer used
+            cached_attack: base_attack as i32,
             cached_movement: base_movement,
             cached_max_health: base_health,
             current_terrain: terrain,
@@ -98,33 +98,29 @@ impl BaseUnit {
 
     /// Recalculate all derived stats based on base stats, equipment, and level
     pub fn recalculate_stats(&mut self) {
-        // Base stats from race and class
+        // Base stats from class
         let base_health = self.class.get_base_health();
-        let base_attack = self.class.get_attack_bonus() + self.race.get_attack_bonus();
-        let base_defense = self.class.get_defense_bonus();
+        let base_attack = self.class.get_base_attack();
         let base_movement = self.class.get_movement_speed() + self.race.get_movement_bonus();
 
         // Level bonuses (each level adds small bonuses)
         let level_health_bonus = (self.level - 1) * 5;
         let level_attack_bonus = (self.level - 1) / 2; // Every 2 levels
-        let level_defense_bonus = (self.level - 1) / 3; // Every 3 levels
 
         // Equipment bonuses
         let equipment_attack = self.equipment.get_total_attack_bonus();
-        let equipment_defense = self.equipment.get_total_defense_bonus();
         let equipment_movement = self.equipment.get_total_movement_modifier();
         let equipment_health = self.equipment.get_total_health_bonus();
 
         // Calculate final stats
-        self.cached_attack = base_attack + level_attack_bonus + equipment_attack;
-        self.cached_defense = base_defense + level_defense_bonus + equipment_defense;
+        self.cached_attack = (base_attack as i32) + level_attack_bonus + equipment_attack;
         self.cached_movement = (base_movement + equipment_movement).max(1);
         self.cached_max_health = base_health + level_health_bonus + equipment_health;
 
         // Update combat stats
         let current_health_percentage = self.combat_stats.health_percentage();
-        self.combat_stats.attack = self.cached_attack;
-        self.combat_stats.defense = self.cached_defense;
+        self.combat_stats.base_attack = base_attack + (level_attack_bonus as u32);
+        self.combat_stats.attack_modifier = equipment_attack;
         self.combat_stats.movement_speed = self.cached_movement;
         self.combat_stats.max_health = self.cached_max_health;
 
@@ -132,20 +128,24 @@ impl BaseUnit {
         self.combat_stats.health =
             (self.cached_max_health as f32 * current_health_percentage) as i32;
 
-        // Update range type from equipment if overridden
-        if let Some(range_override) = self.equipment.get_range_type_override() {
-            self.combat_stats.range_type = range_override;
-            self.combat_stats.attack_range =
-                range_override.base_range() + self.equipment.get_total_range_modifier();
+        // Update range from equipment if overridden
+        if let Some(_range_override) = self.equipment.get_range_type_override() {
+            // Range type override from equipment
+            self.combat_stats.attack_range = self.combat_stats.range_category.base_range()
+                + self.equipment.get_total_range_modifier();
         } else {
             let default_range = self.class.get_default_range();
-            self.combat_stats.range_type = default_range;
+            self.combat_stats.range_category = default_range;
             self.combat_stats.attack_range =
                 default_range.base_range() + self.equipment.get_total_range_modifier();
         }
 
         // Ensure minimum range of 1
         self.combat_stats.attack_range = self.combat_stats.attack_range.max(1);
+
+        // Update terrain hit chance based on race and current terrain
+        let hit_chance = self.race.get_terrain_hit_chance(self.current_terrain);
+        self.combat_stats.set_terrain_hit_chance(hit_chance);
     }
 
     /// Get all hexagonal coordinates within movement range

@@ -377,6 +377,7 @@ name = "combat"
 version = "0.1.0"
 dependencies = [
  "items",
+ "rand",
  "serde",
  "uuid",
 ]
@@ -1729,6 +1730,7 @@ dependencies = [
 name = "questquest"
 version = "0.1.0"
 dependencies = [
+ "combat",
  "game",
  "graphics",
  "items",
@@ -2320,6 +2322,7 @@ dependencies = [
  "criterion",
  "graphics",
  "items",
+ "rand",
  "serde",
  "uuid",
 ]

@@ -1,6 +1,6 @@
 use crate::unit_class::UnitClass;
 use crate::unit_race::{Race, Terrain};
-use combat::{CombatResult, CombatStats};
+use combat::CombatStats;
 use graphics::HexCoord;
 use items::{Equipment, Item, ItemId};
 use uuid::Uuid;
@@ -9,7 +9,7 @@ use uuid::Uuid;
 pub type UnitId = Uuid;
 
 /// Core trait that all units must implement
-/// Units can attack, defend, move, and manage inventory
+/// Units can move and manage inventory. Combat is handled by combat stats.
 pub trait Unit {
     // ===== Identity =====
 
@@ -30,12 +30,6 @@ pub trait Unit {
 
     // ===== Combat Methods =====
 
-    /// Attack another unit
-    fn attack(&mut self, target: &mut dyn Unit) -> CombatResult;
-
-    /// Defend against incoming damage, returns actual damage taken
-    fn defend(&mut self, incoming_damage: i32) -> i32;
-
     /// Move to a new position, returns true if successful
     fn move_to(&mut self, position: HexCoord) -> bool;
 
@@ -46,12 +40,6 @@ pub trait Unit {
 
     /// Get mutable reference to combat stats
     fn combat_stats_mut(&mut self) -> &mut CombatStats;
-
-    /// Get cached attack value
-    fn get_attack_power(&self) -> u32;
-
-    /// Get cached defense value based on terrain
-    fn get_defense(&self) -> u8;
 
     // ===== Equipment & Inventory =====
 
@@ -117,9 +105,6 @@ pub trait Unit {
 
     /// Get all hexagonal coordinates within movement range
     fn get_movement_range(&self) -> Vec<HexCoord>;
-
-    /// Calculate damage this unit would deal to a target
-    fn calculate_damage_to(&self, target: &dyn Unit) -> i32;
 
     /// Take damage
     fn take_damage(&mut self, damage: u32);

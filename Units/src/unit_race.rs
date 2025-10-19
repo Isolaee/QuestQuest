@@ -203,6 +203,15 @@ impl Race {
         }
     }
 
+    /// Get terrain-based hit chance for attacks (0-100%)
+    /// Higher value means easier to hit
+    /// This is based on the get_base_defense values - returning as hit chance
+    pub fn get_terrain_hit_chance(self, terrain: Terrain) -> u8 {
+        // The get_base_defense returns "how hard to hit" percentage
+        // We use it directly as hit chance (lower defense = harder to hit = lower hit chance)
+        self.get_base_defense(terrain)
+    }
+
     /// Get racial attack bonus modifier
     pub fn get_attack_bonus(self) -> i32 {
         match self {

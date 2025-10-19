@@ -1,7 +1,9 @@
 use crate::base_unit::BaseUnit;
 use crate::unit_class::UnitClass;
-use crate::unit_race::{Race, Terrain};
+use crate::unit_race::Race;
+use crate::unit_race::Terrain;
 use crate::unit_trait::Unit;
+use crate::units::*;
 use graphics::HexCoord;
 
 /// Factory for creating unit instances based on race and class combinations
@@ -17,34 +19,34 @@ impl UnitFactory {
         class: UnitClass,
         terrain: Terrain,
     ) -> Box<dyn Unit> {
-        // TODO: Implement concrete unit types for each race/class combination
-        // For now, we'll use a temporary implementation that returns BaseUnit wrapped
-        // This will be replaced with concrete implementations like HumanWarrior, ElfArcher, etc.
-        Box::new(GenericUnit::new(name, position, race, class, terrain))
-    }
+        match (race, class) {
+            // Human units
+            (Race::Human, UnitClass::Warrior) => {
+                Box::new(HumanWarrior::new(name, position, terrain))
+            }
+            (Race::Human, UnitClass::Archer) => Box::new(HumanArcher::new(name, position, terrain)),
+            (Race::Human, UnitClass::Mage) => Box::new(HumanMage::new(name, position, terrain)),
 
-    /// Create a unit with specific level and experience
-    pub fn create_unit_with_level(
-        name: String,
-        position: HexCoord,
-        race: Race,
-        class: UnitClass,
-        level: i32,
-        experience: i32,
-        terrain: Terrain,
-    ) -> Box<dyn Unit> {
-        // TODO: Implement concrete unit types with level
-        let mut unit = GenericUnit::new(name, position, race, class, terrain);
-        unit.base.level = level.max(1);
-        unit.base.experience = experience.max(0);
-        unit.base.recalculate_stats();
-        Box::new(unit)
+            // Elf units
+            (Race::Elf, UnitClass::Warrior) => Box::new(ElfWarrior::new(name, position, terrain)),
+            (Race::Elf, UnitClass::Archer) => Box::new(ElfArcher::new(name, position, terrain)),
+            (Race::Elf, UnitClass::Mage) => Box::new(ElfMage::new(name, position, terrain)),
+
+            // Dwarf units
+            (Race::Dwarf, UnitClass::Warrior) => {
+                Box::new(DwarfWarrior::new(name, position, terrain))
+            }
+            (Race::Dwarf, UnitClass::Archer) => Box::new(DwarfArcher::new(name, position, terrain)),
+            (Race::Dwarf, UnitClass::Mage) => Box::new(DwarfMage::new(name, position, terrain)),
+
+            // For other race/class combinations, create a generic unit for now
+            _ => Box::new(GenericUnit::new(name, position, race, class, terrain)),
+        }
     }
 }
 
-/// Temporary generic unit implementation
-/// This will be replaced by concrete implementations like HumanWarrior, ElfArcher, etc.
-/// in the next phase of development
+/// Temporary generic unit implementation for unsupported race/class combinations
+/// This will be replaced by concrete implementations as they are developed
 struct GenericUnit {
     base: BaseUnit,
 }
@@ -84,25 +86,6 @@ impl Unit for GenericUnit {
         self.base.class
     }
 
-    fn attack(&mut self, _target: &mut dyn Unit) -> combat::CombatResult {
-        // For generic implementation, we need to temporarily work around
-        // the trait object issue. This will be properly implemented in concrete types.
-        combat::CombatResult {
-            attacker_damage_dealt: self.get_attack_power(),
-            defender_damage_dealt: 0,
-            attacker_hit: true,
-            defender_hit: false,
-            attacker_casualties: 0,
-            defender_casualties: 0,
-        }
-    }
-
-    fn defend(&mut self, incoming_damage: i32) -> i32 {
-        let actual_damage = (incoming_damage - self.base.cached_defense).max(1);
-        self.base.combat_stats.take_damage(actual_damage);
-        actual_damage
-    }
-
     fn move_to(&mut self, position: HexCoord) -> bool {
         if self.can_move_to(position) {
             self.base.position = position;
@@ -118,14 +101,6 @@ impl Unit for GenericUnit {
 
     fn combat_stats_mut(&mut self) -> &mut combat::CombatStats {
         &mut self.base.combat_stats
-    }
-
-    fn get_attack_power(&self) -> u32 {
-        self.base.cached_attack.max(0) as u32
-    }
-
-    fn get_defense(&self) -> u8 {
-        self.base.race.get_base_defense(self.base.current_terrain)
     }
 
     fn equipment(&self) -> &items::Equipment {
@@ -255,12 +230,6 @@ impl Unit for GenericUnit {
         self.base.get_movement_range()
     }
 
-    fn calculate_damage_to(&self, target: &dyn Unit) -> i32 {
-        self.base
-            .combat_stats
-            .calculate_damage(target.combat_stats())
-    }
-
     fn take_damage(&mut self, damage: u32) {
         self.base.combat_stats.take_damage(damage as i32);
     }
@@ -279,7 +248,7 @@ impl Unit for GenericUnit {
 
     fn get_info(&self) -> String {
         format!(
-            "{} (Level {} {} {})\nPos: {:?}\nHP: {}/{}\nAtk: {} | Def: {} | Mov: {}\nExp: {} ({:.1}% to next)\nItems: {} equipped, {} in inventory",
+            "{} (Level {} {} {})\nPos: {:?}\nHP: {}/{}\nAtk: {} | Mov: {}\nExp: {} ({:.1}% to next)\nItems: {} equipped, {} in inventory",
             self.base.name,
             self.base.level,
             self.base.race.get_name(),
@@ -287,8 +256,7 @@ impl Unit for GenericUnit {
             self.base.position,
             self.base.combat_stats.health,
             self.base.combat_stats.max_health,
-            self.base.combat_stats.attack,
-            self.base.combat_stats.defense,
+            self.base.combat_stats.get_total_attack(),
             self.base.combat_stats.movement_speed,
             self.base.experience,
             self.level_progress() * 100.0,
@@ -328,12 +296,15 @@ impl Unit for GenericUnit {
 
         println!("│ Health: {}/{} {:<25} │", current_hp, max_hp, health_bar);
         println!("│ Attack: {:<41} │", self.base.cached_attack);
-        println!("│ Defense: {:<40} │", self.base.cached_defense);
         println!("│ Movement: {:<39} │", self.base.cached_movement);
         println!(
             "│ Range: {} ({}){:<32} │",
             self.base.combat_stats.attack_range,
-            self.base.combat_stats.range_type.name(),
+            match self.base.combat_stats.range_category {
+                combat::RangeCategory::Melee => "Melee",
+                combat::RangeCategory::Range => "Range",
+                combat::RangeCategory::Siege => "Siege",
+            },
             ""
         );
 
@@ -342,13 +313,12 @@ impl Unit for GenericUnit {
 
     fn display_quick_info(&self) {
         println!(
-            "📋 {} | Lv.{} | HP:{}/{} | ATK:{} | DEF:{} | POS:{:?}",
+            "📋 {} | Lv.{} | HP:{}/{} | ATK:{} | POS:{:?}",
             self.base.name,
             self.base.level,
             self.base.combat_stats.health,
             self.base.combat_stats.max_health,
             self.base.cached_attack,
-            self.base.cached_defense,
             self.base.position
         );
     }

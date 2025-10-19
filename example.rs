@@ -1,6 +1,10 @@
+use combat::resolve_combat;
 use graphics::HexCoord;
-use items::ItemProperties;
-use units::*;
+use items::{Item, ItemProperties, RangeType};
+use units::unit_class::UnitClass;
+use units::unit_factory::UnitFactory;
+use units::unit_race::{Race, Terrain};
+use units::unit_trait::Unit;
 
 fn main() {
     println!("🎮 QuestQuest: Hexagonal Game Engine Demo");
@@ -103,9 +107,21 @@ fn main() {
     );
 
     if archer.can_attack(warrior_pos) {
-        let damage = archer.calculate_damage_to(&*warrior);
-        println!("Archer shoots at Warrior for {} damage!", damage);
-        warrior.take_damage(damage as u32);
+        let damage_type = archer.class().get_default_damage_type();
+        let result = resolve_combat(
+            archer.combat_stats_mut(),
+            warrior.combat_stats_mut(),
+            damage_type,
+        );
+
+        if result.attacker_hit {
+            println!(
+                "Archer shoots at Warrior for {} damage!",
+                result.attacker_damage_dealt
+            );
+        } else {
+            println!("Archer's shot missed!");
+        }
     }
 
     println!(
@@ -122,9 +138,21 @@ fn main() {
         println!("Warrior moved to {:?}", warrior.position());
 
         if warrior.can_attack(mage_pos) {
-            let damage = warrior.calculate_damage_to(&*mage);
-            println!("Warrior attacks Mage for {} damage!", damage);
-            mage.take_damage(damage as u32);
+            let damage_type = warrior.class().get_default_damage_type();
+            let result = resolve_combat(
+                warrior.combat_stats_mut(),
+                mage.combat_stats_mut(),
+                damage_type,
+            );
+
+            if result.attacker_hit {
+                println!(
+                    "Warrior attacks Mage for {} damage!",
+                    result.attacker_damage_dealt
+                );
+            } else {
+                println!("Warrior's attack missed!");
+            }
         }
     }
 
@@ -253,14 +281,13 @@ fn print_unit_status(unit: &dyn Unit) {
         unit.class()
     );
     println!(
-        "   Position: {:?} | Health: {}/{} | Attack: {} | Defense: {} | Range: {} ({:?})",
+        "   Position: {:?} | Health: {}/{} | Attack: {} | Range: {} ({:?})",
         unit.position(),
         stats.health,
         stats.max_health,
-        stats.attack,
-        stats.defense,
+        stats.get_total_attack(),
         stats.attack_range,
-        stats.range_type
+        stats.range_category
     );
     println!(
         "   Movement: {} | Weapon: {} | XP: {}",
