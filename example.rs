@@ -6,8 +6,8 @@ fn main() {
     println!("🎮 QuestQuest: Hexagonal Game Engine Demo");
     println!("==========================================\n");
 
-    // Create some units on a hexagonal grid
-    let mut warrior = Unit::new(
+    // Create some units on a hexagonal grid using UnitFactory
+    let mut warrior = UnitFactory::create_unit(
         "Thorin the Bold".to_string(),
         HexCoord::new(0, 0),
         Race::Dwarf,
@@ -15,7 +15,7 @@ fn main() {
         Terrain::Mountain,
     );
 
-    let mut archer = Unit::new(
+    let mut archer = UnitFactory::create_unit(
         "Legolas Greenleaf".to_string(),
         HexCoord::new(3, -2),
         Race::Elf,
@@ -23,7 +23,7 @@ fn main() {
         Terrain::Forest0,
     );
 
-    let mut mage = Unit::new(
+    let mut mage = UnitFactory::create_unit(
         "Gandalf the Grey".to_string(),
         HexCoord::new(-2, 3),
         Race::Human,
@@ -32,9 +32,9 @@ fn main() {
     );
 
     println!("⚔️ INITIAL UNITS:");
-    print_unit_status(&warrior);
-    print_unit_status(&archer);
-    print_unit_status(&mage);
+    print_unit_status(&*warrior);
+    print_unit_status(&*archer);
+    print_unit_status(&*mage);
 
     // Create some equipment
     let sword = Item::new(
@@ -81,17 +81,17 @@ fn main() {
     mage.equip_item(staff_id).unwrap();
 
     println!("\n🛡️ AFTER EQUIPPING WEAPONS:");
-    print_unit_status(&warrior);
-    print_unit_status(&archer);
-    print_unit_status(&mage);
+    print_unit_status(&*warrior);
+    print_unit_status(&*archer);
+    print_unit_status(&*mage);
 
     // Simulate some combat
     println!("\n⚔️ COMBAT SIMULATION:");
 
     // Check if units can attack each other
-    let archer_pos = archer.position;
-    let warrior_pos = warrior.position;
-    let mage_pos = mage.position;
+    let archer_pos = archer.position();
+    let warrior_pos = warrior.position();
+    let mage_pos = mage.position();
 
     println!(
         "Distance from Archer to Warrior: {}",
@@ -103,7 +103,7 @@ fn main() {
     );
 
     if archer.can_attack(warrior_pos) {
-        let damage = archer.calculate_damage_to(&warrior);
+        let damage = archer.calculate_damage_to(&*warrior);
         println!("Archer shoots at Warrior for {} damage!", damage);
         warrior.take_damage(damage as u32);
     }
@@ -119,10 +119,10 @@ fn main() {
         // Move warrior closer
         let new_pos = HexCoord::new(-1, 2);
         warrior.move_to(new_pos);
-        println!("Warrior moved to {:?}", warrior.position);
+        println!("Warrior moved to {:?}", warrior.position());
 
         if warrior.can_attack(mage_pos) {
-            let damage = warrior.calculate_damage_to(&mage);
+            let damage = warrior.calculate_damage_to(&*mage);
             println!("Warrior attacks Mage for {} damage!", damage);
             mage.take_damage(damage as u32);
         }
@@ -133,31 +133,39 @@ fn main() {
     println!("Giving experience to all units...");
 
     if warrior.add_experience(100) {
-        println!("🎉 {} leveled up to level {}!", warrior.name, warrior.level);
+        println!(
+            "🎉 {} leveled up to level {}!",
+            warrior.name(),
+            warrior.level()
+        );
     }
 
     if archer.add_experience(100) {
-        println!("🎉 {} leveled up to level {}!", archer.name, archer.level);
+        println!(
+            "🎉 {} leveled up to level {}!",
+            archer.name(),
+            archer.level()
+        );
     }
 
     if mage.add_experience(100) {
-        println!("🎉 {} leveled up to level {}!", mage.name, mage.level);
+        println!("🎉 {} leveled up to level {}!", mage.name(), mage.level());
     }
 
     println!("\n🏆 FINAL STATUS:");
-    print_unit_status(&warrior);
-    print_unit_status(&archer);
-    print_unit_status(&mage);
+    print_unit_status(&*warrior);
+    print_unit_status(&*archer);
+    print_unit_status(&*mage);
 
     // Demonstrate hexagonal coordinates
     println!("\n🗺️ HEXAGONAL GRID DEMONSTRATION:");
     println!("Current positions:");
-    println!("  {}: {:?}", warrior.name, warrior.position);
-    println!("  {}: {:?}", archer.name, archer.position);
-    println!("  {}: {:?}", mage.name, mage.position);
+    println!("  {}: {:?}", warrior.name(), warrior.position());
+    println!("  {}: {:?}", archer.name(), archer.position());
+    println!("  {}: {:?}", mage.name(), mage.position());
 
     println!("\nNeighbors of Warrior's position:");
-    for (i, neighbor) in warrior.position.neighbors().iter().enumerate() {
+    for (i, neighbor) in warrior.position().neighbors().iter().enumerate() {
         println!("  Direction {}: {:?}", i, neighbor);
     }
 
@@ -173,7 +181,7 @@ fn main() {
 
     println!("Distance from Warrior to nearby hexes:");
     for coord in test_coords {
-        let distance = warrior.position.distance(coord);
+        let distance = warrior.position().distance(coord);
         println!("  {:?} -> distance: {}", coord, distance);
     }
 
@@ -228,31 +236,37 @@ fn demonstrate_terrain_sprites() {
     println!("  🗻 = Mountain     🌿 = Swamp");
 }
 
-fn print_unit_status(unit: &Unit) {
-    let weapon_name = unit
-        .equipment
+fn print_unit_status(unit: &dyn Unit) {
+    let equipment = unit.equipment();
+    let weapon_name = equipment
         .weapon
         .as_ref()
         .map(|w| w.name.as_str())
         .unwrap_or("None");
 
+    let stats = unit.combat_stats();
     println!(
-        "📋 {} (Lv.{} {} {}):",
-        unit.name, unit.level, unit.race, unit.class
+        "📋 {} (Lv.{} {:?} {:?}):",
+        unit.name(),
+        unit.level(),
+        unit.race(),
+        unit.class()
     );
     println!(
-        "   Position: {:?} | Health: {}/{} | Attack: {} | Defense: {} | Range: {} ({})",
-        unit.position,
-        unit.combat_stats.health,
-        unit.combat_stats.max_health,
-        unit.combat_stats.attack,
-        unit.combat_stats.defense,
-        unit.combat_stats.attack_range,
-        unit.combat_stats.range_type
+        "   Position: {:?} | Health: {}/{} | Attack: {} | Defense: {} | Range: {} ({:?})",
+        unit.position(),
+        stats.health,
+        stats.max_health,
+        stats.attack,
+        stats.defense,
+        stats.attack_range,
+        stats.range_type
     );
     println!(
-        "   Movement: {} | Weapon: {} | Exp: {}",
-        unit.combat_stats.movement_speed, weapon_name, unit.experience
+        "   Movement: {} | Weapon: {} | XP: {}",
+        stats.movement_speed,
+        weapon_name,
+        unit.experience()
     );
     println!();
 }

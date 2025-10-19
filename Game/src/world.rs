@@ -1,11 +1,10 @@
 use crate::objects::*;
 use graphics::{HexCoord, SpriteType};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Game world that manages all game objects
-#[derive(Debug, Serialize, Deserialize)]
+/// Note: Cannot derive Serialize/Deserialize because GameUnit contains trait objects
 pub struct GameWorld {
     /// All terrain tiles in the world
     pub terrain: HashMap<HexCoord, TerrainTile>,

@@ -1,10 +1,13 @@
 use graphics::HexCoord;
 use units::*;
 
+// Import the old Unit struct for these tests (not yet migrated)
+use units::unit::Unit as LegacyUnit;
+
 #[test]
 fn test_unit_creation() {
     let position = HexCoord::new(0, 0);
-    let unit = Unit::new(
+    let unit = UnitFactory::create_unit(
         "Test Warrior".to_string(),
         position,
         Race::Human,
@@ -12,34 +15,39 @@ fn test_unit_creation() {
         Terrain::Grasslands,
     );
 
-    assert_eq!(unit.name, "Test Warrior");
-    assert_eq!(unit.position, position);
-    assert_eq!(unit.race, Race::Human);
-    assert_eq!(unit.class, UnitClass::Warrior);
-    assert_eq!(unit.level, 1);
-    assert_eq!(unit.experience, 0);
+    assert_eq!(unit.name(), "Test Warrior");
+    assert_eq!(unit.position(), position);
+    assert_eq!(unit.race(), Race::Human);
+    assert_eq!(unit.class(), UnitClass::Warrior);
+    assert_eq!(unit.level(), 1);
+    assert_eq!(unit.experience(), 0);
     assert!(unit.is_alive());
 }
 
 #[test]
 fn test_unit_builder() {
     let position = HexCoord::new(1, 1);
-    let unit = units::unit::UnitBuilder::new("Built Unit", position, Race::Elf, UnitClass::Archer)
-        .with_level(3)
-        .with_experience(500)
-        .build();
+    let unit = UnitFactory::create_unit_with_level(
+        "Built Unit".to_string(),
+        position,
+        Race::Elf,
+        UnitClass::Archer,
+        3,   // level
+        500, // experience
+        Terrain::Forest0,
+    );
 
-    assert_eq!(unit.name, "Built Unit");
-    assert_eq!(unit.level, 3);
-    assert_eq!(unit.experience, 500);
-    assert_eq!(unit.race, Race::Elf);
-    assert_eq!(unit.class, UnitClass::Archer);
+    assert_eq!(unit.name(), "Built Unit");
+    assert_eq!(unit.level(), 3);
+    assert_eq!(unit.experience(), 500);
+    assert_eq!(unit.race(), Race::Elf);
+    assert_eq!(unit.class(), UnitClass::Archer);
 }
 
 #[test]
 fn test_combat_stats_calculation() {
     let position = HexCoord::new(0, 0);
-    let unit = Unit::new(
+    let unit = UnitFactory::create_unit(
         "Fighter".to_string(),
         position,
         Race::Dwarf,        // +2 defense, +0 attack
@@ -49,14 +57,15 @@ fn test_combat_stats_calculation() {
 
     // Dwarf Warrior should have base attack (2+0=2)
     // Defense is now terrain-based: Dwarf in Grasslands = 54% hit chance
-    assert_eq!(unit.combat_stats.attack, 2);
+    let stats = unit.combat_stats();
+    assert_eq!(stats.attack, 2);
     assert_eq!(unit.get_defense(), 54); // Terrain-based defense
 }
 
 #[test]
 fn test_equipment_bonuses() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Equipped Fighter".to_string(),
         position,
         Race::Human,
@@ -86,7 +95,7 @@ fn test_equipment_bonuses() {
 #[test]
 fn test_experience_and_leveling() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Leveling Unit".to_string(),
         position,
         Race::Human,
@@ -108,7 +117,7 @@ fn test_experience_and_leveling() {
 #[test]
 fn test_movement_validation() {
     let start_pos = HexCoord::new(0, 0);
-    let unit = Unit::new(
+    let unit = LegacyUnit::new(
         "Mover".to_string(),
         start_pos,
         Race::Human,
@@ -132,7 +141,7 @@ fn test_attack_range() {
     let position = HexCoord::new(0, 0);
 
     // Melee unit
-    let warrior = Unit::new(
+    let warrior = LegacyUnit::new(
         "Warrior".to_string(),
         position,
         Race::Human,
@@ -145,7 +154,7 @@ fn test_attack_range() {
     assert!(!warrior.can_attack(HexCoord::new(2, 0))); // 2 hexes away
 
     // Ranged unit
-    let archer = Unit::new(
+    let archer = LegacyUnit::new(
         "Archer".to_string(),
         position,
         Race::Human,
@@ -161,7 +170,7 @@ fn test_attack_range() {
 #[test]
 fn test_damage_calculation() {
     let position = HexCoord::new(0, 0);
-    let attacker = Unit::new(
+    let attacker = LegacyUnit::new(
         "Attacker".to_string(),
         position,
         Race::Orc,          // +2 attack
@@ -169,7 +178,7 @@ fn test_damage_calculation() {
         Terrain::Grasslands,
     );
 
-    let defender = Unit::new(
+    let defender = LegacyUnit::new(
         "Defender".to_string(),
         HexCoord::new(1, 0),
         Race::Dwarf,        // +2 defense

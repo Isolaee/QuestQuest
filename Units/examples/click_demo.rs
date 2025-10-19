@@ -1,12 +1,15 @@
 use graphics::HexCoord;
 use units::*;
 
+// Import the old Unit struct for this example (not yet migrated)
+use units::unit::Unit as LegacyUnit;
+
 fn main() {
     println!("🖱️  Unit Click Demo");
     println!("==================\n");
 
     // Create a test unit
-    let mut warrior = Unit::new(
+    let mut warrior = LegacyUnit::new(
         "Thorin Ironbeard".to_string(),
         HexCoord::new(2, -1),
         unit_race::Race::Dwarf,
@@ -88,7 +91,7 @@ fn main() {
     println!("\n\n🖱️  Second Unit (Full Health)");
     println!("════════════════════════════════\n");
 
-    let mut archer = Unit::new(
+    let mut archer = LegacyUnit::new(
         "Legolas Greenleaf".to_string(),
         HexCoord::new(0, 3),
         unit_race::Race::Elf,

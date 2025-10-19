@@ -1,10 +1,13 @@
 use graphics::HexCoord;
 use units::*;
 
+// Import the old Unit struct for these tests (not yet migrated)
+use units::unit::Unit as LegacyUnit;
+
 #[test]
 fn test_combat_damage_calculation() {
     let position = HexCoord::new(0, 0);
-    let attacker = Unit::new(
+    let attacker = LegacyUnit::new(
         "Attacker".to_string(),
         position,
         Race::Orc,          // +2 attack
@@ -12,7 +15,7 @@ fn test_combat_damage_calculation() {
         Terrain::Grasslands,
     );
 
-    let defender = Unit::new(
+    let defender = LegacyUnit::new(
         "Defender".to_string(),
         HexCoord::new(1, 0),
         Race::Dwarf,        // +2 defense
@@ -30,7 +33,7 @@ fn test_combat_damage_calculation() {
 #[test]
 fn test_combat_high_damage() {
     let position = HexCoord::new(0, 0);
-    let mut strong_attacker = Unit::new(
+    let mut strong_attacker = LegacyUnit::new(
         "Strong Attacker".to_string(),
         position,
         Race::Orc,          // +2 attack
@@ -53,7 +56,7 @@ fn test_combat_high_damage() {
     strong_attacker.add_item_to_inventory(weapon);
     let _ = strong_attacker.equip_item(weapon_id);
 
-    let weak_defender = Unit::new(
+    let weak_defender = LegacyUnit::new(
         "Weak Defender".to_string(),
         HexCoord::new(1, 0),
         Race::Human,     // No bonuses
@@ -70,7 +73,7 @@ fn test_combat_high_damage() {
 #[test]
 fn test_death_and_revival() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Mortal Unit".to_string(),
         position,
         Race::Human,
@@ -91,7 +94,7 @@ fn test_death_and_revival() {
 #[test]
 fn test_healing_cap() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Healing Unit".to_string(),
         position,
         Race::Human,
@@ -111,7 +114,7 @@ fn test_healing_cap() {
 #[test]
 fn test_experience_thresholds() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Learning Unit".to_string(),
         position,
         Race::Human,
@@ -139,7 +142,7 @@ fn test_experience_thresholds() {
 #[test]
 fn test_level_up_stat_increases() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Growing Unit".to_string(),
         position,
         Race::Human,
@@ -166,7 +169,7 @@ fn test_level_up_stat_increases() {
 #[test]
 fn test_movement_range_calculation() {
     let start = HexCoord::new(0, 0);
-    let unit = Unit::new(
+    let unit = LegacyUnit::new(
         "Walker".to_string(),
         start,
         Race::Elf,         // +1 movement
@@ -197,7 +200,7 @@ fn test_movement_range_calculation() {
 #[test]
 fn test_attack_range_with_modifiers() {
     let position = HexCoord::new(0, 0);
-    let mut archer = Unit::new(
+    let mut archer = LegacyUnit::new(
         "Archer".to_string(),
         position,
         Race::Human,
@@ -233,7 +236,7 @@ fn test_hit_chance_accuracy_with_terrain() {
     let position = HexCoord::new(0, 0);
 
     // Test 1: Kobold in Mountain (should be very hard to hit - 34%)
-    let attacker = Unit::new(
+    let attacker = LegacyUnit::new(
         "Attacker".to_string(),
         position,
         Race::Human,
@@ -241,7 +244,7 @@ fn test_hit_chance_accuracy_with_terrain() {
         Terrain::Grasslands,
     );
 
-    let defender = Unit::new(
+    let defender = LegacyUnit::new(
         "Kobold Defender".to_string(),
         HexCoord::new(1, 0),
         Race::Kobold,
@@ -268,7 +271,7 @@ fn test_hit_chance_accuracy_with_terrain() {
     );
 
     // Test 2: Elf in Forest (should be hard to hit - 42%)
-    let elf_defender = Unit::new(
+    let elf_defender = LegacyUnit::new(
         "Elf Defender".to_string(),
         HexCoord::new(1, 0),
         Race::Elf,
@@ -295,7 +298,7 @@ fn test_hit_chance_accuracy_with_terrain() {
     );
 
     // Test 3: Zombie (slow, easy to hit - 60% in grasslands)
-    let zombie_defender = Unit::new(
+    let zombie_defender = LegacyUnit::new(
         "Zombie Defender".to_string(),
         HexCoord::new(1, 0),
         Race::Zombie,
@@ -330,7 +333,7 @@ fn test_attack_bonus_affects_hit_chance() {
     let position = HexCoord::new(0, 0);
 
     // Orc has +2 attack bonus, each point reduces hit chance by 2%
-    let orc_attacker = Unit::new(
+    let orc_attacker = LegacyUnit::new(
         "Orc Attacker".to_string(),
         position,
         Race::Orc, // +2 attack bonus
@@ -338,7 +341,7 @@ fn test_attack_bonus_affects_hit_chance() {
         Terrain::Grasslands,
     );
 
-    let defender = Unit::new(
+    let defender = LegacyUnit::new(
         "Human Defender".to_string(),
         HexCoord::new(1, 0),
         Race::Human,
@@ -376,7 +379,7 @@ fn test_hit_chance_clamping() {
     // Test lower clamp (minimum 10%)
     // Kobold (-2 attack) vs Kobold in Mountain (34% defense)
     // 34 - (-2 * 2) = 34 + 4 = 38% (normal, not clamped)
-    let weak_attacker = Unit::new(
+    let weak_attacker = LegacyUnit::new(
         "Kobold Attacker".to_string(),
         position,
         Race::Kobold, // -2 attack bonus
@@ -384,7 +387,7 @@ fn test_hit_chance_clamping() {
         Terrain::Grasslands,
     );
 
-    let agile_defender = Unit::new(
+    let agile_defender = LegacyUnit::new(
         "Kobold Defender".to_string(),
         HexCoord::new(1, 0),
         Race::Kobold,
@@ -418,7 +421,7 @@ fn test_multiple_terrain_types() {
     const ERROR_MARGIN: f64 = 5.0;
 
     let position = HexCoord::new(0, 0);
-    let attacker = Unit::new(
+    let attacker = LegacyUnit::new(
         "Human Attacker".to_string(),
         position,
         Race::Human, // 0 attack bonus
@@ -435,7 +438,7 @@ fn test_multiple_terrain_types() {
     ];
 
     for (terrain, expected_defense) in terrains_and_defenses {
-        let defender = Unit::new(
+        let defender = LegacyUnit::new(
             "Dwarf Defender".to_string(),
             HexCoord::new(1, 0),
             Race::Dwarf,
@@ -465,7 +468,7 @@ fn test_multiple_terrain_types() {
 }
 
 /// Helper function to run multiple combat iterations and calculate hit rate
-fn run_combat_iterations(attacker: &Unit, defender: &Unit, iterations: usize) -> f64 {
+fn run_combat_iterations(attacker: &LegacyUnit, defender: &LegacyUnit, iterations: usize) -> f64 {
     let mut hits = 0;
 
     for i in 0..iterations {

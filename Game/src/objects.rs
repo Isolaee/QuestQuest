@@ -132,17 +132,16 @@ impl GameObject for TerrainTile {
 }
 
 /// Game unit wrapper that implements GameObject
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameUnit {
     id: Uuid,
-    unit: units::Unit,
+    unit: Box<dyn units::Unit>,
     last_action_time: f32,
     action_cooldown: f32,
 }
 
 impl GameUnit {
-    /// Create a new game unit from a units::Unit
-    pub fn new(unit: units::Unit) -> Self {
+    /// Create a new game unit from a boxed Unit trait object
+    pub fn new(unit: Box<dyn units::Unit>) -> Self {
         Self {
             id: Uuid::new_v4(),
             unit,
@@ -152,13 +151,13 @@ impl GameUnit {
     }
 
     /// Get reference to the underlying unit
-    pub fn unit(&self) -> &units::Unit {
-        &self.unit
+    pub fn unit(&self) -> &dyn units::Unit {
+        &*self.unit
     }
 
     /// Get mutable reference to the underlying unit
-    pub fn unit_mut(&mut self) -> &mut units::Unit {
-        &mut self.unit
+    pub fn unit_mut(&mut self) -> &mut dyn units::Unit {
+        &mut *self.unit
     }
 
     /// Check if the unit can perform an action
@@ -178,15 +177,15 @@ impl GameUnit {
 
     /// Get unit details as string (alternative to console output)
     pub fn get_unit_info_string(&self) -> String {
-        // This would return the same info that on_click() prints, but as a string
+        let stats = self.unit.combat_stats();
         format!(
             "Unit: {} (Level {})\nPosition: {:?}\nHealth: {}/{}\nExperience: {}",
-            self.unit.name,
-            self.unit.level,
-            self.unit.position,
-            self.unit.combat_stats.health,
-            self.unit.combat_stats.max_health,
-            self.unit.experience
+            self.unit.name(),
+            self.unit.level(),
+            self.unit.position(),
+            stats.health,
+            stats.max_health,
+            self.unit.experience()
         )
     }
 
@@ -204,15 +203,15 @@ impl GameObject for GameUnit {
     }
 
     fn name(&self) -> String {
-        self.unit.name.clone()
+        self.unit.name().to_string()
     }
 
     fn position(&self) -> HexCoord {
-        self.unit.position
+        self.unit.position()
     }
 
     fn set_position(&mut self, position: HexCoord) {
-        self.unit.position = position;
+        self.unit.move_to(position);
     }
 
     fn sprite_type(&self) -> SpriteType {

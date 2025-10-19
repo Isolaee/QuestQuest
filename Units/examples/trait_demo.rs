@@ -1,9 +1,8 @@
-/// Example demonstrating the new trait-based Unit system
-///
-/// This shows how to use UnitFactory to create units and work with them
-/// through the Unit trait interface.
+/// Example demonstrating the trait-based unit system
+/// This example shows how to use UnitFactory to create units and work with them
+/// polymorphically using the Unit trait.
 use graphics::HexCoord;
-use units::{Race, Terrain, UnitClass, UnitFactory, UnitTrait};
+use units::{Race, Terrain, Unit, UnitClass, UnitFactory};
 
 fn main() {
     println!("🎮 Trait-Based Unit System Demo");
@@ -45,8 +44,8 @@ fn main() {
     mage.display_unit_info();
 
     // Demonstrate polymorphism - store units in a Vec<Box<dyn Unit>>
-    println!("📦 POLYMORPHIC STORAGE:");
-    let mut units: Vec<Box<dyn UnitTrait>> = vec![warrior, archer, mage];
+    println!("\n📦 POLYMORPHIC STORAGE:");
+    let mut units: Vec<Box<dyn Unit>> = vec![warrior, archer, mage];
 
     for unit in &units {
         println!("  - {}", unit.get_summary());

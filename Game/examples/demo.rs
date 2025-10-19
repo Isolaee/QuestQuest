@@ -14,36 +14,31 @@ fn main() {
     world.generate_terrain();
     println!("   Generated {} terrain tiles", world.terrain().len());
 
-    // Create some units
-    let warrior_unit = Unit::new(
+    // Create units using UnitFactory and wrap them as game objects
+    let game_warrior = GameUnit::new(units::UnitFactory::create_unit(
         "Thorin Ironshield".to_string(),
         HexCoord::new(0, 0),
         Race::Dwarf,
         UnitClass::Warrior,
         Terrain::Mountain,
-    );
-
-    let archer_unit = Unit::new(
+    ));
+    let game_archer = GameUnit::new(units::UnitFactory::create_unit(
         "Legolas Greenleaf".to_string(),
         HexCoord::new(2, -1),
         Race::Elf,
         UnitClass::Archer,
         Terrain::Forest0,
-    );
-
-    // Wrap them as game objects
-    let game_warrior = GameUnit::new(warrior_unit);
-    let game_archer = GameUnit::new(archer_unit);
+    ));
 
     println!("⚔️ Created game units:");
     println!(
         "   {} at {:?}",
-        game_warrior.unit().name,
+        game_warrior.unit().name(),
         game_warrior.position()
     );
     println!(
         "   {} at {:?}",
-        game_archer.unit().name,
+        game_archer.unit().name(),
         game_archer.position()
     );
 

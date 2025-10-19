@@ -9,7 +9,6 @@ use graphics::math::Vec2;
 use graphics::{
     setup_dynamic_hexagons, HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitDisplayInfo,
 };
-use items::ItemProperties;
 use raw_window_handle::HasWindowHandle;
 use std::ffi::CString;
 use winit::application::ApplicationHandler;
@@ -50,8 +49,8 @@ impl GameApp {
     fn new() -> Self {
         let mut game_world = GameWorld::new(8); // World radius of 8
 
-        // Add demo units to the world
-        let hero = units::Unit::new(
+        // Add demo units to the world using the new UnitFactory
+        let hero = units::UnitFactory::create_unit(
             "Thorin".to_string(),
             HexCoord::new(0, 0),
             units::Race::Human,
@@ -60,7 +59,7 @@ impl GameApp {
         );
         game_world.add_unit(GameUnit::new(hero));
 
-        let archer = units::Unit::new(
+        let archer = units::UnitFactory::create_unit(
             "Legolas".to_string(),
             HexCoord::new(2, -1),
             units::Race::Elf,
@@ -69,7 +68,7 @@ impl GameApp {
         );
         game_world.add_unit(GameUnit::new(archer));
 
-        let paladin = units::Unit::new(
+        let paladin = units::UnitFactory::create_unit(
             "Gimli".to_string(),
             HexCoord::new(-2, 1),
             units::Race::Dwarf,
@@ -79,10 +78,10 @@ impl GameApp {
         game_world.add_unit(GameUnit::new(paladin));
 
         // Add a test item on the ground for pickup testing
-        let test_sword = units::Item::new(
+        let test_sword = items::Item::new(
             "Iron Sword".to_string(),
             "A sturdy iron sword with a sharp blade.".to_string(),
-            ItemProperties::Weapon {
+            items::ItemProperties::Weapon {
                 attack_bonus: 5,
                 range_modifier: 0,
                 range_type_override: None,
@@ -353,15 +352,16 @@ impl GameApp {
 
             // Update UI panel with unit info
             if let Some(ui_panel) = &mut self.ui_panel {
+                let stats = unit.combat_stats();
                 let display_info = UnitDisplayInfo {
-                    name: unit.name.clone(),
-                    race: format!("{:?}", unit.race),
-                    class: format!("{:?}", unit.class),
-                    level: unit.level,
-                    experience: unit.experience,
-                    health: unit.combat_stats.health as u32,
-                    max_health: unit.combat_stats.max_health as u32,
-                    terrain: format!("{:?}", unit.current_terrain),
+                    name: unit.name().to_string(),
+                    race: format!("{:?}", unit.race()),
+                    class: format!("{:?}", unit.class()),
+                    level: unit.level(),
+                    experience: unit.experience(),
+                    health: stats.health as u32,
+                    max_health: stats.max_health as u32,
+                    terrain: format!("{:?}", unit.current_terrain()),
                     position_q: position.q,
                     position_r: position.r,
                 };

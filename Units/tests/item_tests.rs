@@ -1,6 +1,9 @@
 use graphics::HexCoord;
 use units::*;
 
+// Import the old Unit struct for these tests (not yet migrated)
+use units::unit::Unit as LegacyUnit;
+
 #[test]
 fn test_item_creation() {
     let weapon = Item::new(
@@ -72,7 +75,7 @@ fn test_consumable_item() {
 #[test]
 fn test_inventory_management() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Test Unit".to_string(),
         position,
         Race::Human,
@@ -100,7 +103,7 @@ fn test_inventory_management() {
 #[test]
 fn test_equipment_system() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Test Unit".to_string(),
         position,
         Race::Human,
@@ -147,7 +150,7 @@ fn test_equipment_system() {
 #[test]
 fn test_consumable_usage() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Test Unit".to_string(),
         position,
         Race::Human,
@@ -193,7 +196,7 @@ fn test_consumable_usage() {
 #[test]
 fn test_weapon_range_override() {
     let position = HexCoord::new(0, 0);
-    let mut unit = Unit::new(
+    let mut unit = LegacyUnit::new(
         "Test Unit".to_string(),
         position,
         Race::Human,
