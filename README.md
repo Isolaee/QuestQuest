@@ -202,7 +202,45 @@ Sample terrain distribution around origin:
 - **Testing**: Built-in Rust testing with criterion benchmarks
 - **Build System**: Cargo workspace for multi-crate management
 
-## 📈 Future Expansion Ideas
+## �️ Development Setup
+
+### Pre-commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com/) to ensure code quality before commits. The hooks automatically run:
+
+1. **Rust Format Check** (`cargo fmt --check`): Ensures code is properly formatted
+2. **Rust Clippy Lints** (`cargo clippy`): Catches common mistakes and enforces best practices
+3. **Rust Tests** (`cargo test --all`): Runs all 31+ tests across all packages
+
+#### Installation
+
+```bash
+# Install pre-commit (if not already installed)
+pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+
+# Optionally, run hooks manually on all files
+pre-commit run --all-files
+```
+
+#### What Gets Tested
+
+- **Graphics**: 2 unit tests for coordinate conversion
+- **Units**: 29 tests covering:
+  - Combat mechanics (12 tests)
+  - Integration tests (10 tests)
+  - Item system (7 tests)
+
+The pre-commit hooks will automatically prevent commits if:
+- Code is not formatted correctly
+- Clippy lints fail
+- Any tests fail
+
+To bypass hooks (not recommended): `git commit --no-verify`
+
+## �📈 Future Expansion Ideas
 
 - **Pathfinding**: A* algorithm for hexagonal grids
 - **Game States**: Turn-based combat system implementation

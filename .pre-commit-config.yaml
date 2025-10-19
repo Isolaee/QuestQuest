@@ -18,3 +18,12 @@ repos:
         pass_filenames: false
         args: [--all-targets, --all-features, --, -D, warnings]
         description: Run Clippy lints and treat warnings as errors
+        
+      - id: cargo-test
+        name: Rust Tests
+        entry: cargo test
+        language: system
+        types: [rust]
+        pass_filenames: false
+        args: [--all, --all-features]
+        description: Run all Rust tests across all packages
