@@ -1,3 +1,4 @@
+pub mod attack;
 pub mod base_unit;
 pub mod combat;
 pub mod unit_class;
@@ -8,6 +9,7 @@ pub mod unit_trait;
 pub mod units; // Concrete unit implementations
 
 // Re-export commonly used types
+pub use attack::Attack;
 pub use base_unit::BaseUnit;
 pub use combat::{CombatAction, CombatResult, CombatStats};
 pub use items::{ConsumableEffect, Equipment, Item, ItemProperties, ItemType, RangeType};

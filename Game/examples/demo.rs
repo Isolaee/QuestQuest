@@ -54,6 +54,7 @@ fn main() {
             attack_bonus: 5,
             range_modifier: 0,
             range_type_override: None,
+            attacks: vec![],
         },
     );
 

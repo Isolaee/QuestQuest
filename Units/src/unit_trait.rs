@@ -1,3 +1,4 @@
+use crate::attack::Attack;
 use crate::unit_class::UnitClass;
 use crate::unit_race::{Race, Terrain};
 use combat::CombatStats;
@@ -114,6 +115,11 @@ pub trait Unit {
 
     /// Recalculate all derived stats
     fn recalculate_stats(&mut self);
+
+    // ===== Attack Methods =====
+
+    /// Get all available attacks for this unit
+    fn get_attacks(&self) -> &[Attack];
 
     // ===== Display Methods =====
 

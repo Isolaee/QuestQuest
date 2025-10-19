@@ -18,8 +18,8 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
 
 // Screen size constants
-const SCREEN_WIDTH: f32 = 1200.0;
-const SCREEN_HEIGHT: f32 = 800.0;
+const SCREEN_WIDTH: f32 = 1920.0;
+const SCREEN_HEIGHT: f32 = 1080.0;
 
 struct GameApp {
     window: Option<Window>,
@@ -74,15 +74,7 @@ impl GameApp {
         game_world.add_unit(GameUnit::new_with_team(orc_warrior, game::Team::Enemy));
 
         // Add a test item on the ground for pickup testing
-        let test_sword = items::Item::new(
-            "Iron Sword".to_string(),
-            "A sturdy iron sword with a sharp blade.".to_string(),
-            items::ItemProperties::Weapon {
-                attack_bonus: 5,
-                range_modifier: 0,
-                range_type_override: None,
-            },
-        );
+        let test_sword = items::item_definitions::create_iron_sword();
         let item_pickup = InteractiveObject::new_item_pickup(HexCoord::new(1, 1), test_sword);
         game_world.add_interactive_object(item_pickup);
 
@@ -209,7 +201,19 @@ impl GameApp {
                         // Combat request created - show confirmation dialog
                         if let Some(pending) = &self.game_world.pending_combat {
                             if let Some(renderer) = &mut self.renderer {
-                                use graphics::CombatConfirmation;
+                                use graphics::{AttackOption, CombatConfirmation};
+
+                                // Convert game AttackInfo to graphics AttackOption
+                                let attacker_attacks = pending
+                                    .attacker_attacks
+                                    .iter()
+                                    .map(|attack| AttackOption {
+                                        name: attack.name.clone(),
+                                        damage: attack.damage,
+                                        range: attack.range,
+                                    })
+                                    .collect();
+
                                 let confirmation = CombatConfirmation {
                                     attacker_name: pending.attacker_name.clone(),
                                     attacker_hp: pending.attacker_hp,
@@ -217,6 +221,7 @@ impl GameApp {
                                     attacker_attack: pending.attacker_attack,
                                     attacker_defense: pending.attacker_defense,
                                     attacker_attacks_per_round: pending.attacker_attacks_per_round,
+                                    attacker_attacks,
                                     defender_name: pending.defender_name.clone(),
                                     defender_hp: pending.defender_hp,
                                     defender_max_hp: pending.defender_max_hp,
@@ -454,11 +459,39 @@ impl GameApp {
         // Get the item from the interactive object
         if let Some(item_obj) = self.game_world.interactive_objects.get_mut(&item_id) {
             if let Some(item) = item_obj.take_item() {
-                // Add item to unit's inventory
+                // Add item to unit's inventory and auto-equip
                 if let Some(game_unit) = self.game_world.units.get_mut(&unit_id) {
                     let item_name = item.name.clone();
+                    let item_internal_id = item.id;
+                    let item_type = item.item_type.clone();
+
+                    // Add to inventory first
                     game_unit.unit_mut().add_item_to_inventory(item);
                     println!("✅ Picked up '{}'!", item_name);
+
+                    // Try to auto-equip the item (will fail for consumables)
+                    if item_type != items::ItemType::Consumable {
+                        match game_unit.unit_mut().equip_item(item_internal_id) {
+                            Ok(_) => {
+                                let unit = game_unit.unit();
+                                let stats = unit.combat_stats();
+                                println!("⚔️  Auto-equipped '{}' ({:?})!", item_name, item_type);
+                                println!(
+                                    "📊 Current Stats - ATK: {} (+{}), HP: {}/{}, Movement: {}",
+                                    stats.get_total_attack(),
+                                    stats.attack_modifier,
+                                    stats.health,
+                                    stats.max_health,
+                                    stats.movement_speed
+                                );
+                            }
+                            Err(e) => {
+                                println!("📦 '{}' added to inventory ({})", item_name, e);
+                            }
+                        }
+                    } else {
+                        println!("💊 Consumable '{}' stored in inventory", item_name);
+                    }
 
                     // Remove the interactive object from the world (it's been picked up)
                     self.game_world.remove_interactive_object(item_id);
@@ -635,7 +668,13 @@ impl ApplicationHandler for GameApp {
         }
 
         let (vao, shader_program, dynamic_vbo) = unsafe { setup_dynamic_hexagons() };
-        match Renderer::new(vao, shader_program, dynamic_vbo) {
+        match Renderer::new(
+            vao,
+            shader_program,
+            dynamic_vbo,
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT,
+        ) {
             Ok(renderer) => {
                 self.renderer = Some(renderer);
 

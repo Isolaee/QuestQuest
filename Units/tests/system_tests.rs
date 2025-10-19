@@ -87,6 +87,7 @@ fn test_equipment_affects_stats() {
             attack_bonus: 5,
             range_modifier: 0,
             range_type_override: None,
+            attacks: Vec::new(), // No special attacks for test
         },
     );
 

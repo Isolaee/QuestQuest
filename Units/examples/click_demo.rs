@@ -28,6 +28,7 @@ fn main() {
         "An ancient elvish blade that glows blue when orcs are near".to_string(),
         ItemProperties::Weapon {
             attack_bonus: 8,
+            attacks: Vec::new(),
             range_modifier: 0,
             range_type_override: None,
         },

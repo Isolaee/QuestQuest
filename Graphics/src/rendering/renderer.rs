@@ -220,6 +220,14 @@ pub enum CombatLogEntryType {
     Info,
 }
 
+/// Attack option for combat dialog
+#[derive(Clone, Debug)]
+pub struct AttackOption {
+    pub name: String,
+    pub damage: u32,
+    pub range: i32,
+}
+
 /// Combat confirmation dialog data
 #[derive(Clone, Debug)]
 pub struct CombatConfirmation {
@@ -229,6 +237,7 @@ pub struct CombatConfirmation {
     pub attacker_attack: u32,
     pub attacker_defense: u32,
     pub attacker_attacks_per_round: u32,
+    pub attacker_attacks: Vec<AttackOption>,
     pub defender_name: String,
     pub defender_hp: u32,
     pub defender_max_hp: u32,
@@ -279,18 +288,15 @@ pub struct CombatLogDisplay {
 
 impl Default for CombatLogDisplay {
     fn default() -> Self {
-        Self::new()
+        // Use common default resolution (can be updated later if needed)
+        Self::new(1920.0, 1080.0)
     }
 }
 
 impl CombatLogDisplay {
-    pub fn new() -> Self {
-        // Window size constants (should match main.rs)
-        let window_width = 1200.0;
-        let window_height = 800.0;
-
-        // Dialog is 50% of the smaller dimension (height), making it square
-        let dialog_size = window_height * 0.5; // 400x400
+    pub fn new(window_width: f32, window_height: f32) -> Self {
+        // Dialog is 70% of the window height, making it larger
+        let dialog_size = window_height * 0.7; // 560x560 for 800px height
         let dialog_width = dialog_size;
         let dialog_height = dialog_size;
 
@@ -414,10 +420,18 @@ pub struct Renderer {
     pub effects_display: EffectsDisplay,
     pub combat_log_display: CombatLogDisplay,
     pub text_renderer: TextRenderer,
+    pub window_width: f32,
+    pub window_height: f32,
 }
 
 impl Renderer {
-    pub fn new(vao: GLuint, shader_program: GLuint, vbo: GLuint) -> Result<Self, String> {
+    pub fn new(
+        vao: GLuint,
+        shader_program: GLuint,
+        vbo: GLuint,
+        window_width: f32,
+        window_height: f32,
+    ) -> Result<Self, String> {
         let mut texture_manager = TextureManager::new();
 
         unsafe {
@@ -456,8 +470,10 @@ impl Renderer {
             guide_display: GuideDisplay::new(),
             menu_display: MenuDisplay::new(),
             effects_display: EffectsDisplay::new(),
-            combat_log_display: CombatLogDisplay::new(),
+            combat_log_display: CombatLogDisplay::new(window_width, window_height),
             text_renderer,
+            window_width,
+            window_height,
         })
     }
 
@@ -1204,14 +1220,14 @@ impl Renderer {
         }
     }
 
-    unsafe fn render_combat_confirmation_dialog(&self, _confirmation: &CombatConfirmation) {
+    unsafe fn render_combat_confirmation_dialog(&self, confirmation: &CombatConfirmation) {
         let mut vertices: Vec<f32> = Vec::new();
         let (dialog_x, dialog_y) = self.combat_log_display.position;
         let (dialog_width, dialog_height) = self.combat_log_display.size;
 
         // Convert screen coordinates to normalized device coordinates (-1 to 1)
-        let window_width = 1200.0; // Matches SCREEN_WIDTH in main.rs
-        let window_height = 800.0; // Matches SCREEN_HEIGHT in main.rs
+        let window_width = self.window_width;
+        let window_height = self.window_height;
 
         let to_ndc_x = |x: f32| (x / window_width) * 2.0 - 1.0;
         let to_ndc_y = |y: f32| 1.0 - (y / window_height) * 2.0;
@@ -1553,6 +1569,331 @@ impl Renderer {
             defender_color[2],
         ]);
 
+        // Attack option boxes (between panels and buttons)
+        if !confirmation.attacker_attacks.is_empty() {
+            let attack_box_width = dialog_width - 2.0 * panel_margin;
+            let attack_box_height = 40.0;
+            let attack_box_spacing = 10.0;
+            let attack_section_y = panel_y + panel_height + 15.0;
+
+            for (i, _attack) in confirmation.attacker_attacks.iter().enumerate() {
+                let attack_y =
+                    attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
+                let attack_x = dialog_x + panel_margin;
+
+                // Attack box background
+                let attack_color = [0.4, 0.3, 0.2]; // Brown color for attack boxes
+                let atk_x1 = to_ndc_x(attack_x);
+                let atk_y1 = to_ndc_y(attack_y);
+                let atk_x2 = to_ndc_x(attack_x + attack_box_width);
+                let atk_y2 = to_ndc_y(attack_y + attack_box_height);
+
+                vertices.extend_from_slice(&[
+                    atk_x1,
+                    atk_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x2,
+                    atk_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x1,
+                    atk_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x2,
+                    atk_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x2,
+                    atk_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x1,
+                    atk_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                ]);
+
+                // Attack box border
+                let border_color_attack = [0.9, 0.7, 0.3]; // Gold border
+                let border_w = 2.0;
+
+                // Top border
+                let b_x1 = to_ndc_x(attack_x);
+                let b_y1 = to_ndc_y(attack_y);
+                let b_x2 = to_ndc_x(attack_x + attack_box_width);
+                let b_y2 = to_ndc_y(attack_y + border_w);
+                vertices.extend_from_slice(&[
+                    b_x1,
+                    b_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                ]);
+
+                // Bottom border
+                let b_y1 = to_ndc_y(attack_y + attack_box_height - border_w);
+                let b_y2 = to_ndc_y(attack_y + attack_box_height);
+                vertices.extend_from_slice(&[
+                    b_x1,
+                    b_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                ]);
+
+                // Left border
+                let b_x2 = to_ndc_x(attack_x + border_w);
+                let b_y1 = to_ndc_y(attack_y);
+                let b_y2 = to_ndc_y(attack_y + attack_box_height);
+                vertices.extend_from_slice(&[
+                    b_x1,
+                    b_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                ]);
+
+                // Right border
+                let b_x1 = to_ndc_x(attack_x + attack_box_width - border_w);
+                let b_x2 = to_ndc_x(attack_x + attack_box_width);
+                vertices.extend_from_slice(&[
+                    b_x1,
+                    b_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                ]);
+            }
+        }
+
         // OK Button
         let ok_btn = &self.combat_log_display.ok_button;
         let ok_color = if ok_btn.hovered {
@@ -1706,8 +2047,8 @@ impl Renderer {
     unsafe fn render_combat_dialog_text(&mut self, confirmation: &CombatConfirmation) {
         let (dialog_x, dialog_y) = self.combat_log_display.position;
         let (dialog_width, _dialog_height) = self.combat_log_display.size;
-        let window_width = 1200.0;
-        let window_height = 800.0;
+        let window_width = self.window_width;
+        let window_height = self.window_height;
 
         // Title
         let title = "COMBAT!";
@@ -1877,6 +2218,62 @@ impl Renderer {
             window_width,
             window_height,
         );
+
+        // Attack option labels
+        if !confirmation.attacker_attacks.is_empty() {
+            let (dialog_x, dialog_y) = self.combat_log_display.position;
+            let (dialog_width, dialog_height) = self.combat_log_display.size;
+            let attack_box_height = 40.0;
+            let attack_box_spacing = 10.0;
+            let panel_height = dialog_height - 50.0 - 120.0; // Title height and button area
+            let panel_y = dialog_y + 50.0 + 10.0;
+            let attack_section_y = panel_y + panel_height + 15.0;
+            let panel_margin = 30.0;
+
+            for (i, attack) in confirmation.attacker_attacks.iter().enumerate() {
+                let attack_y =
+                    attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
+                let attack_x = dialog_x + panel_margin + 10.0;
+                let attack_text_y = attack_y + (attack_box_height - 16.0) / 2.0 + 5.0;
+
+                // Attack name
+                self.text_renderer.render_text(
+                    &attack.name,
+                    attack_x,
+                    attack_text_y,
+                    16.0,
+                    [1.0, 1.0, 0.8, 1.0], // Light yellow
+                    window_width,
+                    window_height,
+                );
+
+                // Damage
+                let damage_text = format!("Damage: {}", attack.damage);
+                let damage_x = dialog_x + dialog_width - panel_margin - 150.0;
+                self.text_renderer.render_text(
+                    &damage_text,
+                    damage_x,
+                    attack_text_y,
+                    16.0,
+                    [1.0, 0.7, 0.7, 1.0], // Light red for damage
+                    window_width,
+                    window_height,
+                );
+
+                // Range
+                let range_text = format!("Range: {}", attack.range);
+                let range_x = dialog_x + dialog_width - panel_margin - 70.0;
+                self.text_renderer.render_text(
+                    &range_text,
+                    range_x,
+                    attack_text_y,
+                    16.0,
+                    [0.7, 0.7, 1.0, 1.0], // Light blue for range
+                    window_width,
+                    window_height,
+                );
+            }
+        }
 
         // Button labels
         let ok_btn = &self.combat_log_display.ok_button;

@@ -247,6 +247,13 @@ macro_rules! impl_unit_delegate {
             fn heal(&mut self, amount: i32) {
                 self.base.combat_stats.heal(amount);
             }
+
+            // ===== Attack Methods =====
+            fn get_attacks(&self) -> &[$crate::attack::Attack] {
+                // For units with attacks field, this will work
+                // For units without, they should add: attacks: Vec::new()
+                &self.attacks
+            }
         }
     };
 }

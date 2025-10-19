@@ -326,4 +326,9 @@ impl Unit for GenericUnit {
     fn on_click(&self) {
         self.display_unit_info();
     }
+
+    fn get_attacks(&self) -> &[crate::attack::Attack] {
+        // Generic units have no specific attacks
+        &[]
+    }
 }

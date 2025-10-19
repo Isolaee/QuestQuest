@@ -1,5 +1,49 @@
 use serde::{Deserialize, Serialize};
 
+/// Type of damage dealt by an attack
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DamageType {
+    Slash,
+    Pierce,
+    Blunt,
+    Fire,
+    Ice,
+    Lightning,
+    Poison,
+    Holy,
+    Dark,
+}
+
+/// Represents a specific attack that an item provides
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ItemAttack {
+    /// Name of the attack (e.g., "Slash", "Stab")
+    pub name: String,
+    /// Damage this attack deals
+    pub damage: u32,
+    /// Type of damage dealt
+    pub damage_type: DamageType,
+    /// Number of times this attack hits per round
+    pub attack_times: u32,
+}
+
+impl ItemAttack {
+    /// Create a new item attack
+    pub fn new(
+        name: impl Into<String>,
+        damage: u32,
+        attack_times: u32,
+        damage_type: DamageType,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            damage,
+            damage_type,
+            attack_times: attack_times.max(1), // At least 1 attack
+        }
+    }
+}
+
 /// Range type for attacks
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RangeType {
@@ -45,6 +89,7 @@ pub enum ItemProperties {
         attack_bonus: i32,
         range_modifier: i32,
         range_type_override: Option<RangeType>,
+        attacks: Vec<ItemAttack>,
     },
     Armor {
         defense_bonus: i32,

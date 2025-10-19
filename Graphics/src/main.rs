@@ -83,7 +83,7 @@ impl ApplicationHandler for App {
         }
 
         let (vao, shader_program, dynamic_vbo) = unsafe { setup_dynamic_hexagons() };
-        let renderer = Renderer::new(vao, shader_program, dynamic_vbo)
+        let renderer = Renderer::new(vao, shader_program, dynamic_vbo, 1200.0, 800.0)
             .expect("Failed to create renderer with texture support");
 
         self.window = Some(window);

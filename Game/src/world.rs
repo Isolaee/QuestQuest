@@ -3,6 +3,14 @@ use graphics::{HexCoord, SpriteType};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+/// Attack info for display in combat dialog
+#[derive(Clone, Debug)]
+pub struct AttackInfo {
+    pub name: String,
+    pub damage: u32,
+    pub range: i32,
+}
+
 /// Pending combat confirmation data
 #[derive(Clone, Debug)]
 pub struct PendingCombat {
@@ -14,6 +22,7 @@ pub struct PendingCombat {
     pub attacker_attack: u32,
     pub attacker_defense: u32,
     pub attacker_attacks_per_round: u32,
+    pub attacker_attacks: Vec<AttackInfo>,
     pub defender_name: String,
     pub defender_hp: u32,
     pub defender_max_hp: u32,
@@ -261,19 +270,32 @@ impl GameWorld {
         let attacker_stats = attacker.unit().combat_stats();
         let defender_stats = defender.unit().combat_stats();
 
+        // Get attacker's available attacks
+        let attacker_attacks = attacker
+            .unit()
+            .get_attacks()
+            .iter()
+            .map(|attack| AttackInfo {
+                name: attack.name.clone(),
+                damage: attack.damage,
+                range: attack.range,
+            })
+            .collect();
+
         let pending = PendingCombat {
             attacker_id,
             defender_id,
             attacker_name: attacker.name(),
             attacker_hp: attacker_stats.health as u32,
             attacker_max_hp: attacker_stats.max_health as u32,
-            attacker_attack: attacker_stats.attack_strength,
+            attacker_attack: attacker_stats.get_total_attack(),
             attacker_defense: attacker_stats.resistances.slash as u32, // Use slash resistance as defense for display
             attacker_attacks_per_round: attacker_stats.attacks_per_round,
+            attacker_attacks,
             defender_name: defender.name(),
             defender_hp: defender_stats.health as u32,
             defender_max_hp: defender_stats.max_health as u32,
-            defender_attack: defender_stats.attack_strength,
+            defender_attack: defender_stats.get_total_attack(),
             defender_defense: defender_stats.resistances.slash as u32,
             defender_attacks_per_round: defender_stats.attacks_per_round,
         };

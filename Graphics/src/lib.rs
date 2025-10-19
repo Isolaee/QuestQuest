@@ -9,7 +9,7 @@ pub use core::{
 };
 pub use math::Vec2;
 pub use rendering::{
-    setup_dynamic_hexagons, CombatConfirmation, GuideBuilder, GuideDisplay, GuideEntry,
-    GuideLibrary, MenuAction, Renderer,
+    setup_dynamic_hexagons, AttackOption, CombatConfirmation, GuideBuilder, GuideDisplay,
+    GuideEntry, GuideLibrary, MenuAction, Renderer,
 };
 pub use ui::{UiPanel, UnitDisplayInfo};

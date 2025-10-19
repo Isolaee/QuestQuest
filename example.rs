@@ -48,6 +48,7 @@ fn main() {
             attack_bonus: 5,
             range_modifier: 0,
             range_type_override: None,
+            attacks: Vec::new(), // No special attacks for this example
         },
     );
 
@@ -58,6 +59,7 @@ fn main() {
             attack_bonus: 3,
             range_modifier: 2,
             range_type_override: None,
+            attacks: Vec::new(), // No special attacks for this example
         },
     );
 
@@ -68,6 +70,7 @@ fn main() {
             attack_bonus: 2,
             range_modifier: 1,
             range_type_override: Some(RangeType::Ranged),
+            attacks: Vec::new(), // No special attacks for this example
         },
     );
 
