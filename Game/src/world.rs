@@ -3,6 +3,25 @@ use graphics::{HexCoord, SpriteType};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+/// Pending combat confirmation data
+#[derive(Clone, Debug)]
+pub struct PendingCombat {
+    pub attacker_id: Uuid,
+    pub defender_id: Uuid,
+    pub attacker_name: String,
+    pub attacker_hp: u32,
+    pub attacker_max_hp: u32,
+    pub attacker_attack: u32,
+    pub attacker_defense: u32,
+    pub attacker_attacks_per_round: u32,
+    pub defender_name: String,
+    pub defender_hp: u32,
+    pub defender_max_hp: u32,
+    pub defender_attack: u32,
+    pub defender_defense: u32,
+    pub defender_attacks_per_round: u32,
+}
+
 /// Game world that manages all game objects
 /// Note: Cannot derive Serialize/Deserialize because GameUnit contains trait objects
 pub struct GameWorld {
@@ -20,6 +39,9 @@ pub struct GameWorld {
 
     /// Current game time
     pub game_time: f32,
+
+    /// Pending combat confirmation
+    pub pending_combat: Option<PendingCombat>,
     // Removed objects field: trait objects cannot be serialized or debugged directly
 }
 
@@ -32,6 +54,7 @@ impl GameWorld {
             interactive_objects: HashMap::new(),
             world_radius,
             game_time: 0.0,
+            pending_combat: None,
         }
     }
 
@@ -207,8 +230,8 @@ impl GameWorld {
 
             if let (Some(mover_team), Some(target_team)) = (moving_unit_team, target_unit_team) {
                 if mover_team != target_team {
-                    // Enemy units - initiate combat!
-                    return self.initiate_combat(unit_id, target_id);
+                    // Enemy units - request combat confirmation!
+                    return self.request_combat(unit_id, target_id);
                 } else {
                     // Same team - can't move there
                     return Err("Cannot move onto allied unit".to_string());
@@ -227,6 +250,47 @@ impl GameWorld {
         } else {
             Err("Unit not found".to_string())
         }
+    }
+
+    /// Request combat confirmation between two units
+    pub fn request_combat(&mut self, attacker_id: Uuid, defender_id: Uuid) -> Result<(), String> {
+        // Get unit info for confirmation dialog
+        let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
+        let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+
+        let attacker_stats = attacker.unit().combat_stats();
+        let defender_stats = defender.unit().combat_stats();
+
+        let pending = PendingCombat {
+            attacker_id,
+            defender_id,
+            attacker_name: attacker.name(),
+            attacker_hp: attacker_stats.health as u32,
+            attacker_max_hp: attacker_stats.max_health as u32,
+            attacker_attack: attacker_stats.attack_strength,
+            attacker_defense: attacker_stats.resistances.slash as u32, // Use slash resistance as defense for display
+            attacker_attacks_per_round: attacker_stats.attacks_per_round,
+            defender_name: defender.name(),
+            defender_hp: defender_stats.health as u32,
+            defender_max_hp: defender_stats.max_health as u32,
+            defender_attack: defender_stats.attack_strength,
+            defender_defense: defender_stats.resistances.slash as u32,
+            defender_attacks_per_round: defender_stats.attacks_per_round,
+        };
+
+        self.pending_combat = Some(pending);
+        Ok(())
+    }
+
+    /// Execute the pending combat (called after player confirms)
+    pub fn execute_pending_combat(&mut self) -> Result<(), String> {
+        let pending = self.pending_combat.take().ok_or("No pending combat")?;
+        self.initiate_combat(pending.attacker_id, pending.defender_id)
+    }
+
+    /// Cancel the pending combat
+    pub fn cancel_pending_combat(&mut self) {
+        self.pending_combat = None;
     }
 
     /// Initiate combat between two units

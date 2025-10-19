@@ -2,6 +2,7 @@ pub mod base_unit;
 pub mod combat;
 pub mod unit_class;
 pub mod unit_factory;
+pub mod unit_macros; // Macro to reduce boilerplate
 pub mod unit_race;
 pub mod unit_trait;
 pub mod units; // Concrete unit implementations

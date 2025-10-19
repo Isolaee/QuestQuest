@@ -106,6 +106,31 @@ impl GameApp {
     }
 
     fn handle_left_click(&mut self, x: f64, y: f64) {
+        // Priority 0: Check if clicking on combat confirmation dialog (highest priority)
+        if self.game_world.pending_combat.is_some() {
+            if let Some(renderer) = &mut self.renderer {
+                if let Some(confirmed) =
+                    renderer.combat_log_display.handle_click(x as f32, y as f32)
+                {
+                    if confirmed {
+                        // Execute combat
+                        if let Err(e) = self.game_world.execute_pending_combat() {
+                            println!("❌ Combat failed: {}", e);
+                        }
+                        renderer.combat_log_display.clear_combat_confirmation();
+                        self.clear_selection();
+                    } else {
+                        // Cancel combat
+                        self.game_world.cancel_pending_combat();
+                        println!("❌ Combat cancelled");
+                    }
+                    return;
+                }
+            }
+            // If combat dialog is active but no button was clicked, ignore other clicks
+            return;
+        }
+
         // Priority 1: Check if clicking on menu buttons (highest priority)
         if let Some(renderer) = &mut self.renderer {
             if renderer.menu_display.active {
@@ -177,12 +202,36 @@ impl GameApp {
                 if self.is_within_attack_range(unit_id, hex_coord)
                     && self.has_enemy_unit(unit_id, hex_coord)
                 {
-                    // Enemy in range - initiate attack/combat
+                    // Enemy in range - request combat confirmation
                     if let Err(e) = self.game_world.move_unit(unit_id, hex_coord) {
-                        println!("Failed to attack: {}", e);
+                        println!("Failed to initiate combat: {}", e);
                     } else {
-                        // Combat succeeded, clear selection
-                        self.clear_selection();
+                        // Combat request created - show confirmation dialog
+                        if let Some(pending) = &self.game_world.pending_combat {
+                            if let Some(renderer) = &mut self.renderer {
+                                use graphics::CombatConfirmation;
+                                let confirmation = CombatConfirmation {
+                                    attacker_name: pending.attacker_name.clone(),
+                                    attacker_hp: pending.attacker_hp,
+                                    attacker_max_hp: pending.attacker_max_hp,
+                                    attacker_attack: pending.attacker_attack,
+                                    attacker_defense: pending.attacker_defense,
+                                    attacker_attacks_per_round: pending.attacker_attacks_per_round,
+                                    defender_name: pending.defender_name.clone(),
+                                    defender_hp: pending.defender_hp,
+                                    defender_max_hp: pending.defender_max_hp,
+                                    defender_attack: pending.defender_attack,
+                                    defender_defense: pending.defender_defense,
+                                    defender_attacks_per_round: pending.defender_attacks_per_round,
+                                };
+                                renderer
+                                    .combat_log_display
+                                    .show_combat_confirmation(confirmation);
+                                println!(
+                                    "⚔️  Combat requested! Click OK to confirm or Cancel to abort."
+                                );
+                            }
+                        }
                     }
                 } else if self.movement_range.contains(&hex_coord) {
                     // Valid move - execute movement (non-combat)
@@ -656,6 +705,15 @@ impl ApplicationHandler for GameApp {
             WindowEvent::CursorMoved { position, .. } => {
                 // Store cursor position for click handling
                 self.cursor_position = (position.x, position.y);
+
+                // Update combat confirmation button hover states
+                if let Some(renderer) = &mut self.renderer {
+                    if self.game_world.pending_combat.is_some() {
+                        renderer
+                            .combat_log_display
+                            .update_button_hover(position.x as f32, position.y as f32);
+                    }
+                }
 
                 // Update menu button hover states
                 if let Some(renderer) = &mut self.renderer {

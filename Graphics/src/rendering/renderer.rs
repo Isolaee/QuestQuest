@@ -180,6 +180,218 @@ impl MenuDisplay {
     }
 }
 
+/// Effects display for visual effects (particles, animations, etc.)
+#[derive(Default)]
+pub struct EffectsDisplay {
+    pub active: bool,
+    // Future: Add effect particles, animations, etc.
+}
+
+impl EffectsDisplay {
+    pub fn new() -> Self {
+        Self { active: false }
+    }
+
+    pub fn show(&mut self) {
+        self.active = true;
+    }
+
+    pub fn hide(&mut self) {
+        self.active = false;
+    }
+}
+
+/// Combat log entry
+#[derive(Clone, Debug)]
+pub struct CombatLogEntry {
+    pub message: String,
+    pub timestamp: f32, // Game time when event occurred
+    pub entry_type: CombatLogEntryType,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum CombatLogEntryType {
+    Attack,
+    Damage,
+    Heal,
+    Miss,
+    Death,
+    Info,
+}
+
+/// Combat confirmation dialog data
+#[derive(Clone, Debug)]
+pub struct CombatConfirmation {
+    pub attacker_name: String,
+    pub attacker_hp: u32,
+    pub attacker_max_hp: u32,
+    pub attacker_attack: u32,
+    pub attacker_defense: u32,
+    pub attacker_attacks_per_round: u32,
+    pub defender_name: String,
+    pub defender_hp: u32,
+    pub defender_max_hp: u32,
+    pub defender_attack: u32,
+    pub defender_defense: u32,
+    pub defender_attacks_per_round: u32,
+}
+
+/// Combat confirmation button
+#[derive(Clone, Debug)]
+pub struct CombatButton {
+    pub position: (f32, f32),
+    pub size: (f32, f32),
+    pub label: String,
+    pub hovered: bool,
+}
+
+impl CombatButton {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, label: &str) -> Self {
+        Self {
+            position: (x, y),
+            size: (width, height),
+            label: label.to_string(),
+            hovered: false,
+        }
+    }
+
+    pub fn contains_point(&self, x: f32, y: f32) -> bool {
+        x >= self.position.0
+            && x <= self.position.0 + self.size.0
+            && y >= self.position.1
+            && y <= self.position.1 + self.size.1
+    }
+}
+
+/// Combat log display
+pub struct CombatLogDisplay {
+    pub active: bool,
+    pub entries: Vec<CombatLogEntry>,
+    pub max_entries: usize,
+    pub position: (f32, f32), // Screen position (x, y)
+    pub size: (f32, f32),     // Width and height
+    pub auto_hide: bool,      // Auto-hide when no combat
+    pub pending_combat: Option<CombatConfirmation>,
+    pub ok_button: CombatButton,
+    pub cancel_button: CombatButton,
+}
+
+impl Default for CombatLogDisplay {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl CombatLogDisplay {
+    pub fn new() -> Self {
+        // Center the combat dialog on screen (assuming 800x600 window)
+        let dialog_width = 600.0;
+        let dialog_height = 300.0;
+        let dialog_x = (800.0 - dialog_width) / 2.0;
+        let dialog_y = (600.0 - dialog_height) / 2.0;
+
+        // Create OK button (centered at bottom)
+        let button_width = 100.0;
+        let button_height = 40.0;
+        let ok_x = dialog_x + dialog_width / 2.0 - button_width - 10.0;
+        let ok_y = dialog_y + dialog_height - button_height - 20.0;
+
+        // Create Cancel button
+        let cancel_x = dialog_x + dialog_width / 2.0 + 10.0;
+        let cancel_y = ok_y;
+
+        Self {
+            active: false,
+            entries: Vec::new(),
+            max_entries: 10,
+            position: (dialog_x, dialog_y),
+            size: (dialog_width, dialog_height),
+            auto_hide: false,
+            pending_combat: None,
+            ok_button: CombatButton::new(ok_x, ok_y, button_width, button_height, "OK"),
+            cancel_button: CombatButton::new(
+                cancel_x,
+                cancel_y,
+                button_width,
+                button_height,
+                "Cancel",
+            ),
+        }
+    }
+
+    pub fn show(&mut self) {
+        self.active = true;
+    }
+
+    pub fn hide(&mut self) {
+        self.active = false;
+    }
+
+    pub fn toggle(&mut self) {
+        self.active = !self.active;
+    }
+
+    pub fn show_combat_confirmation(&mut self, confirmation: CombatConfirmation) {
+        self.pending_combat = Some(confirmation);
+        self.active = true;
+    }
+
+    pub fn clear_combat_confirmation(&mut self) {
+        self.pending_combat = None;
+        self.active = false;
+    }
+
+    pub fn has_pending_combat(&self) -> bool {
+        self.pending_combat.is_some()
+    }
+
+    pub fn update_button_hover(&mut self, mouse_x: f32, mouse_y: f32) {
+        self.ok_button.hovered = self.ok_button.contains_point(mouse_x, mouse_y);
+        self.cancel_button.hovered = self.cancel_button.contains_point(mouse_x, mouse_y);
+    }
+
+    pub fn handle_click(&mut self, mouse_x: f32, mouse_y: f32) -> Option<bool> {
+        if !self.has_pending_combat() {
+            return None;
+        }
+
+        if self.ok_button.contains_point(mouse_x, mouse_y) {
+            return Some(true); // Combat confirmed
+        }
+
+        if self.cancel_button.contains_point(mouse_x, mouse_y) {
+            self.clear_combat_confirmation();
+            return Some(false); // Combat cancelled
+        }
+
+        None
+    }
+
+    pub fn add_entry(&mut self, message: String, entry_type: CombatLogEntryType) {
+        let entry = CombatLogEntry {
+            message,
+            timestamp: 0.0, // TODO: Add game time tracking
+            entry_type,
+        };
+
+        self.entries.push(entry);
+
+        // Keep only the most recent entries
+        if self.entries.len() > self.max_entries {
+            self.entries.remove(0);
+        }
+
+        // Auto-show on new entry
+        if !self.active {
+            self.active = true;
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+}
+
 pub struct Renderer {
     pub vao: GLuint,
     pub shader_program: GLuint,
@@ -187,6 +399,8 @@ pub struct Renderer {
     pub texture_manager: TextureManager,
     pub guide_display: GuideDisplay,
     pub menu_display: MenuDisplay,
+    pub effects_display: EffectsDisplay,
+    pub combat_log_display: CombatLogDisplay,
 }
 
 impl Renderer {
@@ -226,6 +440,8 @@ impl Renderer {
             texture_manager,
             guide_display: GuideDisplay::new(),
             menu_display: MenuDisplay::new(),
+            effects_display: EffectsDisplay::new(),
+            combat_log_display: CombatLogDisplay::new(),
         })
     }
 
@@ -260,6 +476,12 @@ impl Renderer {
 
             // LAYER 5: Render menu (topmost UI layer, no depth test)
             self.render_menu_layer();
+
+            // LAYER 6: Render effects (visual effects layer, no depth test)
+            self.render_effects_layer();
+
+            // LAYER 7: Render combat log (combat information layer, no depth test)
+            self.render_combat_log_layer();
         }
     }
 
@@ -878,5 +1100,491 @@ impl Renderer {
         // TODO: Render text labels on buttons
         // For now, buttons are drawn as colored rectangles
         // Text rendering will show button labels like "Continue", "Settings", etc.
+    }
+
+    unsafe fn render_effects_layer(&self) {
+        // Layer 6: Visual effects (particles, animations, spell effects, etc.)
+        if self.effects_display.active {
+            // TODO: Implement visual effects rendering
+            // - Particle systems for explosions, magic spells
+            // - Animation overlays for unit actions
+            // - Environmental effects (rain, snow, fire)
+            // For now, this layer is transparent/empty
+        }
+    }
+
+    unsafe fn render_combat_log_layer(&self) {
+        // Layer 7: Combat log display
+        if self.combat_log_display.active {
+            // If there's a pending combat confirmation, show the dialog
+            if let Some(ref confirmation) = self.combat_log_display.pending_combat {
+                self.render_combat_confirmation_dialog(confirmation);
+            } else {
+                // Otherwise, show the combat log entries
+                self.render_combat_log_entries();
+            }
+        }
+    }
+
+    unsafe fn render_combat_confirmation_dialog(&self, confirmation: &CombatConfirmation) {
+        let mut vertices: Vec<f32> = Vec::new();
+        let (dialog_x, dialog_y) = self.combat_log_display.position;
+        let (dialog_width, dialog_height) = self.combat_log_display.size;
+
+        // Convert screen coordinates to normalized device coordinates (-1 to 1)
+        let window_width = 800.0; // TODO: Get from actual window size
+        let window_height = 600.0;
+
+        let to_ndc_x = |x: f32| (x / window_width) * 2.0 - 1.0;
+        let to_ndc_y = |y: f32| 1.0 - (y / window_height) * 2.0;
+
+        let x1 = to_ndc_x(dialog_x);
+        let y1 = to_ndc_y(dialog_y);
+        let x2 = to_ndc_x(dialog_x + dialog_width);
+        let y2 = to_ndc_y(dialog_y + dialog_height);
+
+        // Background panel (semi-transparent dark background)
+        let bg_color = [0.1, 0.1, 0.15, 0.95];
+        let depth = -0.98; // Very close to camera, above all other UI
+
+        // Background quad (2 triangles)
+        vertices.extend_from_slice(&[
+            // Triangle 1
+            x1,
+            y1,
+            depth,
+            0.0,
+            0.0,
+            -1.0,
+            bg_color[0],
+            bg_color[1],
+            bg_color[2],
+            x2,
+            y1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            bg_color[0],
+            bg_color[1],
+            bg_color[2],
+            x1,
+            y2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            bg_color[0],
+            bg_color[1],
+            bg_color[2],
+            // Triangle 2
+            x2,
+            y1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            bg_color[0],
+            bg_color[1],
+            bg_color[2],
+            x2,
+            y2,
+            depth,
+            1.0,
+            1.0,
+            -1.0,
+            bg_color[0],
+            bg_color[1],
+            bg_color[2],
+            x1,
+            y2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            bg_color[0],
+            bg_color[1],
+            bg_color[2],
+        ]);
+
+        // Add border
+        let border_width = 3.0;
+        let border_color = [0.8, 0.6, 0.2]; // Gold border
+
+        // Top border
+        let bx1 = to_ndc_x(dialog_x);
+        let by1 = to_ndc_y(dialog_y);
+        let bx2 = to_ndc_x(dialog_x + dialog_width);
+        let by2 = to_ndc_y(dialog_y + border_width);
+        vertices.extend_from_slice(&[
+            bx1,
+            by1,
+            depth,
+            0.0,
+            0.0,
+            -1.0,
+            border_color[0],
+            border_color[1],
+            border_color[2],
+            bx2,
+            by1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            border_color[0],
+            border_color[1],
+            border_color[2],
+            bx1,
+            by2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            border_color[0],
+            border_color[1],
+            border_color[2],
+            bx2,
+            by1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            border_color[0],
+            border_color[1],
+            border_color[2],
+            bx2,
+            by2,
+            depth,
+            1.0,
+            1.0,
+            -1.0,
+            border_color[0],
+            border_color[1],
+            border_color[2],
+            bx1,
+            by2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            border_color[0],
+            border_color[1],
+            border_color[2],
+        ]);
+
+        // Attacker panel (left side)
+        let panel_margin = 20.0;
+        let panel_width = (dialog_width - 3.0 * panel_margin) / 2.0;
+        let panel_height = 180.0;
+        let panel_y = dialog_y + 40.0;
+
+        let attacker_x = dialog_x + panel_margin;
+        let ax1 = to_ndc_x(attacker_x);
+        let ay1 = to_ndc_y(panel_y);
+        let ax2 = to_ndc_x(attacker_x + panel_width);
+        let ay2 = to_ndc_y(panel_y + panel_height);
+        let attacker_color = [0.2, 0.4, 0.7]; // Blue for attacker
+
+        vertices.extend_from_slice(&[
+            ax1,
+            ay1,
+            depth,
+            0.0,
+            0.0,
+            -1.0,
+            attacker_color[0],
+            attacker_color[1],
+            attacker_color[2],
+            ax2,
+            ay1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            attacker_color[0],
+            attacker_color[1],
+            attacker_color[2],
+            ax1,
+            ay2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            attacker_color[0],
+            attacker_color[1],
+            attacker_color[2],
+            ax2,
+            ay1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            attacker_color[0],
+            attacker_color[1],
+            attacker_color[2],
+            ax2,
+            ay2,
+            depth,
+            1.0,
+            1.0,
+            -1.0,
+            attacker_color[0],
+            attacker_color[1],
+            attacker_color[2],
+            ax1,
+            ay2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            attacker_color[0],
+            attacker_color[1],
+            attacker_color[2],
+        ]);
+
+        // Defender panel (right side)
+        let defender_x = dialog_x + 2.0 * panel_margin + panel_width;
+        let dx1 = to_ndc_x(defender_x);
+        let dy1 = to_ndc_y(panel_y);
+        let dx2 = to_ndc_x(defender_x + panel_width);
+        let dy2 = to_ndc_y(panel_y + panel_height);
+        let defender_color = [0.7, 0.2, 0.2]; // Red for defender
+
+        vertices.extend_from_slice(&[
+            dx1,
+            dy1,
+            depth,
+            0.0,
+            0.0,
+            -1.0,
+            defender_color[0],
+            defender_color[1],
+            defender_color[2],
+            dx2,
+            dy1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            defender_color[0],
+            defender_color[1],
+            defender_color[2],
+            dx1,
+            dy2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            defender_color[0],
+            defender_color[1],
+            defender_color[2],
+            dx2,
+            dy1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            defender_color[0],
+            defender_color[1],
+            defender_color[2],
+            dx2,
+            dy2,
+            depth,
+            1.0,
+            1.0,
+            -1.0,
+            defender_color[0],
+            defender_color[1],
+            defender_color[2],
+            dx1,
+            dy2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            defender_color[0],
+            defender_color[1],
+            defender_color[2],
+        ]);
+
+        // OK Button
+        let ok_btn = &self.combat_log_display.ok_button;
+        let ok_color = if ok_btn.hovered {
+            [0.3, 0.8, 0.3] // Bright green when hovered
+        } else {
+            [0.2, 0.6, 0.2] // Dark green
+        };
+        let okx1 = to_ndc_x(ok_btn.position.0);
+        let oky1 = to_ndc_y(ok_btn.position.1);
+        let okx2 = to_ndc_x(ok_btn.position.0 + ok_btn.size.0);
+        let oky2 = to_ndc_y(ok_btn.position.1 + ok_btn.size.1);
+
+        vertices.extend_from_slice(&[
+            okx1,
+            oky1,
+            depth,
+            0.0,
+            0.0,
+            -1.0,
+            ok_color[0],
+            ok_color[1],
+            ok_color[2],
+            okx2,
+            oky1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            ok_color[0],
+            ok_color[1],
+            ok_color[2],
+            okx1,
+            oky2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            ok_color[0],
+            ok_color[1],
+            ok_color[2],
+            okx2,
+            oky1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            ok_color[0],
+            ok_color[1],
+            ok_color[2],
+            okx2,
+            oky2,
+            depth,
+            1.0,
+            1.0,
+            -1.0,
+            ok_color[0],
+            ok_color[1],
+            ok_color[2],
+            okx1,
+            oky2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            ok_color[0],
+            ok_color[1],
+            ok_color[2],
+        ]);
+
+        // Cancel Button
+        let cancel_btn = &self.combat_log_display.cancel_button;
+        let cancel_color = if cancel_btn.hovered {
+            [0.9, 0.3, 0.3] // Bright red when hovered
+        } else {
+            [0.6, 0.2, 0.2] // Dark red
+        };
+        let cx1 = to_ndc_x(cancel_btn.position.0);
+        let cy1 = to_ndc_y(cancel_btn.position.1);
+        let cx2 = to_ndc_x(cancel_btn.position.0 + cancel_btn.size.0);
+        let cy2 = to_ndc_y(cancel_btn.position.1 + cancel_btn.size.1);
+
+        vertices.extend_from_slice(&[
+            cx1,
+            cy1,
+            depth,
+            0.0,
+            0.0,
+            -1.0,
+            cancel_color[0],
+            cancel_color[1],
+            cancel_color[2],
+            cx2,
+            cy1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            cancel_color[0],
+            cancel_color[1],
+            cancel_color[2],
+            cx1,
+            cy2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            cancel_color[0],
+            cancel_color[1],
+            cancel_color[2],
+            cx2,
+            cy1,
+            depth,
+            1.0,
+            0.0,
+            -1.0,
+            cancel_color[0],
+            cancel_color[1],
+            cancel_color[2],
+            cx2,
+            cy2,
+            depth,
+            1.0,
+            1.0,
+            -1.0,
+            cancel_color[0],
+            cancel_color[1],
+            cancel_color[2],
+            cx1,
+            cy2,
+            depth,
+            0.0,
+            1.0,
+            -1.0,
+            cancel_color[0],
+            cancel_color[1],
+            cancel_color[2],
+        ]);
+
+        // Upload and draw vertices
+        gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+            vertices.as_ptr() as *const _,
+            gl::DYNAMIC_DRAW,
+        );
+        gl::BindVertexArray(self.vao);
+        gl::DrawArrays(gl::TRIANGLES, 0, (vertices.len() / 9) as GLint);
+
+        // TODO: Render text for:
+        // - Dialog title: "Combat!"
+        // - Attacker stats: name, HP, attack, defense, attacks/round
+        // - Defender stats: name, HP, attack, defense, attacks/round
+        // - Button labels: "OK" and "Cancel"
+        println!("🎯 Combat Confirmation Dialog:");
+        println!(
+            "   Attacker: {} ({}/{} HP, ATK:{}, DEF:{}, {}/round)",
+            confirmation.attacker_name,
+            confirmation.attacker_hp,
+            confirmation.attacker_max_hp,
+            confirmation.attacker_attack,
+            confirmation.attacker_defense,
+            confirmation.attacker_attacks_per_round
+        );
+        println!(
+            "   Defender: {} ({}/{} HP, ATK:{}, DEF:{}, {}/round)",
+            confirmation.defender_name,
+            confirmation.defender_hp,
+            confirmation.defender_max_hp,
+            confirmation.defender_attack,
+            confirmation.defender_defense,
+            confirmation.defender_attacks_per_round
+        );
+    }
+
+    unsafe fn render_combat_log_entries(&self) {
+        // TODO: Render combat log entries as scrollable text
+        // For now, this is empty - will show combat history after fights
     }
 }
