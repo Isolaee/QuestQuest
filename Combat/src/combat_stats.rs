@@ -92,6 +92,10 @@ pub struct CombatStats {
     pub base_attack: u32,
     /// Additional attack damage from equipment/buffs
     pub attack_modifier: i32,
+    /// Strength of each individual attack
+    pub attack_strength: u32,
+    /// Number of attacks per combat round
+    pub attacks_per_round: u32,
     /// Movement speed
     pub movement_speed: i32,
     /// Range category
@@ -113,11 +117,35 @@ impl CombatStats {
         range_category: RangeCategory,
         resistances: Resistances,
     ) -> Self {
+        // Default: 1 attack per round with strength equal to base_attack
+        Self::new_with_attacks(
+            max_health,
+            base_attack,
+            movement_speed,
+            range_category,
+            resistances,
+            base_attack, // attack_strength defaults to base_attack
+            1,           // attacks_per_round defaults to 1
+        )
+    }
+
+    /// Create new combat stats with specific attack parameters
+    pub fn new_with_attacks(
+        max_health: i32,
+        base_attack: u32,
+        movement_speed: i32,
+        range_category: RangeCategory,
+        resistances: Resistances,
+        attack_strength: u32,
+        attacks_per_round: u32,
+    ) -> Self {
         Self {
             health: max_health,
             max_health,
             base_attack,
             attack_modifier: 0,
+            attack_strength,
+            attacks_per_round: attacks_per_round.max(1), // At least 1 attack
             movement_speed,
             range_category,
             attack_range: range_category.base_range(),
@@ -181,6 +209,23 @@ impl CombatStats {
         let resistance = target.resistances.get_resistance(damage_type);
         let resistance_multiplier = 1.0 - (resistance as f32 / 100.0);
         let final_damage = (base_damage as f32 * resistance_multiplier) as u32;
+        final_damage.max(1) // Always at least 1 damage
+    }
+
+    /// Calculate total damage for all attacks in a round
+    pub fn calculate_total_round_damage(
+        &self,
+        target: &CombatStats,
+        damage_type: DamageType,
+    ) -> u32 {
+        let resistance = target.resistances.get_resistance(damage_type);
+        let resistance_multiplier = 1.0 - (resistance as f32 / 100.0);
+
+        // Total damage = (attack_strength + modifiers) * attacks_per_round * resistance
+        let modified_strength = (self.attack_strength as i32 + self.attack_modifier).max(0) as u32;
+        let total_damage = modified_strength * self.attacks_per_round;
+        let final_damage = (total_damage as f32 * resistance_multiplier) as u32;
+
         final_damage.max(1) // Always at least 1 damage
     }
 }

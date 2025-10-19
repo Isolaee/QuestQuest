@@ -129,6 +129,32 @@ impl UnitClass {
         }
     }
 
+    /// Get attack strength (damage per individual attack) for this class
+    pub fn get_attack_strength(self) -> u32 {
+        match self {
+            UnitClass::Warrior => 15, // Strong single strikes
+            UnitClass::Archer => 10,  // Multiple arrows
+            UnitClass::Mage => 18,    // Powerful spells but slower
+            UnitClass::Rogue => 8,    // Fast but weaker strikes
+            UnitClass::Cleric => 12,  // Moderate healing-based damage
+            UnitClass::Paladin => 14, // Divine strikes
+            UnitClass::Ranger => 11,  // Balanced attacks
+        }
+    }
+
+    /// Get number of attacks per combat round for this class
+    pub fn get_attacks_per_round(self) -> u32 {
+        match self {
+            UnitClass::Warrior => 1, // One powerful strike
+            UnitClass::Archer => 2,  // Two arrows per round
+            UnitClass::Mage => 1,    // One spell per round
+            UnitClass::Rogue => 3,   // Multiple quick strikes
+            UnitClass::Cleric => 1,  // One blessed strike
+            UnitClass::Paladin => 1, // One holy strike
+            UnitClass::Ranger => 2,  // Two balanced attacks
+        }
+    }
+
     /// Get base health for this class
     pub fn get_base_health(self) -> i32 {
         match self {

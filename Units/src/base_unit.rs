@@ -52,13 +52,17 @@ impl BaseUnit {
         let base_movement = class.get_movement_speed() + race.get_movement_bonus();
         let range_category = class.get_default_range();
         let resistances = class.get_resistances();
+        let attack_strength = class.get_attack_strength();
+        let attacks_per_round = class.get_attacks_per_round();
 
-        let combat_stats = CombatStats::new(
+        let combat_stats = CombatStats::new_with_attacks(
             base_health,
             base_attack,
             base_movement,
             range_category,
             resistances,
+            attack_strength,
+            attacks_per_round,
         );
 
         Self {
