@@ -6,11 +6,9 @@ fn main() {
     println!("==================\n");
 
     // Create a test unit using the new system
-    let mut warrior = UnitFactory::create_unit(
+    let mut warrior = UnitFactory::create_dwarf_warrior(
         "Thorin Ironbeard".to_string(),
         HexCoord::new(2, -1),
-        Race::Dwarf,
-        UnitClass::Warrior,
         Terrain::Mountain,
     );
 
@@ -89,11 +87,9 @@ fn main() {
     println!("\n\n🖱️  Second Unit (Full Health)");
     println!("════════════════════════════════\n");
 
-    let mut archer = UnitFactory::create_unit(
+    let mut archer = UnitFactory::create_elf_archer(
         "Legolas Greenleaf".to_string(),
         HexCoord::new(0, 3),
-        Race::Elf,
-        UnitClass::Archer,
         Terrain::Forest0,
     );
 

@@ -1,8 +1,7 @@
 use crate::attack::Attack;
 use crate::base_unit::BaseUnit;
-use crate::unit_class::UnitClass;
 use crate::unit_race::{Race, Terrain};
-use combat::DamageType;
+use combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use graphics::HexCoord;
 
 pub struct HumanWarrior {
@@ -12,7 +11,33 @@ pub struct HumanWarrior {
 
 impl HumanWarrior {
     pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
-        let base = BaseUnit::new(name, position, Race::Human, UnitClass::Warrior, terrain);
+        // Define combat stats specific to Human Warrior
+        let combat_stats = CombatStats::new_with_attacks(
+            120,                                  // health
+            15,                                   // base attack
+            3 + Race::Human.get_movement_bonus(), // movement speed
+            RangeCategory::Melee,                 // range category
+            Resistances::new(
+                // resistances (heavy armor)
+                30, // blunt
+                20, // pierce
+                10, // fire
+                10, // dark
+                35, // slash
+                25, // crush
+            ),
+            15, // attack_strength
+            1,  // attacks_per_round
+        );
+
+        let base = BaseUnit::new(
+            name,
+            position,
+            Race::Human,
+            "Human Warrior".to_string(),
+            terrain,
+            combat_stats,
+        );
 
         // Define default attacks for human warrior
         let attacks = vec![

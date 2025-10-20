@@ -29,6 +29,7 @@ pub struct PendingCombat {
     pub defender_attack: u32,
     pub defender_defense: u32,
     pub defender_attacks_per_round: u32,
+    pub defender_attacks: Vec<AttackInfo>,
 }
 
 /// Game world that manages all game objects
@@ -282,6 +283,18 @@ impl GameWorld {
             })
             .collect();
 
+        // Get defender attacks
+        let defender_attacks = defender
+            .unit()
+            .get_attacks()
+            .iter()
+            .map(|attack| AttackInfo {
+                name: attack.name.clone(),
+                damage: attack.damage,
+                range: attack.range,
+            })
+            .collect();
+
         let pending = PendingCombat {
             attacker_id,
             defender_id,
@@ -298,6 +311,7 @@ impl GameWorld {
             defender_attack: defender_stats.get_total_attack(),
             defender_defense: defender_stats.resistances.slash as u32,
             defender_attacks_per_round: defender_stats.attacks_per_round,
+            defender_attacks,
         };
 
         self.pending_combat = Some(pending);
@@ -331,11 +345,27 @@ impl GameWorld {
         let (mut attacker_stats, mut defender_stats, attacker_damage_type, defender_damage_type) = {
             let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
             let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+
+            // Get damage type from first attack, or default to Slash
+            let attacker_damage_type = attacker
+                .unit()
+                .get_attacks()
+                .first()
+                .map(|a| a.damage_type)
+                .unwrap_or(combat::DamageType::Slash);
+
+            let defender_damage_type = defender
+                .unit()
+                .get_attacks()
+                .first()
+                .map(|a| a.damage_type)
+                .unwrap_or(combat::DamageType::Slash);
+
             (
                 attacker.unit().combat_stats().clone(),
                 defender.unit().combat_stats().clone(),
-                attacker.unit().class().get_default_damage_type(),
-                defender.unit().class().get_default_damage_type(),
+                attacker_damage_type,
+                defender_damage_type,
             )
         };
 

@@ -2,7 +2,7 @@
 /// This example shows how to use UnitFactory to create units and work with them
 /// polymorphically using the Unit trait.
 use graphics::HexCoord;
-use units::{Race, Terrain, Unit, UnitClass, UnitFactory};
+use units::{Terrain, Unit, UnitFactory};
 
 fn main() {
     println!("🎮 Trait-Based Unit System Demo");
@@ -11,27 +11,21 @@ fn main() {
     // Create units using the factory
     println!("Creating units with UnitFactory...\n");
 
-    let warrior = UnitFactory::create_unit(
+    let warrior = UnitFactory::create_dwarf_warrior(
         "Thorin the Bold".to_string(),
         HexCoord::new(0, 0),
-        Race::Dwarf,
-        UnitClass::Warrior,
         Terrain::Mountain,
     );
 
-    let archer = UnitFactory::create_unit(
+    let archer = UnitFactory::create_elf_archer(
         "Legolas Greenleaf".to_string(),
         HexCoord::new(3, -2),
-        Race::Elf,
-        UnitClass::Archer,
         Terrain::Forest0,
     );
 
-    let mut mage = UnitFactory::create_unit(
+    let mut mage = UnitFactory::create_human_mage(
         "Gandalf the Grey".to_string(),
         HexCoord::new(-2, 3),
-        Race::Human,
-        UnitClass::Mage,
         Terrain::Grasslands,
     );
 

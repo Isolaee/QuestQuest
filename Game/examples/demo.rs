@@ -1,7 +1,7 @@
 use game::*;
 use graphics::HexCoord;
 use items::ItemProperties;
-use units::{Item, Race, Terrain, UnitClass};
+use units::{Item, Terrain};
 
 fn main() {
     println!("🎮 Game Object System Demo");
@@ -15,18 +15,14 @@ fn main() {
     println!("   Generated {} terrain tiles", world.terrain().len());
 
     // Create units using UnitFactory and wrap them as game objects
-    let game_warrior = GameUnit::new(units::UnitFactory::create_unit(
+    let game_warrior = GameUnit::new(units::UnitFactory::create_dwarf_warrior(
         "Thorin Ironshield".to_string(),
         HexCoord::new(0, 0),
-        Race::Dwarf,
-        UnitClass::Warrior,
         Terrain::Mountain,
     ));
-    let game_archer = GameUnit::new(units::UnitFactory::create_unit(
+    let game_archer = GameUnit::new(units::UnitFactory::create_elf_archer(
         "Legolas Greenleaf".to_string(),
         HexCoord::new(2, -1),
-        Race::Elf,
-        UnitClass::Archer,
         Terrain::Forest0,
     ));
 

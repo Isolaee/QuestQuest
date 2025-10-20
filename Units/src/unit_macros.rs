@@ -29,8 +29,8 @@ macro_rules! impl_unit_delegate {
                 self.base.race
             }
 
-            fn class(&self) -> $crate::unit_class::UnitClass {
-                self.base.class
+            fn unit_type(&self) -> &str {
+                &self.base.unit_type
             }
 
             // ===== Movement =====
@@ -205,11 +205,11 @@ macro_rules! impl_unit_delegate {
 
             fn get_info(&self) -> String {
                 format!(
-                    "{} (Lv.{} {:?} {:?})\nHP: {}/{}\nATK: {}\nExp: {}/{}",
+                    "{} (Lv.{} {:?} {})\nHP: {}/{}\nATK: {}\nExp: {}/{}",
                     self.name(),
                     self.level(),
                     self.base.race,
-                    self.base.class,
+                    self.base.unit_type,
                     self.base.combat_stats.health,
                     self.base.combat_stats.max_health,
                     self.base.combat_stats.get_total_attack(),
@@ -237,7 +237,12 @@ macro_rules! impl_unit_delegate {
             }
 
             fn on_click(&self) {
-                println!("{:?} {} {}", self.base.race, self.base.class, self.name());
+                println!(
+                    "{:?} {} {}",
+                    self.base.race,
+                    self.base.unit_type,
+                    self.name()
+                );
             }
 
             fn take_damage(&mut self, damage: u32) {

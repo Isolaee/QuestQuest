@@ -1,5 +1,4 @@
 use crate::attack::Attack;
-use crate::unit_class::UnitClass;
 use crate::unit_race::{Race, Terrain};
 use combat::CombatStats;
 use graphics::HexCoord;
@@ -26,8 +25,8 @@ pub trait Unit {
     /// Get the unit's race
     fn race(&self) -> Race;
 
-    /// Get the unit's class
-    fn class(&self) -> UnitClass;
+    /// Get the unit's type (e.g., "Human Warrior", "Goblin Grunt", etc.)
+    fn unit_type(&self) -> &str;
 
     // ===== Combat Methods =====
 

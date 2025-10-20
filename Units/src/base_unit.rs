@@ -1,4 +1,3 @@
-use crate::unit_class::UnitClass;
 use crate::unit_race::{Race, Terrain};
 use combat::CombatStats;
 use graphics::HexCoord;
@@ -17,7 +16,7 @@ pub struct BaseUnit {
     pub name: String,
     pub position: HexCoord,
     pub race: Race,
-    pub class: UnitClass,
+    pub unit_type: String, // e.g., "Human Warrior", "Orc Grunt", etc.
 
     // Progression
     pub experience: i32,
@@ -39,62 +38,51 @@ pub struct BaseUnit {
 }
 
 impl BaseUnit {
-    /// Create a new base unit with default values
+    /// Create a new base unit with specified combat stats
     pub fn new(
         name: String,
         position: HexCoord,
         race: Race,
-        class: UnitClass,
+        unit_type: String,
         terrain: Terrain,
+        combat_stats: CombatStats,
     ) -> Self {
-        let base_health = class.get_base_health();
-        let base_attack = class.get_base_attack();
-        let base_movement = class.get_movement_speed() + race.get_movement_bonus();
-        let range_category = class.get_default_range();
-        let resistances = class.get_resistances();
-        let attack_strength = class.get_attack_strength();
-        let attacks_per_round = class.get_attacks_per_round();
+        let max_health = combat_stats.health;
+        let base_attack = combat_stats.base_attack as i32;
+        let base_movement = combat_stats.movement_speed;
 
-        let combat_stats = CombatStats::new_with_attacks(
-            base_health,
-            base_attack,
-            base_movement,
-            range_category,
-            resistances,
-            attack_strength,
-            attacks_per_round,
-        );
-
-        Self {
+        BaseUnit {
             id: Uuid::new_v4(),
             name,
             position,
             race,
-            class,
-            experience: 0,
+            unit_type,
             level: 1,
+            experience: 0,
             combat_stats,
-            equipment: Equipment::new(),
+            equipment: Equipment::default(),
             inventory: Vec::new(),
-            cached_defense: 0, // No longer used
-            cached_attack: base_attack as i32,
+            cached_defense: 0, // Will be calculated from resistances
+            cached_attack: base_attack,
             cached_movement: base_movement,
-            cached_max_health: base_health,
+            cached_max_health: max_health,
             current_terrain: terrain,
         }
     }
 
     /// Create a base unit with specific level and experience
+    #[allow(clippy::too_many_arguments)]
     pub fn new_with_level(
         name: String,
         position: HexCoord,
         race: Race,
-        class: UnitClass,
+        unit_type: String,
         level: i32,
         experience: i32,
         terrain: Terrain,
+        combat_stats: CombatStats,
     ) -> Self {
-        let mut base = Self::new(name, position, race, class, terrain);
+        let mut base = Self::new(name, position, race, unit_type, terrain, combat_stats);
         base.level = level.max(1);
         base.experience = experience.max(0);
         base
@@ -102,10 +90,10 @@ impl BaseUnit {
 
     /// Recalculate all derived stats based on base stats, equipment, and level
     pub fn recalculate_stats(&mut self) {
-        // Base stats from class
-        let base_health = self.class.get_base_health();
-        let base_attack = self.class.get_base_attack();
-        let base_movement = self.class.get_movement_speed() + self.race.get_movement_bonus();
+        // Base stats from initial combat_stats
+        let base_health = self.combat_stats.max_health;
+        let base_attack = self.combat_stats.attack_strength;
+        let base_movement = self.combat_stats.movement_speed;
 
         // Level bonuses (each level adds small bonuses)
         let level_health_bonus = (self.level - 1) * 5;
@@ -138,10 +126,9 @@ impl BaseUnit {
             self.combat_stats.attack_range = self.combat_stats.range_category.base_range()
                 + self.equipment.get_total_range_modifier();
         } else {
-            let default_range = self.class.get_default_range();
-            self.combat_stats.range_category = default_range;
-            self.combat_stats.attack_range =
-                default_range.base_range() + self.equipment.get_total_range_modifier();
+            // Keep current range category, just update range modifier from equipment
+            self.combat_stats.attack_range = self.combat_stats.range_category.base_range()
+                + self.equipment.get_total_range_modifier();
         }
 
         // Ensure minimum range of 1

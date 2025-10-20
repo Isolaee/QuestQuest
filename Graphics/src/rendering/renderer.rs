@@ -244,6 +244,7 @@ pub struct CombatConfirmation {
     pub defender_attack: u32,
     pub defender_defense: u32,
     pub defender_attacks_per_round: u32,
+    pub defender_attacks: Vec<AttackOption>,
 }
 
 /// Combat confirmation button
@@ -1437,8 +1438,16 @@ impl Renderer {
         let panel_margin = 30.0;
         let panel_spacing = 20.0;
         let panel_width = (dialog_width - 2.0 * panel_margin - panel_spacing) / 2.0;
-        let panel_height = dialog_height - title_height - 120.0; // Leave room for buttons at bottom
-        let panel_y = dialog_y + title_height + 10.0;
+
+        // Reserve space for unit sprites (top area)
+        let sprite_area_height = 120.0;
+
+        // Text panel height - just enough for text content (header + 5 lines of stats)
+        let text_line_height = 25.0;
+        let panel_padding = 15.0;
+        let panel_height = text_line_height * 6.0 + panel_padding * 2.0; // ~180px
+
+        let panel_y = dialog_y + title_height + sprite_area_height + 10.0;
 
         let attacker_x = dialog_x + panel_margin;
         let ax1 = to_ndc_x(attacker_x);
@@ -1569,17 +1578,17 @@ impl Renderer {
             defender_color[2],
         ]);
 
-        // Attack option boxes (between panels and buttons)
+        // Attack option boxes for attacker (left side, under blue panel)
         if !confirmation.attacker_attacks.is_empty() {
-            let attack_box_width = dialog_width - 2.0 * panel_margin;
-            let attack_box_height = 40.0;
-            let attack_box_spacing = 10.0;
-            let attack_section_y = panel_y + panel_height + 15.0;
+            let attack_box_width = panel_width;
+            let attack_box_height = 30.0;
+            let attack_box_spacing = 5.0;
+            let attack_section_y = panel_y + panel_height + 10.0;
 
             for (i, _attack) in confirmation.attacker_attacks.iter().enumerate() {
                 let attack_y =
                     attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
-                let attack_x = dialog_x + panel_margin;
+                let attack_x = attacker_x;
 
                 // Attack box background
                 let attack_color = [0.4, 0.3, 0.2]; // Brown color for attack boxes
@@ -1894,6 +1903,332 @@ impl Renderer {
             }
         }
 
+        // Attack option boxes for defender (right side, under red panel)
+        if !confirmation.defender_attacks.is_empty() {
+            let attack_box_width = panel_width;
+            let attack_box_height = 30.0;
+            let attack_box_spacing = 5.0;
+            let attack_section_y = panel_y + panel_height + 10.0;
+
+            for (i, _attack) in confirmation.defender_attacks.iter().enumerate() {
+                let attack_y =
+                    attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
+                let attack_x = defender_x;
+
+                // Attack box background
+                let attack_color = [0.4, 0.3, 0.2]; // Brown color for attack boxes
+                let atk_x1 = to_ndc_x(attack_x);
+                let atk_y1 = to_ndc_y(attack_y);
+                let atk_x2 = to_ndc_x(attack_x + attack_box_width);
+                let atk_y2 = to_ndc_y(attack_y + attack_box_height);
+
+                vertices.extend_from_slice(&[
+                    atk_x1,
+                    atk_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x2,
+                    atk_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x1,
+                    atk_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x2,
+                    atk_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x2,
+                    atk_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                    atk_x1,
+                    atk_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    attack_color[0],
+                    attack_color[1],
+                    attack_color[2],
+                ]);
+
+                // Attack box border
+                let border_color_attack = [0.9, 0.7, 0.3]; // Gold border
+                let border_w = 2.0;
+
+                // Top border
+                let b_x1 = to_ndc_x(attack_x);
+                let b_y1 = to_ndc_y(attack_y);
+                let b_x2 = to_ndc_x(attack_x + attack_box_width);
+                let b_y2 = to_ndc_y(attack_y + border_w);
+                vertices.extend_from_slice(&[
+                    b_x1,
+                    b_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                ]);
+
+                // Bottom border
+                let b_y1 = to_ndc_y(attack_y + attack_box_height - border_w);
+                let b_y2 = to_ndc_y(attack_y + attack_box_height);
+                vertices.extend_from_slice(&[
+                    b_x1,
+                    b_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                ]);
+
+                // Left border
+                let b_x1 = to_ndc_x(attack_x);
+                let b_y1 = to_ndc_y(attack_y);
+                let b_x2 = to_ndc_x(attack_x + border_w);
+                let b_y2 = to_ndc_y(attack_y + attack_box_height);
+                vertices.extend_from_slice(&[
+                    b_x1,
+                    b_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                ]);
+
+                // Right border
+                let b_x1 = to_ndc_x(attack_x + attack_box_width - border_w);
+                let b_x2 = to_ndc_x(attack_x + attack_box_width);
+                vertices.extend_from_slice(&[
+                    b_x1,
+                    b_y1,
+                    depth,
+                    0.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y1,
+                    depth,
+                    1.0,
+                    0.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x2,
+                    b_y2,
+                    depth,
+                    1.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                    b_x1,
+                    b_y2,
+                    depth,
+                    0.0,
+                    1.0,
+                    tex_id,
+                    border_color_attack[0],
+                    border_color_attack[1],
+                    border_color_attack[2],
+                ]);
+            }
+        }
+
         // OK Button
         let ok_btn = &self.combat_log_display.ok_button;
         let ok_color = if ok_btn.hovered {
@@ -2066,8 +2401,10 @@ impl Renderer {
         );
 
         // Attacker stats (left panel)
+        let title_height = 50.0;
+        let sprite_area_height = 120.0;
         let attacker_x = dialog_x + 40.0;
-        let mut attacker_y = dialog_y + 70.0;
+        let mut attacker_y = dialog_y + title_height + sprite_area_height + 20.0;
         let text_size = 16.0;
         let line_height = 25.0;
 
@@ -2145,7 +2482,7 @@ impl Renderer {
 
         // Defender stats (right panel)
         let defender_x = dialog_x + dialog_width / 2.0 + 40.0;
-        let mut defender_y = dialog_y + 70.0;
+        let mut defender_y = dialog_y + title_height + sprite_area_height + 20.0;
 
         self.text_renderer.render_text(
             "DEFENDER",
@@ -2219,56 +2556,76 @@ impl Renderer {
             window_height,
         );
 
-        // Attack option labels
+        // Attack option labels for attacker (left column)
         if !confirmation.attacker_attacks.is_empty() {
             let (dialog_x, dialog_y) = self.combat_log_display.position;
-            let (dialog_width, dialog_height) = self.combat_log_display.size;
-            let attack_box_height = 40.0;
-            let attack_box_spacing = 10.0;
-            let panel_height = dialog_height - 50.0 - 120.0; // Title height and button area
-            let panel_y = dialog_y + 50.0 + 10.0;
-            let attack_section_y = panel_y + panel_height + 15.0;
+            let (dialog_width, _dialog_height) = self.combat_log_display.size;
+            let attack_box_height = 30.0;
+            let attack_box_spacing = 5.0;
+            let title_height = 50.0;
+            let sprite_area_height = 120.0;
+            let text_line_height = 25.0;
+            let panel_padding = 15.0;
+            let panel_height = text_line_height * 6.0 + panel_padding * 2.0;
+            let panel_y = dialog_y + title_height + sprite_area_height + 10.0;
+            let attack_section_y = panel_y + panel_height + 10.0;
             let panel_margin = 30.0;
+            let panel_spacing = 20.0;
+            let _panel_width = (dialog_width - 2.0 * panel_margin - panel_spacing) / 2.0;
+            let attacker_x = dialog_x + panel_margin;
 
             for (i, attack) in confirmation.attacker_attacks.iter().enumerate() {
                 let attack_y =
                     attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
-                let attack_x = dialog_x + panel_margin + 10.0;
-                let attack_text_y = attack_y + (attack_box_height - 16.0) / 2.0 + 5.0;
+                let attack_x = attacker_x + 10.0;
+                let attack_text_y = attack_y + (attack_box_height - 14.0) / 2.0 + 5.0;
 
-                // Attack name
+                // Attack name and damage combined
+                let attack_text = format!("{} ({}x{})", attack.name, attack.damage, attack.range);
                 self.text_renderer.render_text(
-                    &attack.name,
+                    &attack_text,
                     attack_x,
                     attack_text_y,
-                    16.0,
+                    14.0,
                     [1.0, 1.0, 0.8, 1.0], // Light yellow
                     window_width,
                     window_height,
                 );
+            }
+        }
 
-                // Damage
-                let damage_text = format!("Damage: {}", attack.damage);
-                let damage_x = dialog_x + dialog_width - panel_margin - 150.0;
-                self.text_renderer.render_text(
-                    &damage_text,
-                    damage_x,
-                    attack_text_y,
-                    16.0,
-                    [1.0, 0.7, 0.7, 1.0], // Light red for damage
-                    window_width,
-                    window_height,
-                );
+        // Attack option labels for defender (right column)
+        if !confirmation.defender_attacks.is_empty() {
+            let (dialog_x, dialog_y) = self.combat_log_display.position;
+            let (dialog_width, _dialog_height) = self.combat_log_display.size;
+            let attack_box_height = 30.0;
+            let attack_box_spacing = 5.0;
+            let title_height = 50.0;
+            let sprite_area_height = 120.0;
+            let text_line_height = 25.0;
+            let panel_padding = 15.0;
+            let panel_height = text_line_height * 6.0 + panel_padding * 2.0;
+            let panel_y = dialog_y + title_height + sprite_area_height + 10.0;
+            let attack_section_y = panel_y + panel_height + 10.0;
+            let panel_margin = 30.0;
+            let panel_spacing = 20.0;
+            let panel_width = (dialog_width - 2.0 * panel_margin - panel_spacing) / 2.0;
+            let defender_x = dialog_x + panel_margin + panel_width + panel_spacing;
 
-                // Range
-                let range_text = format!("Range: {}", attack.range);
-                let range_x = dialog_x + dialog_width - panel_margin - 70.0;
+            for (i, attack) in confirmation.defender_attacks.iter().enumerate() {
+                let attack_y =
+                    attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
+                let attack_x = defender_x + 10.0;
+                let attack_text_y = attack_y + (attack_box_height - 14.0) / 2.0 + 5.0;
+
+                // Attack name and damage combined
+                let attack_text = format!("{} ({}x{})", attack.name, attack.damage, attack.range);
                 self.text_renderer.render_text(
-                    &range_text,
-                    range_x,
+                    &attack_text,
+                    attack_x,
                     attack_text_y,
-                    16.0,
-                    [0.7, 0.7, 1.0, 1.0], // Light blue for range
+                    14.0,
+                    [1.0, 1.0, 0.8, 1.0], // Light yellow
                     window_width,
                     window_height,
                 );

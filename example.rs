@@ -1,9 +1,8 @@
 use combat::resolve_combat;
 use graphics::HexCoord;
 use items::{Item, ItemProperties, RangeType};
-use units::unit_class::UnitClass;
 use units::unit_factory::UnitFactory;
-use units::unit_race::{Race, Terrain};
+use units::unit_race::Terrain;
 use units::unit_trait::Unit;
 
 fn main() {
@@ -11,27 +10,21 @@ fn main() {
     println!("==========================================\n");
 
     // Create some units on a hexagonal grid using UnitFactory
-    let mut warrior = UnitFactory::create_unit(
+    let mut warrior = UnitFactory::create_dwarf_warrior(
         "Thorin the Bold".to_string(),
         HexCoord::new(0, 0),
-        Race::Dwarf,
-        UnitClass::Warrior,
         Terrain::Mountain,
     );
 
-    let mut archer = UnitFactory::create_unit(
+    let mut archer = UnitFactory::create_elf_archer(
         "Legolas Greenleaf".to_string(),
         HexCoord::new(3, -2),
-        Race::Elf,
-        UnitClass::Archer,
         Terrain::Forest0,
     );
 
-    let mut mage = UnitFactory::create_unit(
+    let mut mage = UnitFactory::create_human_mage(
         "Gandalf the Grey".to_string(),
         HexCoord::new(-2, 3),
-        Race::Human,
-        UnitClass::Mage,
         Terrain::Grasslands,
     );
 
@@ -110,7 +103,11 @@ fn main() {
     );
 
     if archer.can_attack(warrior_pos) {
-        let damage_type = archer.class().get_default_damage_type();
+        let damage_type = archer
+            .get_attacks()
+            .first()
+            .map(|a| a.damage_type)
+            .unwrap_or(combat::DamageType::Slash);
         let result = resolve_combat(
             archer.combat_stats_mut(),
             warrior.combat_stats_mut(),
@@ -141,7 +138,11 @@ fn main() {
         println!("Warrior moved to {:?}", warrior.position());
 
         if warrior.can_attack(mage_pos) {
-            let damage_type = warrior.class().get_default_damage_type();
+            let damage_type = warrior
+                .get_attacks()
+                .first()
+                .map(|a| a.damage_type)
+                .unwrap_or(combat::DamageType::Slash);
             let result = resolve_combat(
                 warrior.combat_stats_mut(),
                 mage.combat_stats_mut(),
@@ -281,7 +282,7 @@ fn print_unit_status(unit: &dyn Unit) {
         unit.name(),
         unit.level(),
         unit.race(),
-        unit.class()
+        unit.unit_type()
     );
     println!(
         "   Position: {:?} | Health: {}/{} | Attack: {} | Range: {} ({:?})",

@@ -54,24 +54,20 @@ impl GameApp {
         // DEMO UNITS (2 units for simplicity)
         // ========================================
         // Player unit
-        let hero = units::UnitFactory::create_unit(
+        let hero = units::UnitFactory::create_human_warrior(
             "Thorin".to_string(),
             HexCoord::new(0, 0),
-            units::Race::Human,
-            units::UnitClass::Warrior,
             units::Terrain::Grasslands,
         );
         game_world.add_unit(GameUnit::new_with_team(hero, game::Team::Player));
 
         // Enemy unit
-        let orc_warrior = units::UnitFactory::create_unit(
+        let orc_grunt = units::UnitFactory::create_goblin_grunt(
             "Orc Grunt".to_string(),
-            HexCoord::new(1, 1),
-            units::Race::Orc,
-            units::UnitClass::Warrior,
+            HexCoord::new(4, 2),
             units::Terrain::Grasslands,
         );
-        game_world.add_unit(GameUnit::new_with_team(orc_warrior, game::Team::Enemy));
+        game_world.add_unit(GameUnit::new_with_team(orc_grunt, game::Team::Enemy));
 
         // Add a test item on the ground for pickup testing
         let test_sword = items::item_definitions::create_iron_sword();
@@ -214,6 +210,16 @@ impl GameApp {
                                     })
                                     .collect();
 
+                                let defender_attacks = pending
+                                    .defender_attacks
+                                    .iter()
+                                    .map(|attack| AttackOption {
+                                        name: attack.name.clone(),
+                                        damage: attack.damage,
+                                        range: attack.range,
+                                    })
+                                    .collect();
+
                                 let confirmation = CombatConfirmation {
                                     attacker_name: pending.attacker_name.clone(),
                                     attacker_hp: pending.attacker_hp,
@@ -228,6 +234,7 @@ impl GameApp {
                                     defender_attack: pending.defender_attack,
                                     defender_defense: pending.defender_defense,
                                     defender_attacks_per_round: pending.defender_attacks_per_round,
+                                    defender_attacks,
                                 };
                                 renderer
                                     .combat_log_display
@@ -531,7 +538,7 @@ impl GameApp {
                 let display_info = UnitDisplayInfo {
                     name: unit.name().to_string(),
                     race: format!("{:?}", unit.race()),
-                    class: format!("{:?}", unit.class()),
+                    class: unit.unit_type().to_string(),
                     level: unit.level(),
                     experience: unit.experience(),
                     health: stats.health as u32,
@@ -949,8 +956,7 @@ impl ApplicationHandler for GameApp {
                             // Show info for selected unit (class-specific guide)
                             if let Some(unit_id) = self.selected_unit {
                                 if let Some(game_unit) = self.game_world.units.get(&unit_id) {
-                                    let class_name =
-                                        format!("{:?}", game_unit.unit().class()).to_lowercase();
+                                    let class_name = game_unit.unit().unit_type().to_lowercase();
                                     if let Some(renderer) = &mut self.renderer {
                                         let guide = GuideLibrary::unit_class_guide(&class_name);
                                         renderer.guide_display.show(guide);
