@@ -254,6 +254,32 @@ impl UiPanel {
         self.pickup_no_button = None;
     }
 
+    /// Get a mutable reference to the text renderer
+    pub fn text_renderer_mut(&mut self) -> &mut TextRenderer {
+        &mut self.text_renderer
+    }
+
+    /// Get a reference to the text renderer
+    pub fn text_renderer(&self) -> &TextRenderer {
+        &self.text_renderer
+    }
+
+    /// Render text using the UI panel's text renderer
+    #[allow(clippy::too_many_arguments)]
+    pub fn render_text(
+        &mut self,
+        text: &str,
+        x: f32,
+        y: f32,
+        size: f32,
+        color: [f32; 4],
+        screen_width: f32,
+        screen_height: f32,
+    ) {
+        self.text_renderer
+            .render_text(text, x, y, size, color, screen_width, screen_height);
+    }
+
     /// Check if a click position hits the "Yes" button
     pub fn check_yes_button_click(&self, x: f32, y: f32) -> bool {
         if let Some(button) = &self.pickup_yes_button {

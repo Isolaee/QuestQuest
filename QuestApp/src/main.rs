@@ -97,11 +97,41 @@ impl GameApp {
         // Priority 0: Check if clicking on combat confirmation dialog (highest priority)
         if self.game_world.pending_combat.is_some() {
             if let Some(renderer) = &mut self.renderer {
+                // First check if clicking on an attack option
+                println!("🖱️  Click at ({}, {}) - checking attack buttons", x, y);
+                if let Some(idx) = renderer
+                    .combat_log_display
+                    .check_attack_click(x as f32, y as f32)
+                {
+                    // Attack option was clicked and selected - don't do anything else
+                    println!("✅ Attack {} selected, not executing combat yet", idx);
+                    return;
+                }
+
                 if let Some(confirmed) =
                     renderer.combat_log_display.handle_click(x as f32, y as f32)
                 {
                     if confirmed {
-                        // Execute combat
+                        // Update the selected attack index in pending combat before executing
+                        let selected_idx = renderer.combat_log_display.get_selected_attack();
+                        println!("🔍 Selected attack from UI: {:?}", selected_idx);
+
+                        if let Some(idx) = selected_idx {
+                            if let Some(pending) = &mut self.game_world.pending_combat {
+                                println!(
+                                    "🔍 Before update: pending.selected_attack_index = {}",
+                                    pending.selected_attack_index
+                                );
+                                pending.selected_attack_index = idx;
+                                println!(
+                                    "🔍 After update: pending.selected_attack_index = {}",
+                                    pending.selected_attack_index
+                                );
+                                println!("⚔️  Executing combat with attack index: {}", idx);
+                            }
+                        }
+
+                        // Execute combat with selected attack
                         if let Err(e) = self.game_world.execute_pending_combat() {
                             println!("❌ Combat failed: {}", e);
                         }

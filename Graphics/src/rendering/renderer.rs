@@ -285,6 +285,8 @@ pub struct CombatLogDisplay {
     pub pending_combat: Option<CombatConfirmation>,
     pub ok_button: CombatButton,
     pub cancel_button: CombatButton,
+    pub selected_attack_index: Option<usize>, // Which attacker attack is selected
+    pub attacker_attack_buttons: Vec<CombatButton>, // Clickable attack options for attacker
 }
 
 impl Default for CombatLogDisplay {
@@ -335,6 +337,8 @@ impl CombatLogDisplay {
                 button_height,
                 "Cancel",
             ),
+            selected_attack_index: Some(0), // Default to first attack
+            attacker_attack_buttons: Vec::new(), // Will be populated when combat is shown
         }
     }
 
@@ -351,6 +355,46 @@ impl CombatLogDisplay {
     }
 
     pub fn show_combat_confirmation(&mut self, confirmation: CombatConfirmation) {
+        // Calculate attack button positions
+        let attack_box_height = 30.0;
+        let attack_box_spacing = 5.0;
+        let title_height = 50.0;
+        let sprite_area_height = 120.0;
+        let text_line_height = 25.0;
+        let panel_padding = 15.0;
+        let panel_height = text_line_height * 6.0 + panel_padding * 2.0;
+        let panel_margin = 30.0;
+        let panel_spacing = 20.0;
+        let panel_width = (self.size.0 - 2.0 * panel_margin - panel_spacing) / 2.0;
+
+        let panel_y = self.position.1 + title_height + sprite_area_height + 10.0;
+        let attack_section_y = panel_y + panel_height + 10.0;
+        let attacker_x = self.position.0 + panel_margin;
+
+        // Create clickable buttons for attacker's attacks
+        let mut attack_buttons = Vec::new();
+        println!(
+            "🎮 Creating {} attack buttons:",
+            confirmation.attacker_attacks.len()
+        );
+        for i in 0..confirmation.attacker_attacks.len() {
+            let attack_y = attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
+            let button = CombatButton::new(
+                attacker_x,
+                attack_y,
+                panel_width,
+                attack_box_height,
+                &confirmation.attacker_attacks[i].name,
+            );
+            println!(
+                "  Button {}: {} at ({}, {}) size {}x{}",
+                i, button.label, button.position.0, button.position.1, button.size.0, button.size.1
+            );
+            attack_buttons.push(button);
+        }
+
+        self.attacker_attack_buttons = attack_buttons;
+        self.selected_attack_index = Some(0); // Default to first attack
         self.pending_combat = Some(confirmation);
         self.active = true;
     }
@@ -358,6 +402,25 @@ impl CombatLogDisplay {
     pub fn clear_combat_confirmation(&mut self) {
         self.pending_combat = None;
         self.active = false;
+        self.attacker_attack_buttons.clear();
+        self.selected_attack_index = None;
+    }
+
+    /// Check if an attack button was clicked and return its index
+    pub fn check_attack_click(&mut self, x: f32, y: f32) -> Option<usize> {
+        for (i, button) in self.attacker_attack_buttons.iter().enumerate() {
+            if button.contains_point(x, y) {
+                self.selected_attack_index = Some(i);
+                println!("🎯 Attack option {} clicked: {}", i, button.label);
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    /// Get the currently selected attack index
+    pub fn get_selected_attack(&self) -> Option<usize> {
+        self.selected_attack_index
     }
 
     pub fn has_pending_combat(&self) -> bool {
@@ -1590,8 +1653,15 @@ impl Renderer {
                     attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
                 let attack_x = attacker_x;
 
-                // Attack box background
-                let attack_color = [0.4, 0.3, 0.2]; // Brown color for attack boxes
+                // Check if this attack is selected
+                let is_selected = self.combat_log_display.selected_attack_index == Some(i);
+
+                // Attack box background - highlight if selected
+                let attack_color = if is_selected {
+                    [0.6, 0.5, 0.3] // Lighter brown for selected
+                } else {
+                    [0.4, 0.3, 0.2] // Normal brown
+                };
                 let atk_x1 = to_ndc_x(attack_x);
                 let atk_y1 = to_ndc_y(attack_y);
                 let atk_x2 = to_ndc_x(attack_x + attack_box_width);
@@ -2580,14 +2650,23 @@ impl Renderer {
                 let attack_x = attacker_x + 10.0;
                 let attack_text_y = attack_y + (attack_box_height - 14.0) / 2.0 + 5.0;
 
-                // Attack name and damage combined
+                // Check if this attack is selected
+                let is_selected = self.combat_log_display.selected_attack_index == Some(i);
+
+                // Attack name and damage combined - brighter color if selected
                 let attack_text = format!("{} ({}x{})", attack.name, attack.damage, attack.range);
+                let text_color = if is_selected {
+                    [1.0, 1.0, 1.0, 1.0] // White for selected
+                } else {
+                    [1.0, 1.0, 0.8, 1.0] // Light yellow for unselected
+                };
+
                 self.text_renderer.render_text(
                     &attack_text,
                     attack_x,
                     attack_text_y,
                     14.0,
-                    [1.0, 1.0, 0.8, 1.0], // Light yellow
+                    text_color,
                     window_width,
                     window_height,
                 );

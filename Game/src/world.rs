@@ -30,6 +30,7 @@ pub struct PendingCombat {
     pub defender_defense: u32,
     pub defender_attacks_per_round: u32,
     pub defender_attacks: Vec<AttackInfo>,
+    pub selected_attack_index: usize, // Which attack the player selected
 }
 
 /// Game world that manages all game objects
@@ -312,6 +313,7 @@ impl GameWorld {
             defender_defense: defender_stats.resistances.slash as u32,
             defender_attacks_per_round: defender_stats.attacks_per_round,
             defender_attacks,
+            selected_attack_index: 0, // Default to first attack, will be updated by UI
         };
 
         self.pending_combat = Some(pending);
@@ -321,7 +323,12 @@ impl GameWorld {
     /// Execute the pending combat (called after player confirms)
     pub fn execute_pending_combat(&mut self) -> Result<(), String> {
         let pending = self.pending_combat.take().ok_or("No pending combat")?;
-        self.initiate_combat(pending.attacker_id, pending.defender_id)
+        let selected_attack_idx = pending.selected_attack_index;
+        self.initiate_combat(
+            pending.attacker_id,
+            pending.defender_id,
+            selected_attack_idx,
+        )
     }
 
     /// Cancel the pending combat
@@ -330,59 +337,107 @@ impl GameWorld {
     }
 
     /// Initiate combat between two units
-    fn initiate_combat(&mut self, attacker_id: Uuid, defender_id: Uuid) -> Result<(), String> {
-        // Get unit info before combat for reporting
-        let (attacker_name, defender_name, defender_pos) = {
+    fn initiate_combat(
+        &mut self,
+        attacker_id: Uuid,
+        defender_id: Uuid,
+        selected_attack_idx: usize,
+    ) -> Result<(), String> {
+        // Get unit info and selected attack before combat
+        let (attacker_name, defender_name, attacker_pos, defender_pos, selected_attack) = {
             let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
             let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
-            (attacker.name(), defender.name(), defender.position())
+
+            // Debug: print all attacks
+            let attacks = attacker.unit().get_attacks();
+            println!("🔍 Unit has {} attacks:", attacks.len());
+            for (i, atk) in attacks.iter().enumerate() {
+                println!("  [{}] {} - {} damage", i, atk.name, atk.damage);
+            }
+            println!("🎯 Selected attack index: {}", selected_attack_idx);
+
+            // Get the selected attack
+            let attack = attacker
+                .unit()
+                .get_attacks()
+                .get(selected_attack_idx)
+                .ok_or("Selected attack not found")?
+                .clone();
+
+            (
+                attacker.name(),
+                defender.name(),
+                attacker.position(),
+                defender.position(),
+                attack,
+            )
         };
 
-        println!("⚔️  COMBAT INITIATED!");
-        println!("⚔️  {} attacks {}!", attacker_name, defender_name);
+        println!("\n╔════════════════════════════════════════╗");
+        println!("║          ⚔️  COMBAT INITIATED  ⚔️          ║");
+        println!("╠════════════════════════════════════════╣");
+        println!("║  Attacker: {:<28} ║", attacker_name);
+        println!("║  Defender: {:<28} ║", defender_name);
+        println!("║  Attack:   {:<28} ║", selected_attack.name);
+        println!("╚════════════════════════════════════════╝\n");
 
-        // Get combat stats (clone to get owned copies)
-        let (mut attacker_stats, mut defender_stats, attacker_damage_type, defender_damage_type) = {
+        // Get combat stats for calculations
+        let (attacker_stats, defender_stats) = {
             let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
             let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
-
-            // Get damage type from first attack, or default to Slash
-            let attacker_damage_type = attacker
-                .unit()
-                .get_attacks()
-                .first()
-                .map(|a| a.damage_type)
-                .unwrap_or(combat::DamageType::Slash);
-
-            let defender_damage_type = defender
-                .unit()
-                .get_attacks()
-                .first()
-                .map(|a| a.damage_type)
-                .unwrap_or(combat::DamageType::Slash);
 
             (
                 attacker.unit().combat_stats().clone(),
                 defender.unit().combat_stats().clone(),
-                attacker_damage_type,
-                defender_damage_type,
             )
         };
 
-        // Resolve attacker's attack
-        let attack_result = combat::resolve_combat(
-            &mut attacker_stats,
-            &mut defender_stats,
-            attacker_damage_type,
-        );
-        let attacker_damage = attack_result.attacker_damage_dealt;
+        // Calculate how many times the attacker can use this attack
+        let attacker_attacks_per_round = attacker_stats.attacks_per_round;
 
-        // Apply damage to defender
-        if let Some(defender) = self.units.get_mut(&defender_id) {
-            defender.unit_mut().take_damage(attacker_damage);
+        // Attacker performs all their attacks with the selected attack
+        let mut total_attacker_damage = 0;
+        println!(
+            "⚔️  {} attacks {} times with {}:",
+            attacker_name, attacker_attacks_per_round, selected_attack.name
+        );
+
+        for i in 1..=attacker_attacks_per_round {
+            if let Some(defender) = self.units.get(&defender_id) {
+                if defender.unit().combat_stats().health == 0 {
+                    break; // Defender already dead
+                }
+            }
+
+            // Calculate damage with resistance
+            let defender_resistance = defender_stats
+                .resistances
+                .get_resistance(selected_attack.damage_type);
+            let resistance_multiplier = 1.0 - (defender_resistance as f32 / 100.0);
+            let damage = ((selected_attack.damage as f32 * resistance_multiplier) as u32).max(1);
+
+            // Apply damage to defender
+            if let Some(defender) = self.units.get_mut(&defender_id) {
+                defender.unit_mut().take_damage(damage);
+                total_attacker_damage += damage;
+
+                let damage_type_str = match selected_attack.damage_type {
+                    combat::DamageType::Slash => "⚔️ ",
+                    combat::DamageType::Pierce => "🗡️ ",
+                    combat::DamageType::Blunt => "🔨",
+                    combat::DamageType::Crush => "🔨",
+                    combat::DamageType::Fire => "🔥",
+                    combat::DamageType::Dark => "🌑",
+                };
+
+                println!(
+                    "  {}Attack {}/{}: {} damage",
+                    damage_type_str, i, attacker_attacks_per_round, damage
+                );
+            }
         }
 
-        println!("⚔️  {} dealt {} damage", attacker_name, attacker_damage);
+        println!("\n📊 Total damage dealt: {}", total_attacker_damage);
 
         // Check if defender is still alive for counter-attack
         let defender_alive = self
@@ -392,23 +447,83 @@ impl GameWorld {
             .unwrap_or(false);
 
         if defender_alive {
-            // Defender counter-attacks
-            let counter_result = combat::resolve_combat(
-                &mut defender_stats,
-                &mut attacker_stats,
-                defender_damage_type,
-            );
-            let damage = counter_result.attacker_damage_dealt;
+            // Calculate actual distance between units
+            let combat_distance = attacker_pos.distance(defender_pos);
 
-            // Apply counter-attack damage to attacker
-            if let Some(attacker) = self.units.get_mut(&attacker_id) {
-                attacker.unit_mut().take_damage(damage);
+            // Defender can counter-attack if combat happened at melee range (distance 1)
+            if combat_distance == 1 {
+                // Get defender's melee attack (range 1)
+                let defender_melee_attack = {
+                    let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+                    defender
+                        .unit()
+                        .get_attacks()
+                        .iter()
+                        .find(|a| a.range == 1) // Find melee attack
+                        .cloned()
+                };
+
+                if let Some(defender_attack) = defender_melee_attack {
+                    let defender_attacks_per_round = defender_stats.attacks_per_round;
+
+                    println!(
+                        "\n🛡️  {} counter-attacks {} times with {}:",
+                        defender_name, defender_attacks_per_round, defender_attack.name
+                    );
+
+                    let mut total_defender_damage = 0;
+                    for i in 1..=defender_attacks_per_round {
+                        if let Some(attacker) = self.units.get(&attacker_id) {
+                            if attacker.unit().combat_stats().health == 0 {
+                                break; // Attacker already dead
+                            }
+                        }
+
+                        // Calculate damage with resistance
+                        let attacker_resistance = attacker_stats
+                            .resistances
+                            .get_resistance(defender_attack.damage_type);
+                        let resistance_multiplier = 1.0 - (attacker_resistance as f32 / 100.0);
+                        let damage =
+                            ((defender_attack.damage as f32 * resistance_multiplier) as u32).max(1);
+
+                        // Apply damage to attacker
+                        if let Some(attacker) = self.units.get_mut(&attacker_id) {
+                            attacker.unit_mut().take_damage(damage);
+                            total_defender_damage += damage;
+
+                            let damage_type_str = match defender_attack.damage_type {
+                                combat::DamageType::Slash => "⚔️ ",
+                                combat::DamageType::Pierce => "🗡️ ",
+                                combat::DamageType::Blunt => "🔨",
+                                combat::DamageType::Crush => "🔨",
+                                combat::DamageType::Fire => "🔥",
+                                combat::DamageType::Dark => "🌑",
+                            };
+
+                            println!(
+                                "  {}Attack {}/{}: {} damage",
+                                damage_type_str, i, defender_attacks_per_round, damage
+                            );
+                        }
+                    }
+
+                    println!(
+                        "\n📊 Total counter-attack damage: {}",
+                        total_defender_damage
+                    );
+                } else {
+                    println!(
+                        "\n🛡️  {} has no melee weapon to counter-attack!",
+                        defender_name
+                    );
+                }
+            } else {
+                println!(
+                    "\n🏹 Combat at range {} - no counter-attack possible",
+                    combat_distance
+                );
             }
-
-            println!(
-                "🛡️  {} dealt {} damage (counter-attack)",
-                defender_name, damage
-            );
         }
 
         // Check final status and remove defeated units
@@ -419,19 +534,27 @@ impl GameWorld {
             .unwrap_or(false);
 
         if !defender_still_alive {
-            println!("💀 {} has been defeated!", defender_name);
+            println!("\n💀 {} has been defeated!", defender_name);
             self.units.remove(&defender_id);
 
             // Move attacker to defender's position
             if let Some(attacker) = self.units.get_mut(&attacker_id) {
                 attacker.set_position(defender_pos);
                 println!(
-                    "⚔️  {} moves to ({}, {})",
+                    "📍 {} moves to ({}, {})",
                     attacker_name, defender_pos.q, defender_pos.r
                 );
             }
+        } else {
+            // Show remaining HP
+            if let Some(defender) = self.units.get(&defender_id) {
+                let hp = defender.unit().combat_stats().health;
+                let max_hp = defender.unit().combat_stats().max_health;
+                println!("\n❤️  {} HP: {}/{}", defender_name, hp, max_hp);
+            }
         }
 
+        // Check if attacker survived
         let attacker_alive = self
             .units
             .get(&attacker_id)
@@ -439,10 +562,18 @@ impl GameWorld {
             .unwrap_or(false);
 
         if !attacker_alive {
-            println!("💀 {} has been defeated by counter-attack!", attacker_name);
+            println!("💀 {} has been defeated!", attacker_name);
             self.units.remove(&attacker_id);
+        } else {
+            // Show remaining HP
+            if let Some(attacker) = self.units.get(&attacker_id) {
+                let hp = attacker.unit().combat_stats().health;
+                let max_hp = attacker.unit().combat_stats().max_health;
+                println!("❤️  {} HP: {}/{}", attacker_name, hp, max_hp);
+            }
         }
 
+        println!("\n╚════════════════════════════════════════╝\n");
         Ok(())
     }
 
