@@ -1566,6 +1566,14 @@ impl ApplicationHandler for GameApp {
                         // Update game state (turn system, AI, etc.)
                         self.game_world.update(delta_time);
 
+                        // If it's an AI-controlled team's turn and the AI timer has elapsed,
+                        // let the GameWorld run its AI behavior for the current team.
+                        if !self.game_world.is_current_team_player_controlled()
+                            && self.game_world.ai_turn_time_remaining() <= 0.0
+                        {
+                            self.game_world.run_ai_for_current_team();
+                        }
+
                         // Update unit positions on hex grid before rendering
                         self.update_hex_grid_units();
 
