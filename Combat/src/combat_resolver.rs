@@ -58,6 +58,20 @@ pub fn resolve_combat(
     defender: &mut CombatStats,
     damage_type: DamageType,
 ) -> CombatResult {
+    // If the initiating unit has already attacked this game turn, do not
+    // initiate combat at all. Return an empty CombatResult so callers can
+    // detect that no combat occurred.
+    if attacker.attacked_this_turn {
+        return CombatResult {
+            attacker_damage_dealt: 0,
+            defender_damage_dealt: 0,
+            attacker_hit: false,
+            defender_hit: false,
+            attacker_casualties: 0,
+            defender_casualties: 0,
+        };
+    }
+
     let mut result = CombatResult {
         attacker_damage_dealt: 0,
         defender_damage_dealt: 0,
@@ -74,11 +88,11 @@ pub fn resolve_combat(
     println!("║              ⚔️  COMBAT ROUND BEGINS  ⚔️                 ║");
     println!("╠═══════════════════════════════════════════════════════════╣");
     println!(
-        "║ Attacker: {} HP, {} attacks/round, {} dmg/attack      ",
+        "║ Attacker: {} HP, {} attacks this turn (cap 1), {} dmg/attack      ",
         attacker.health, attacker.attacks_per_round, attacker.attack_strength
     );
     println!(
-        "║ Defender: {} HP, {} attacks/round, {} dmg/attack      ",
+        "║ Defender: {} HP, {} attacks this turn (cap 1), {} dmg/attack      ",
         defender.health, defender.attacks_per_round, defender.attack_strength
     );
     println!(
@@ -88,9 +102,12 @@ pub fn resolve_combat(
     println!("╚═══════════════════════════════════════════════════════════╝\n");
 
     // Determine total attacks for each combatant
-    let mut attacker_attacks_remaining = attacker.attacks_per_round;
+    // Enforce: a unit can only make one attack per turn. We still keep the
+    // `attacks_per_round` stat for display/AI decisions, but combat resolution
+    // will cap actual attacks to 1 for this turn.
+    let mut attacker_attacks_remaining = attacker.attacks_per_round.min(1);
     let mut defender_attacks_remaining = if attacker.range_category == crate::RangeCategory::Melee {
-        defender.attacks_per_round
+        defender.attacks_per_round.min(1)
     } else {
         0 // Ranged attackers don't get counter-attacked
     };
@@ -105,6 +122,14 @@ pub fn resolve_combat(
     {
         if is_attacker_turn && attacker_attacks_remaining > 0 {
             // ATTACKER'S TURN
+            if attacker.attacked_this_turn {
+                println!("│ Attacker has already attacked this turn — skipping.");
+                // Consume the available attack slot but do not perform damage
+                attacker_attacks_remaining = 0;
+                is_attacker_turn = false;
+                attack_number += 1;
+                continue;
+            }
             println!(
                 "┌─ Attack #{}: ATTACKER's Turn ─────────────────────────┐",
                 attack_number
@@ -164,9 +189,18 @@ pub fn resolve_combat(
             println!("└───────────────────────────────────────────────────────┘\n");
 
             attacker_attacks_remaining -= 1;
+            // Mark attacker as having attacked this game turn so they cannot attack again
+            attacker.attacked_this_turn = true;
             is_attacker_turn = false; // Switch to defender
         } else if !is_attacker_turn && defender_attacks_remaining > 0 {
             // DEFENDER'S TURN (Counter-attack)
+            if defender.attacked_this_turn {
+                println!("│ Defender has already attacked this turn — skipping.");
+                defender_attacks_remaining = 0;
+                is_attacker_turn = true;
+                attack_number += 1;
+                continue;
+            }
             println!(
                 "┌─ Attack #{}: DEFENDER's Turn (Counter) ───────────────┐",
                 attack_number
@@ -233,6 +267,8 @@ pub fn resolve_combat(
             println!("└───────────────────────────────────────────────────────┘\n");
 
             defender_attacks_remaining -= 1;
+            // Mark defender as having attacked this game turn so they cannot attack again
+            defender.attacked_this_turn = true;
             is_attacker_turn = true; // Switch back to attacker
         } else {
             // Skip turn if current fighter has no attacks remaining

@@ -550,10 +550,19 @@ impl GameWorld {
                                 if k.starts_with("Unit:") && k.ends_with(":Alive") {
                                     let mid = &k[5..k.len() - 6];
                                     if let Ok(target_uuid) = Uuid::parse_str(mid) {
-                                        // Request combat (this will set pending_combat)
+                                        // Request combat (this will set pending_combat). If the
+                                        // request fails (e.g., attacker already attacked), skip
+                                        // executing combat.
+                                        // request_combat now returns Ok(()) even when it silently
+                                        // skips creating a pending combat (attacker already
+                                        // attacked). Only execute if a pending combat was
+                                        // actually created.
                                         let _ = self.request_combat(uuid, target_uuid);
-                                        // For prototype, immediately execute combat
-                                        let _ = self.execute_pending_combat();
+                                        if self.pending_combat.is_some() {
+                                            let _ = self.execute_pending_combat();
+                                        } else {
+                                            // Silent skip - nothing to do
+                                        }
                                     }
                                 }
                             }
@@ -941,6 +950,16 @@ impl GameWorld {
         let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
         let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
 
+        // If the attacker has already attacked this game turn, silently do
+        // nothing: don't create a pending combat confirmation. Returning Ok
+        // without setting `pending_combat` keeps the call-site behavior simple
+        // (UI/AI won't see a pending combat and will not open the dialog).
+        if attacker.unit().combat_stats().attacked_this_turn {
+            // Intentionally silent: no pending combat is created and callers
+            // should observe that `pending_combat` is still None.
+            return Ok(());
+        }
+
         let attacker_stats = attacker.unit().combat_stats();
         let defender_stats = defender.unit().combat_stats();
 
@@ -1094,6 +1113,14 @@ impl GameWorld {
             )
         };
 
+        // Prevent starting combat if the attacker already attacked this game turn
+        if let Some(attacker_unit) = self.units.get(&attacker_id) {
+            if attacker_unit.unit().combat_stats().attacked_this_turn {
+                println!("⛔ Combat canceled: attacker has already attacked this turn");
+                return Err("Attacker has already attacked this turn".to_string());
+            }
+        }
+
         // Calculate how many times the attacker can use this attack
         let attacker_attacks_per_round = attacker_stats.attacks_per_round;
 
@@ -1137,6 +1164,14 @@ impl GameWorld {
                     damage_type_str, i, attacker_attacks_per_round, damage
                 );
             }
+        }
+
+        // Mark attacker as having attacked this turn (after performing all attack instances)
+        if let Some(attacker_unit) = self.units.get_mut(&attacker_id) {
+            attacker_unit
+                .unit_mut()
+                .combat_stats_mut()
+                .attacked_this_turn = true;
         }
 
         println!("\n📊 Total damage dealt: {}", total_attacker_damage);
@@ -1214,6 +1249,13 @@ impl GameWorld {
                         "\n📊 Total counter-attack damage: {}",
                         total_defender_damage
                     );
+                    // Mark defender as having attacked this turn (after performing counters)
+                    if let Some(defender_unit) = self.units.get_mut(&defender_id) {
+                        defender_unit
+                            .unit_mut()
+                            .combat_stats_mut()
+                            .attacked_this_turn = true;
+                    }
                 } else {
                     println!(
                         "\n🛡️  {} has no melee weapon to counter-attack!",
@@ -1401,6 +1443,12 @@ impl GameWorld {
     pub fn end_current_turn(&mut self) {
         // End the turn in the turn system (advances to next team)
         self.turn_system.end_turn();
+
+        // Reset per-turn combat flags for all units since the team has advanced.
+        // This ensures `attacked_this_turn` is cleared and units may act again.
+        for unit in self.units.values_mut() {
+            unit.unit_mut().combat_stats_mut().reset_turn_flags();
+        }
 
         // Reset movement points for units on the new current team
         let current_team = self.turn_system.current_team();

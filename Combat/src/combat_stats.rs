@@ -269,6 +269,12 @@ pub struct CombatStats {
     pub resistances: Resistances,
     /// Hit chance percentage affected by terrain and positioning (0-100)
     pub terrain_hit_chance: u8,
+    /// Whether this unit has already attacked this game turn.
+    ///
+    /// This flag is persistent across combat resolution calls and must be
+    /// cleared at the start of each new game turn. It enforces the rule that
+    /// a unit may only make one attack per turn.
+    pub attacked_this_turn: bool,
 }
 
 impl CombatStats {
@@ -372,7 +378,16 @@ impl CombatStats {
             attack_range: range_category.base_range(),
             resistances,
             terrain_hit_chance: 75, // Default 75% hit chance
+            attacked_this_turn: false,
         }
+    }
+
+    /// Resets per-turn flags that should be cleared at the start of a new game turn.
+    ///
+    /// Currently this clears `attacked_this_turn`. Call this from the turn manager
+    /// when advancing to the next turn.
+    pub fn reset_turn_flags(&mut self) {
+        self.attacked_this_turn = false;
     }
 
     /// Returns the total attack damage including modifiers.
