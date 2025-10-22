@@ -151,6 +151,9 @@ pub struct GameWorld {
 
     /// Turn-based gameplay system
     pub turn_system: crate::turn_system::TurnSystem,
+    /// Last known active team (used to detect auto-advanced turns so we can
+    /// reset per-team movement points when TurnSystem advances the turn)
+    last_known_team: Option<Team>,
 }
 
 impl GameWorld {
@@ -186,6 +189,7 @@ impl GameWorld {
             game_time: 0.0,
             pending_combat: None,
             turn_system,
+            last_known_team: None,
         };
 
         // Populate terrain so movement costs are available by default
@@ -559,8 +563,8 @@ impl GameWorld {
             }
         }
 
-        // End AI turn after actions
-        self.turn_system.end_turn();
+        // End AI turn after actions (use GameWorld API so unit moves are reset)
+        self.end_current_turn();
     }
 
     /// Generates terrain type based on hex coordinate position.
@@ -1307,7 +1311,18 @@ impl GameWorld {
         self.game_time += delta_time;
 
         // Update turn system (handles AI turn auto-pass)
+        // Remember previous team so we can detect changes made by TurnSystem::update
+        let prev_team = self.last_known_team;
         self.turn_system.update(delta_time);
+
+        // If the turn system auto-advanced the team (AI timeout or similar), reset moves for the new team
+        if self.turn_system.is_game_started() {
+            let current_team = self.turn_system.current_team();
+            if prev_team != Some(current_team) {
+                self.reset_moves_for_team(current_team);
+                self.last_known_team = Some(current_team);
+            }
+        }
 
         // Update all units
         for unit in self.units.values_mut() {
@@ -1378,6 +1393,8 @@ impl GameWorld {
         // Reset movement points for units on the starting team
         let current_team = self.turn_system.current_team();
         self.reset_moves_for_team(current_team);
+        // Track the active team so that future auto-advances can be detected
+        self.last_known_team = Some(current_team);
     }
 
     /// Ends the current turn and advances to the next team
@@ -1388,6 +1405,8 @@ impl GameWorld {
         // Reset movement points for units on the new current team
         let current_team = self.turn_system.current_team();
         self.reset_moves_for_team(current_team);
+        // Update last known team to avoid duplicate resets
+        self.last_known_team = Some(current_team);
     }
 
     /// Resets movement points for all units belonging to a given team.
