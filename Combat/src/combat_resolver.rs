@@ -15,6 +15,7 @@ use rand::Rng;
 /// - Multi-attack systems (both units can attack multiple times)
 /// - Counter-attacks (only for melee range)
 /// - Combat logging with detailed turn-by-turn output
+/// - double hit detection (both rolls must succeed to hit)
 ///
 /// # Combat Flow
 ///
