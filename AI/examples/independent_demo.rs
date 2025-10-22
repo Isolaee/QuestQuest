@@ -1,7 +1,4 @@
-use ai::{
-    ground_action_from_template, plan, plan_instances, ActionTemplate, FactValue, Goal, WorldState,
-};
-use std::collections::HashMap;
+use ai::{plan, ActionTemplate, FactValue, Goal, WorldState};
 
 fn main() {
     // Demonstration of independent per-agent planning using the ai crate's planner.
