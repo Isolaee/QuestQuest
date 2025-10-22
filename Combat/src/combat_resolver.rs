@@ -1,8 +1,57 @@
+//! # Combat Resolver Module
+//!
+//! Contains the core combat resolution algorithm that handles turn-based
+//! combat with alternating attacks, hit chance rolls, and damage calculation.
+
 use crate::{CombatResult, CombatStats, DamageType};
 use rand::Rng;
 
-/// Resolve combat between two units with alternating attacks
-/// Returns the result of the combat encounter
+/// Resolves combat between two units with alternating attacks.
+///
+/// This is the main combat resolution function. It handles:
+/// - Turn-based alternating attacks
+/// - Hit chance rolls for each attack
+/// - Damage calculation with resistance modifiers
+/// - Multi-attack systems (both units can attack multiple times)
+/// - Counter-attacks (only for melee range)
+/// - Combat logging with detailed turn-by-turn output
+///
+/// # Combat Flow
+///
+/// 1. Attacker makes their first attack (if hit roll succeeds)
+/// 2. If defender is in melee range, they counter-attack
+/// 3. Attacks alternate until both units exhaust their `attacks_per_round`
+/// 4. Combat ends when all attacks are used or a unit is defeated
+///
+/// # Ranged vs Melee
+///
+/// - **Melee**: Both attacker and defender can attack
+/// - **Ranged/Siege**: Only attacker can attack (defender cannot counter)
+///
+/// # Arguments
+///
+/// * `attacker` - Mutable reference to attacking unit's stats
+/// * `defender` - Mutable reference to defending unit's stats
+/// * `damage_type` - Type of damage being dealt (affects resistance)
+///
+/// # Returns
+///
+/// `CombatResult` containing damage dealt, hits, and casualties
+///
+/// # Examples
+///
+/// ```ignore
+/// use combat::{resolve_combat, CombatStats, DamageType, RangeCategory, Resistances};
+///
+/// let mut warrior = CombatStats::new(100, 20, 5, RangeCategory::Melee, Resistances::default());
+/// let mut goblin = CombatStats::new(50, 10, 4, RangeCategory::Melee, Resistances::default());
+///
+/// let result = resolve_combat(&mut warrior, &mut goblin, DamageType::Slash);
+///
+/// if result.defender_casualties > 0 {
+///     println!("Goblin defeated!");
+/// }
+/// ```
 pub fn resolve_combat(
     attacker: &mut CombatStats,
     defender: &mut CombatStats,

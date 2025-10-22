@@ -1,15 +1,35 @@
-// Maps will be given as JSON files. Each JSON entry has the following structure:
-// {
-//   "HexCoord": {"q": 0, "r": 0},
-//   "SpriteType": "Forest",
-//   "Unit": "Warrior" // can be none
-// },
-
-// Hex lookup table will be generated based on JSON file.
-// 1, Place hexes into world based on HexCoord.
-// 2, Define world edges as world coordinates witch is pixel grid.
-// 3, Define hexsize in pixels.
-// 4, For each pixel in world, determine which hex it falls into.
+//! Map loading and world lookup table utilities.
+//!
+//! This module provides helpers for loading map data from JSON files and
+//! building a pixel-to-hex lookup table used by the renderer to quickly
+//! determine which hexagon occupies a given world (pixel) position.
+//!
+//! Map JSON format (example entry):
+//!
+//! ```json
+//! {
+//!   "HexCoord": { "q": 0, "r": 0 },
+//!   "SpriteType": "Forest",
+//!   "Unit": null
+//! }
+//! ```
+//!
+//! Each entry corresponds to a `MapHexEntry` and must include:
+//! - `HexCoord`: axial hex coordinate (q, r)
+//! - `SpriteType`: string matching a `SpriteType` variant
+//! - `Unit`: optional string naming a unit placed on that hex
+//!
+//! Typical usage:
+//! 1. Call `WorldHexLookupTable::from_json_hashmap` to load a JSON file into a
+//!    `HashMap<HexCoord, MapHexEntry>`.
+//! 2. Build the full `WorldHexLookupTable` with `WorldHexLookupTable::from_hashmap`
+//!    or directly with `WorldHexLookupTable::from_json_map` providing hex size and
+//!    resolution.
+//!
+//! The lookup table trades memory for speed: it precomputes, for a given world
+//! rectangle and a pixel resolution, which hex contains each sampled pixel. This
+//! allows constant-time queries from world coordinates to hex coordinates while
+//! rendering or handling mouse input.
 
 use crate::core::hexagon::SpriteType;
 use crate::core::HexCoord;
@@ -27,6 +47,16 @@ pub struct MapHexEntry {
     #[serde(rename = "Unit")]
     pub unit: Option<String>,
 }
+
+/// Single map entry describing one hexagon on the map.
+///
+/// This matches the JSON structure used by the map files. The entry includes
+/// the axial `HexCoord`, the `SpriteType` for rendering the terrain, and an
+/// optional `unit` string used for placing demo or prepopulated units.
+///
+/// This struct is `Serialize` / `Deserialize` so it can be loaded directly
+/// from JSON using `serde_json`.
+///
 
 #[derive(Debug)]
 pub struct WorldHexLookupTable {
@@ -53,6 +83,17 @@ pub struct WorldHexLookupTable {
 
 impl WorldHexLookupTable {
     /// Load JSON and return just the HashMap
+    ///
+    /// Reads the JSON map file and deserializes it into a `HashMap<HexCoord, MapHexEntry>`.
+    /// Useful when you only need the raw map data without building the pixel lookup table.
+    ///
+    /// # Arguments
+    ///
+    /// * `json_path` - Path to JSON map file
+    ///
+    /// # Returns
+    ///
+    /// `Ok(HashMap)` on success or an `Err` with an IO / parse error.
     pub fn from_json_hashmap(
         json_path: &str,
     ) -> Result<HashMap<HexCoord, MapHexEntry>, Box<dyn std::error::Error>> {

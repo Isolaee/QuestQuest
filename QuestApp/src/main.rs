@@ -1,3 +1,33 @@
+//! # QuestQuest Interactive Game Application
+//!
+//! This is the main interactive game application that brings together the graphics,
+//! units, combat, and game systems into a playable game with a windowed interface.
+//!
+//! ## Features
+//!
+//! - **Real-time rendering** with OpenGL 4.x
+//! - **Hexagonal grid** with terrain and unit visualization
+//! - **Interactive unit selection** and movement
+//! - **Combat system** with attack selection and confirmation
+//! - **Item pickup** and inventory management
+//! - **Camera controls** for navigating the game world
+//! - **UI panels** for unit information and prompts
+//! - **In-game menu** for settings and game management
+//!
+//! ## Controls
+//!
+//! - **Left Click**: Move selected unit, confirm actions, interact with UI
+//! - **Right Click**: Select unit, cancel actions
+//! - **Arrow Keys**: Move camera
+//! - **C**: Show detailed unit info in console
+//! - **H**: Toggle hover debug mode
+//! - **ESC**: Open/close menu, deselect unit
+//!
+//! ## Architecture
+//!
+//! The application uses the winit event loop with glutin for OpenGL context management.
+//! The main [`GameApp`] structure manages the game state, rendering, and event handling.
+
 use game::*;
 use glutin::context::ContextAttributesBuilder;
 use glutin::display::GetGlDisplay;
@@ -17,10 +47,49 @@ use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
 
-// Screen size constants
+/// Screen width in pixels.
 const SCREEN_WIDTH: f32 = 1920.0;
+
+/// Screen height in pixels.
 const SCREEN_HEIGHT: f32 = 1080.0;
 
+/// Main game application structure.
+///
+/// `GameApp` manages the entire game state, including the OpenGL window,
+/// rendering context, game world, unit selection, and user input handling.
+///
+/// # Fields
+///
+/// - `window`: The OS window for rendering
+/// - `gl_context`: OpenGL rendering context
+/// - `gl_surface`: OpenGL surface for the window
+/// - `hex_grid`: The hexagonal grid system
+/// - `renderer`: Multi-layer renderer for terrain, units, and items
+/// - `ui_panel`: UI overlay for prompts and information
+/// - `game_world`: Game state including units and objects
+/// - `selected_unit`: Currently selected unit (if any)
+/// - `show_unit_info`: Whether to display detailed unit info
+/// - `unit_info_text`: Cached unit information text
+/// - `cursor_position`: Current mouse cursor position
+/// - `movement_range`: Valid movement hexes for selected unit
+/// - `hower_debug_hex`: Hex currently under cursor (debug mode)
+/// - `hower_debug_enabled`: Whether hover debug mode is active
+/// - `pickup_prompt`: Active item pickup prompt (if any)
+///
+/// # Example Usage
+///
+/// ```rust,no_run
+/// use winit::event_loop::EventLoop;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// // Create event loop and game app
+/// let event_loop = EventLoop::new()?;
+/// let mut app = GameApp::new();
+///
+/// // Run the event loop
+/// event_loop.run_app(&mut app)?;
+/// # Ok(())
+/// # }
+/// ```
 struct GameApp {
     window: Option<Window>,
     gl_context: Option<glutin::context::PossiblyCurrentContext>,
@@ -39,14 +108,31 @@ struct GameApp {
     pickup_prompt: Option<PickupPrompt>, // Item pickup prompt state
 }
 
+/// Item pickup prompt state.
+///
+/// Stores information about a pending item pickup action, including
+/// which unit is picking up which item.
 #[derive(Clone)]
 struct PickupPrompt {
+    /// UUID of the unit picking up the item
     unit_id: uuid::Uuid,
+    /// UUID of the item to be picked up
     item_id: uuid::Uuid,
+    /// Display name of the item
     item_name: String,
 }
 
 impl GameApp {
+    /// Creates a new game application with demo units and items.
+    ///
+    /// Initializes the game world with:
+    /// - A player-controlled human warrior ("Thorin") at position (0, 0)
+    /// - An enemy goblin grunt at position (4, 2)
+    /// - A test iron sword item at position (1, 1) for pickup testing
+    ///
+    /// # Returns
+    ///
+    /// A new `GameApp` instance ready to be initialized with a window.
     fn new() -> Self {
         let mut game_world = GameWorld::new(8); // World radius of 8
 
@@ -93,6 +179,19 @@ impl GameApp {
         }
     }
 
+    /// Handles left mouse button clicks.
+    ///
+    /// Processes clicks in priority order:
+    /// 1. Combat confirmation dialog (if active)
+    /// 2. Menu buttons (if menu is open)
+    /// 3. UI panel buttons (pickup prompts, etc.)
+    /// 4. Unit movement (if unit is selected and clicking on valid hex)
+    /// 5. Hex selection for combat or interaction
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Screen X coordinate of the click
+    /// * `y` - Screen Y coordinate of the click
     fn handle_left_click(&mut self, x: f64, y: f64) {
         // Priority 0: Check if clicking on combat confirmation dialog (highest priority)
         if self.game_world.pending_combat.is_some() {
@@ -319,6 +418,15 @@ impl GameApp {
         }
     }
 
+    /// Handles right mouse button clicks.
+    ///
+    /// Right-clicking on a unit selects it and displays its movement range.
+    /// Right-clicking on empty space deselects the current unit.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Screen X coordinate of the click
+    /// * `y` - Screen Y coordinate of the click
     fn handle_right_click(&mut self, x: f64, y: f64) {
         if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
             println!("Right-clicked hex {:?}", hex_coord);
@@ -333,6 +441,14 @@ impl GameApp {
         }
     }
 
+    /// Selects a unit and displays its movement range.
+    ///
+    /// Updates the UI to show unit information and highlights valid movement
+    /// hexes (excluding hexes occupied by enemy units).
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit to select
     fn select_unit(&mut self, unit_id: uuid::Uuid) {
         self.selected_unit = Some(unit_id);
         self.show_unit_info = true;
@@ -374,6 +490,13 @@ impl GameApp {
         }
     }
 
+    /// Clears the current unit selection and related UI state.
+    ///
+    /// Resets:
+    /// - Selected unit
+    /// - Unit info display
+    /// - Movement range highlights
+    /// - Pickup prompts
     fn clear_selection(&mut self) {
         self.selected_unit = None;
         self.show_unit_info = false;
@@ -465,6 +588,16 @@ impl GameApp {
         }
     }
 
+    /// Converts screen coordinates to hex grid coordinates.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Screen X coordinate in pixels
+    /// * `y` - Screen Y coordinate in pixels
+    ///
+    /// # Returns
+    ///
+    /// `Some(HexCoord)` if the screen position maps to a valid hex, `None` otherwise.
     fn screen_to_hex_coord(&self, x: f64, y: f64) -> Option<HexCoord> {
         // Prefer geometric conversion via renderer's camera and grid
         let screen = Vec2::new(x as f32, y as f32);
@@ -472,6 +605,15 @@ impl GameApp {
         self.hex_grid.screen_to_hex_coord(screen, window)
     }
 
+    /// Finds a unit at the specified hex coordinate.
+    ///
+    /// # Arguments
+    ///
+    /// * `hex_coord` - The hex coordinate to search
+    ///
+    /// # Returns
+    ///
+    /// `Some(unit_id)` if a unit is found at the coordinate, `None` otherwise.
     fn find_unit_at_hex(&self, hex_coord: HexCoord) -> Option<uuid::Uuid> {
         // Find if there's a unit at the given hex coordinate
         for (id, obj) in &self.game_world.units {
@@ -482,6 +624,15 @@ impl GameApp {
         None
     }
 
+    /// Finds an interactive item at the specified hex coordinate.
+    ///
+    /// # Arguments
+    ///
+    /// * `hex_coord` - The hex coordinate to search
+    ///
+    /// # Returns
+    ///
+    /// `Some(item_id)` if an item is found at the coordinate, `None` otherwise.
     fn find_item_at_hex(&self, hex_coord: HexCoord) -> Option<uuid::Uuid> {
         // Find if there's an interactive object (item) at the given hex coordinate
         for (id, obj) in &self.game_world.interactive_objects {
@@ -492,6 +643,15 @@ impl GameApp {
         None
     }
 
+    /// Handles item pickup by a unit.
+    ///
+    /// Transfers an item from an interactive object to the unit's inventory
+    /// and attempts to auto-equip it if it's not a consumable.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit picking up the item
+    /// * `item_id` - UUID of the interactive object containing the item
     fn handle_item_pickup(&mut self, unit_id: uuid::Uuid, item_id: uuid::Uuid) {
         // Get the item from the interactive object
         if let Some(item_obj) = self.game_world.interactive_objects.get_mut(&item_id) {
@@ -1031,6 +1191,25 @@ impl ApplicationHandler for GameApp {
     }
 }
 
+/// Application entry point.
+///
+/// Creates and runs the QuestQuest interactive game window with:
+/// - OpenGL rendering context
+/// - Event loop for user input
+/// - Demo units and items for testing
+///
+/// # Controls
+///
+/// - **Left Click**: Move units, interact with UI
+/// - **Right Click**: Select units
+/// - **Arrow Keys**: Move camera
+/// - **C**: Show unit info
+/// - **H**: Toggle hover debug
+/// - **ESC**: Open menu / Deselect unit
+///
+/// # Panics
+///
+/// Panics if the event loop or window creation fails.
 fn main() {
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);

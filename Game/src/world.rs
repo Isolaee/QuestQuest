@@ -1,63 +1,164 @@
+//! # Game World Module
+//!
+//! This module provides the `GameWorld` structure that manages all game entities,
+//! terrain, and combat in a hex-based grid system. It serves as the central state
+//! management system for the game.
+//!
+//! ## Core Features
+//!
+//! - **Terrain Management**: Procedural terrain generation and querying
+//! - **Unit Management**: Add, remove, move, and query units across the world
+//! - **Combat System**: Combat initiation, confirmation dialogs, and resolution
+//! - **Interactive Objects**: Manage pickups, quest objects, and NPCs
+//! - **Collision Detection**: Movement validation considering terrain and units
+//!
+//! ## Combat Flow
+//!
+//! 1. Player attempts to move onto enemy unit's position
+//! 2. Combat confirmation dialog is created (`PendingCombat`)
+//! 3. Player selects attack and confirms
+//! 4. Combat is executed with damage calculations and counter-attacks
+//! 5. Defeated units are removed from the world
+
 use crate::objects::*;
 use graphics::{HexCoord, SpriteType};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Attack info for display in combat dialog
+/// Information about a unit's attack for display in combat dialogs.
+///
+/// Used to present attack options to the player before combat begins.
 #[derive(Clone, Debug)]
 pub struct AttackInfo {
+    /// Display name of the attack
     pub name: String,
+    /// Base damage value
     pub damage: u32,
+    /// Attack range (1 for melee, higher for ranged)
     pub range: i32,
 }
 
-/// Pending combat confirmation data
+/// Contains all data needed for combat confirmation dialog.
+///
+/// When a player unit moves onto an enemy unit, combat is not immediately
+/// executed. Instead, a `PendingCombat` is created to allow the player to
+/// review both combatants' stats and select which attack to use.
+///
+/// # Examples
+///
+/// ```ignore
+/// // After world.move_unit() detects enemy collision:
+/// if let Some(pending) = &world.pending_combat {
+///     println!("Attack with: {}", pending.attacker_name);
+///     println!("Defend: {}", pending.defender_name);
+///     // Player selects attack, then calls world.execute_pending_combat()
+/// }
+/// ```
 #[derive(Clone, Debug)]
 pub struct PendingCombat {
+    /// UUID of the attacking unit
     pub attacker_id: Uuid,
+    /// UUID of the defending unit
     pub defender_id: Uuid,
+    /// Display name of the attacker
     pub attacker_name: String,
+    /// Current hit points of the attacker
     pub attacker_hp: u32,
+    /// Maximum hit points of the attacker
     pub attacker_max_hp: u32,
+    /// Attack stat of the attacker
     pub attacker_attack: u32,
+    /// Defense stat of the attacker
     pub attacker_defense: u32,
+    /// Number of attacks the attacker makes per combat round
     pub attacker_attacks_per_round: u32,
+    /// Available attacks for the attacker to choose from
     pub attacker_attacks: Vec<AttackInfo>,
+    /// Display name of the defender
     pub defender_name: String,
+    /// Current hit points of the defender
     pub defender_hp: u32,
+    /// Maximum hit points of the defender
     pub defender_max_hp: u32,
+    /// Attack stat of the defender
     pub defender_attack: u32,
+    /// Defense stat of the defender
     pub defender_defense: u32,
+    /// Number of attacks the defender makes per combat round
     pub defender_attacks_per_round: u32,
+    /// Available attacks for the defender
     pub defender_attacks: Vec<AttackInfo>,
-    pub selected_attack_index: usize, // Which attack the player selected
+    /// Index of the attack selected by the player (0-based)
+    pub selected_attack_index: usize,
 }
 
-/// Game world that manages all game objects
-/// Note: Cannot derive Serialize/Deserialize because GameUnit contains trait objects
+/// The game world that manages all game entities and their interactions.
+///
+/// `GameWorld` is the central state container for the game, managing terrain,
+/// units, interactive objects, and combat on a hex-based grid. It provides
+/// methods for querying positions, validating movement, and executing game logic.
+///
+/// # Note
+///
+/// Cannot derive `Serialize`/`Deserialize` because `GameUnit` contains trait objects.
+/// Save/load functionality must be implemented through custom serialization or
+/// by reconstructing units from saved data.
+///
+/// # Examples
+///
+/// ```
+/// use game::GameWorld;
+/// use graphics::HexCoord;
+///
+/// // Create a world with radius 10 (covers coordinates from -10 to +10)
+/// let mut world = GameWorld::new(10);
+///
+/// // Generate procedural terrain
+/// world.generate_terrain();
+///
+/// // Query terrain at a position
+/// if let Some(terrain) = world.get_terrain(HexCoord::new(0, 0)) {
+///     println!("Movement cost: {}", terrain.movement_cost());
+/// }
+/// ```
 pub struct GameWorld {
-    /// All terrain tiles in the world
+    /// All terrain tiles in the world, indexed by hex coordinate
     pub terrain: HashMap<HexCoord, TerrainTile>,
 
-    /// All units in the world
+    /// All units in the world, indexed by UUID
     pub units: HashMap<Uuid, GameUnit>,
 
-    /// All interactive objects in the world
+    /// All interactive objects in the world, indexed by UUID
     pub interactive_objects: HashMap<Uuid, InteractiveObject>,
 
-    /// World size (radius from center)
+    /// World size as radius from center (e.g., 10 means coordinates from -10 to +10)
     world_radius: i32,
 
-    /// Current game time
+    /// Current game time in seconds, used for cooldowns and time-based mechanics
     pub game_time: f32,
 
-    /// Pending combat confirmation
+    /// Pending combat awaiting player confirmation
     pub pending_combat: Option<PendingCombat>,
-    // Removed objects field: trait objects cannot be serialized or debugged directly
 }
 
 impl GameWorld {
-    /// Create a new empty game world
+    /// Creates a new empty game world with the specified radius.
+    ///
+    /// The world is initially empty and must be populated with terrain using
+    /// `generate_terrain()` or by manually adding terrain tiles.
+    ///
+    /// # Arguments
+    ///
+    /// * `world_radius` - Maximum distance from center (0,0) for valid coordinates
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use game::GameWorld;
+    ///
+    /// let world = GameWorld::new(15); // Creates a world with radius 15
+    /// assert_eq!(world.world_radius(), 15);
+    /// ```
     pub fn new(world_radius: i32) -> Self {
         Self {
             terrain: HashMap::new(),
@@ -69,7 +170,25 @@ impl GameWorld {
         }
     }
 
-    /// Generate terrain for the world using the sprite system
+    /// Generates procedural terrain for the entire world.
+    ///
+    /// Uses coordinate-based seeding to generate consistent, deterministic terrain.
+    /// Each hex within the world radius is assigned a terrain type based on its
+    /// position, creating varied landscapes of grasslands, forests, hills, etc.
+    ///
+    /// This method should be called once after creating a new world.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use game::GameWorld;
+    ///
+    /// let mut world = GameWorld::new(10);
+    /// world.generate_terrain();
+    ///
+    /// // World now has terrain tiles at all valid coordinates
+    /// assert!(world.terrain().len() > 0);
+    /// ```
     pub fn generate_terrain(&mut self) {
         for q in -self.world_radius..=self.world_radius {
             for r in -self.world_radius..=self.world_radius {
@@ -85,41 +204,101 @@ impl GameWorld {
         }
     }
 
-    /// Generate terrain type based on position
+    /// Generates terrain type based on hex coordinate position.
+    ///
+    /// Uses coordinate-based pseudo-random generation to ensure consistent
+    /// terrain across multiple calls.
+    ///
+    /// # Arguments
+    ///
+    /// * `coord` - Hex coordinate to generate terrain for
+    ///
+    /// # Returns
+    ///
+    /// A sprite type representing the terrain at this position
     fn generate_terrain_type(&self, coord: HexCoord) -> SpriteType {
         // Use coordinate-based seeding for consistent terrain generation
         let seed = coord.q * 73 + coord.r * 37 + coord.q * coord.r * 17;
         SpriteType::random_terrain(seed)
     }
 
-    /// Add a unit to the world
+    /// Adds a unit to the world and returns its UUID.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit` - The GameUnit to add
+    ///
+    /// # Returns
+    ///
+    /// The UUID of the added unit, which can be used for later queries
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use game::{GameWorld, GameUnit};
+    ///
+    /// let mut world = GameWorld::new(10);
+    /// let unit_id = world.add_unit(some_game_unit);
+    /// ```
     pub fn add_unit(&mut self, unit: GameUnit) -> Uuid {
         let id = unit.id();
         self.units.insert(id, unit);
         id
     }
 
-    /// Remove a unit from the world
+    /// Removes a unit from the world.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - UUID of the unit to remove
+    ///
+    /// # Returns
+    ///
+    /// `Some(GameUnit)` if the unit existed, `None` otherwise
     pub fn remove_unit(&mut self, id: Uuid) -> Option<GameUnit> {
         self.units.remove(&id)
     }
 
-    /// Get a unit by ID
+    /// Returns a reference to a unit by its UUID.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - UUID of the unit to retrieve
+    ///
+    /// # Returns
+    ///
+    /// `Some(&GameUnit)` if found, `None` otherwise
     pub fn get_unit(&self, id: Uuid) -> Option<&GameUnit> {
         self.units.get(&id)
     }
 
-    /// Get a mutable reference to a unit by ID
+    /// Returns a mutable reference to a unit by its UUID.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - UUID of the unit to retrieve
+    ///
+    /// # Returns
+    ///
+    /// `Some(&mut GameUnit)` if found, `None` otherwise
     pub fn get_unit_mut(&mut self, id: Uuid) -> Option<&mut GameUnit> {
         self.units.get_mut(&id)
     }
 
-    /// Get all units
+    /// Returns a reference to all units in the world.
     pub fn units(&self) -> &HashMap<Uuid, GameUnit> {
         &self.units
     }
 
-    /// Get all units at a specific position
+    /// Returns all units at a specific hex coordinate.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Hex coordinate to query
+    ///
+    /// # Returns
+    ///
+    /// Vector of references to units at this position
     pub fn get_units_at_position(&self, position: HexCoord) -> Vec<&GameUnit> {
         self.units
             .values()
@@ -127,49 +306,112 @@ impl GameWorld {
             .collect()
     }
 
-    /// Add an interactive object to the world
+    /// Adds an interactive object to the world and returns its UUID.
+    ///
+    /// # Arguments
+    ///
+    /// * `object` - The InteractiveObject to add
+    ///
+    /// # Returns
+    ///
+    /// The UUID of the added object
     pub fn add_interactive_object(&mut self, object: InteractiveObject) -> Uuid {
         let id = object.id();
         self.interactive_objects.insert(id, object);
         id
     }
 
-    /// Remove an interactive object from the world
+    /// Removes an interactive object from the world.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - UUID of the object to remove
+    ///
+    /// # Returns
+    ///
+    /// `Some(InteractiveObject)` if the object existed, `None` otherwise
     pub fn remove_interactive_object(&mut self, id: Uuid) -> Option<InteractiveObject> {
         self.interactive_objects.remove(&id)
     }
 
-    /// Get an interactive object by ID
+    /// Returns a reference to an interactive object by its UUID.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - UUID of the object to retrieve
+    ///
+    /// # Returns
+    ///
+    /// `Some(&InteractiveObject)` if found, `None` otherwise
     pub fn get_interactive_object(&self, id: Uuid) -> Option<&InteractiveObject> {
         self.interactive_objects.get(&id)
     }
 
-    /// Get a mutable reference to an interactive object by ID
+    /// Returns a mutable reference to an interactive object by its UUID.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - UUID of the object to retrieve
+    ///
+    /// # Returns
+    ///
+    /// `Some(&mut InteractiveObject)` if found, `None` otherwise
     pub fn get_interactive_object_mut(&mut self, id: Uuid) -> Option<&mut InteractiveObject> {
         self.interactive_objects.get_mut(&id)
     }
 
-    /// Get all interactive objects
+    /// Returns a reference to all interactive objects in the world.
     pub fn interactive_objects(&self) -> &HashMap<Uuid, InteractiveObject> {
         &self.interactive_objects
     }
 
-    /// Get terrain at a specific position
+    /// Returns a reference to terrain at the specified position.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Hex coordinate to query
+    ///
+    /// # Returns
+    ///
+    /// `Some(&TerrainTile)` if terrain exists, `None` otherwise
     pub fn get_terrain(&self, position: HexCoord) -> Option<&TerrainTile> {
         self.terrain.get(&position)
     }
 
-    /// Get mutable terrain at a specific position
+    /// Returns a mutable reference to terrain at the specified position.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Hex coordinate to query
+    ///
+    /// # Returns
+    ///
+    /// `Some(&mut TerrainTile)` if terrain exists, `None` otherwise
     pub fn get_terrain_mut(&mut self, position: HexCoord) -> Option<&mut TerrainTile> {
         self.terrain.get_mut(&position)
     }
 
-    /// Get all terrain tiles
+    /// Returns a reference to all terrain tiles in the world.
     pub fn terrain(&self) -> &HashMap<HexCoord, TerrainTile> {
         &self.terrain
     }
 
-    /// Check if a position is valid for movement
+    /// Checks if a position is valid for movement.
+    ///
+    /// Validates movement based on:
+    /// - World boundaries
+    /// - Terrain blocking (e.g., mountains)
+    /// - Unit blocking (allied units block, enemy units allow combat)
+    /// - Interactive object blocking
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Hex coordinate to validate
+    /// * `unit_id` - Optional UUID of the moving unit (for team checking)
+    ///
+    /// # Returns
+    ///
+    /// `true` if the position is valid for movement, `false` otherwise
     pub fn is_position_valid_for_movement(
         &self,
         position: HexCoord,
@@ -222,8 +464,36 @@ impl GameWorld {
         true
     }
 
-    /// Move a unit to a new position (with validation)
-    /// Returns Ok(()) for normal movement, or a combat result message
+    /// Moves a unit to a new position with validation and combat detection.
+    ///
+    /// If the target position contains an enemy unit, combat confirmation is
+    /// initiated instead of moving. If the position is blocked or invalid,
+    /// an error is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit to move
+    /// * `new_position` - Target hex coordinate
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` for successful movement
+    /// - `Err(String)` with error message for blocked movement or combat initiation
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use game::GameWorld;
+    /// use graphics::HexCoord;
+    ///
+    /// let mut world = GameWorld::new(10);
+    /// // ... add units ...
+    ///
+    /// match world.move_unit(unit_id, HexCoord::new(1, 0)) {
+    ///     Ok(()) => println!("Unit moved successfully"),
+    ///     Err(msg) => println!("Movement failed: {}", msg),
+    /// }
+    /// ```
     pub fn move_unit(&mut self, unit_id: Uuid, new_position: HexCoord) -> Result<(), String> {
         // Check if there's an enemy unit at the target position
         let units_at_target: Vec<Uuid> = self
@@ -263,7 +533,20 @@ impl GameWorld {
         }
     }
 
-    /// Request combat confirmation between two units
+    /// Initiates combat confirmation between two units.
+    ///
+    /// Creates a `PendingCombat` structure containing all necessary information
+    /// for the combat confirmation dialog. The player can then review stats,
+    /// select an attack, and either execute or cancel the combat.
+    ///
+    /// # Arguments
+    ///
+    /// * `attacker_id` - UUID of the attacking unit
+    /// * `defender_id` - UUID of the defending unit
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if combat request was created, `Err(String)` if either unit not found
     pub fn request_combat(&mut self, attacker_id: Uuid, defender_id: Uuid) -> Result<(), String> {
         // Get unit info for confirmation dialog
         let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
@@ -320,7 +603,16 @@ impl GameWorld {
         Ok(())
     }
 
-    /// Execute the pending combat (called after player confirms)
+    /// Executes the pending combat after player confirmation.
+    ///
+    /// Retrieves the pending combat data, extracts the selected attack,
+    /// and initiates the full combat sequence. The pending combat is
+    /// consumed by this operation.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if combat was executed successfully
+    /// - `Err(String)` if no pending combat exists or combat execution fails
     pub fn execute_pending_combat(&mut self) -> Result<(), String> {
         let pending = self.pending_combat.take().ok_or("No pending combat")?;
         let selected_attack_idx = pending.selected_attack_index;
@@ -331,12 +623,33 @@ impl GameWorld {
         )
     }
 
-    /// Cancel the pending combat
+    /// Cancels the pending combat without executing it.
+    ///
+    /// Clears the pending combat state, allowing the player to cancel
+    /// an attack and take a different action.
     pub fn cancel_pending_combat(&mut self) {
         self.pending_combat = None;
     }
 
-    /// Initiate combat between two units
+    /// Executes combat between two units with the selected attack.
+    ///
+    /// This is the core combat resolution method. It:
+    /// 1. Applies the attacker's selected attack multiple times based on attacks_per_round
+    /// 2. Calculates damage with resistance modifiers
+    /// 3. Allows defender to counter-attack if in melee range
+    /// 4. Removes defeated units and moves attacker to defender's position if victorious
+    ///
+    /// Combat results are printed to console with formatted output.
+    ///
+    /// # Arguments
+    ///
+    /// * `attacker_id` - UUID of the attacking unit
+    /// * `defender_id` - UUID of the defending unit
+    /// * `selected_attack_idx` - Index of the attack chosen by the player
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if combat executed successfully, `Err(String)` on error
     fn initiate_combat(
         &mut self,
         attacker_id: Uuid,
@@ -577,7 +890,17 @@ impl GameWorld {
         Ok(())
     }
 
-    /// Get movement cost for a position
+    /// Returns the movement cost for a position.
+    ///
+    /// Used for pathfinding and action point calculations.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Hex coordinate to query
+    ///
+    /// # Returns
+    ///
+    /// Movement cost as f32, or `f32::INFINITY` for invalid/missing terrain
     pub fn get_movement_cost(&self, position: HexCoord) -> f32 {
         if let Some(terrain) = self.get_terrain(position) {
             terrain.movement_cost()
@@ -586,7 +909,14 @@ impl GameWorld {
         }
     }
 
-    /// Update the world (called each frame)
+    /// Updates the world state (called each frame).
+    ///
+    /// Advances game time, updates all units, and processes interactions
+    /// between objects at the same positions.
+    ///
+    /// # Arguments
+    ///
+    /// * `delta_time` - Time elapsed since last update in seconds
     pub fn update(&mut self, delta_time: f32) {
         self.game_time += delta_time;
 
@@ -599,7 +929,11 @@ impl GameWorld {
         self.process_interactions();
     }
 
-    /// Process interactions between objects at the same positions
+    /// Processes interactions between units and interactive objects.
+    ///
+    /// Checks for units occupying the same position as interactive objects
+    /// and triggers interaction logic (e.g., picking up items). Objects with
+    /// no remaining interactions are automatically removed.
     fn process_interactions(&mut self) {
         let mut interactions_to_process = Vec::new();
 
@@ -631,20 +965,36 @@ impl GameWorld {
         }
     }
 
-    /// Get current game time
+    /// Returns the current game time in seconds.
+    ///
+    /// Game time is used for cooldowns, time-based events, and other
+    /// temporal mechanics.
     pub fn game_time(&self) -> f32 {
         self.game_time
     }
 
-    /// Get world radius
+    /// Returns the world radius.
+    ///
+    /// The radius defines the maximum distance from the center (0,0) that
+    /// is considered part of the game world.
     pub fn world_radius(&self) -> i32 {
         self.world_radius
     }
-
-    // Removed add_object and get_objects_at_position methods: trait objects cannot be serialized or debugged directly
 }
 
 impl Default for GameWorld {
+    /// Creates a default game world with radius 10.
+    ///
+    /// The world is empty and must be populated with terrain and entities.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use game::GameWorld;
+    ///
+    /// let world = GameWorld::default();
+    /// assert_eq!(world.world_radius(), 10);
+    /// ```
     fn default() -> Self {
         Self::new(10) // Default world radius of 10
     }

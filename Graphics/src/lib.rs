@@ -1,3 +1,25 @@
+//! Graphics crate
+//!
+//! High-level rendering utilities and helper types for the QuestQuest game.
+//!
+//! This crate provides:
+//! - Core types for hexagonal maps and coordinate transforms (`core`)
+//! - Math primitives used by rendering and gameplay (`math`)
+//! - Renderer and shader helpers (`rendering`)
+//! - Simple UI widgets used by the demo app (`ui`)
+//!
+//! Typical usage:
+//!
+//! ```rust
+//! use graphics::Renderer;
+//! use graphics::core::HexGrid;
+//!
+//! // Create a grid and renderer in your application
+//! let mut grid = HexGrid::new();
+//! // Renderer setup is application-specific; see `rendering::Renderer` for details
+//! ```
+//!
+//! The crate re-exports commonly-used types from submodules for convenience.
 pub mod core;
 pub mod math;
 pub mod rendering;

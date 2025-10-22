@@ -2,16 +2,23 @@ use crate::item_properties::RangeType;
 use crate::{Item, ItemId, ItemType};
 use serde::{Deserialize, Serialize};
 
-/// Equipment slots for a unit
+/// Equipment slots for a unit.
+///
+/// `Equipment` holds the currently equipped items for a unit: weapon, armor,
+/// and a list of accessories. It provides helpers to equip/unequip items and
+/// compute aggregated bonuses (attack, defense, movement, etc.).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Equipment {
+    /// Equipped weapon (if any)
     pub weapon: Option<Item>,
+    /// Equipped armor (if any)
     pub armor: Option<Item>,
+    /// Equipped accessories (zero or more)
     pub accessories: Vec<Item>, // Multiple accessories allowed
 }
 
 impl Equipment {
-    /// Create new empty equipment
+    /// Create new empty equipment.
     pub fn new() -> Self {
         Self {
             weapon: None,
@@ -20,7 +27,9 @@ impl Equipment {
         }
     }
 
-    /// Equip an item in the appropriate slot
+    /// Equip an item in the appropriate slot.
+    ///
+    /// Returns the previously equipped item for the same slot (if any).
     pub fn equip_item(&mut self, item: Item) -> Option<Item> {
         match item.item_type {
             ItemType::Weapon => {
@@ -41,7 +50,9 @@ impl Equipment {
         }
     }
 
-    /// Unequip an item by ID
+    /// Unequip an item by ID.
+    ///
+    /// Returns the unequipped item if it was found.
     pub fn unequip_item(&mut self, item_id: ItemId) -> Option<Item> {
         if let Some(weapon) = &self.weapon {
             if weapon.id == item_id {
@@ -62,7 +73,7 @@ impl Equipment {
         None
     }
 
-    /// Get total attack bonus from all equipped items
+    /// Get total attack bonus from all equipped items.
     pub fn get_total_attack_bonus(&self) -> i32 {
         let mut total = 0;
 
@@ -77,7 +88,7 @@ impl Equipment {
         total
     }
 
-    /// Get total defense bonus from all equipped items
+    /// Get total defense bonus from all equipped items.
     pub fn get_total_defense_bonus(&self) -> i32 {
         let mut total = 0;
 
@@ -92,7 +103,7 @@ impl Equipment {
         total
     }
 
-    /// Get total movement modifier from all equipped items
+    /// Get total movement modifier from all equipped items.
     pub fn get_total_movement_modifier(&self) -> i32 {
         let mut total = 0;
 
@@ -107,7 +118,7 @@ impl Equipment {
         total
     }
 
-    /// Get total health bonus from all equipped items
+    /// Get total health bonus from all equipped items.
     pub fn get_total_health_bonus(&self) -> i32 {
         let mut total = 0;
 
@@ -118,14 +129,14 @@ impl Equipment {
         total
     }
 
-    /// Get range type override from weapon
+    /// Get range type override from weapon.
     pub fn get_range_type_override(&self) -> Option<RangeType> {
         self.weapon
             .as_ref()
             .and_then(|w| w.get_range_type_override())
     }
 
-    /// Get total range modifier from all equipped items
+    /// Get total range modifier from all equipped items.
     pub fn get_total_range_modifier(&self) -> i32 {
         let mut total = 0;
 
@@ -140,7 +151,7 @@ impl Equipment {
         total
     }
 
-    /// Get all equipped items as a vector
+    /// Get all equipped items as a vector of references.
     pub fn get_all_equipped(&self) -> Vec<&Item> {
         let mut items = Vec::new();
 

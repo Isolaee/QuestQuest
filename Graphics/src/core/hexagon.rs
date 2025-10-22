@@ -1,7 +1,10 @@
 use crate::math::Vec2;
 use serde::{Deserialize, Serialize};
 
-// Axial coordinates for hexagonal grid
+/// Axial coordinates for hexagonal grid (flat-top orientation).
+///
+/// `HexCoord` uses axial coordinates (q, r) where q is the column and r is the row.
+/// This type is used across the graphics and game logic to index hexagons.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HexCoord {
     pub q: i32, // column
@@ -9,19 +12,24 @@ pub struct HexCoord {
 }
 
 impl HexCoord {
+    /// Construct a new `HexCoord`.
     pub fn new(q: i32, r: i32) -> Self {
         Self { q, r }
     }
 
-    // Convert axial coordinates to world position (FLAT-TOP hexagons)
+    /// Convert axial coordinates to world position (flat-top hexagons).
+    ///
+    /// The returned `Vec2` is the pixel/world position that corresponds to the
+    /// hexagon center for rendering or spatial lookup calculations.
     pub fn to_world_pos(self, hex_size: f32) -> Vec2 {
         let x = hex_size * (3.0 / 2.0 * self.q as f32);
         let y = hex_size * (3.0_f32.sqrt() * (self.r as f32 + self.q as f32 / 2.0));
         Vec2::new(x, y)
     }
 
-    /// Robust rounding function for axial coordinates
-    /// Converts fractional hex coordinates to the nearest integer hex coordinate
+    /// Robust rounding function for axial coordinates.
+    ///
+    /// Converts fractional axial coordinates to the nearest integer `HexCoord`.
     pub fn axial_round(q: f32, r: f32) -> Self {
         // Convert to cube coordinates for easier rounding
         let x = q;
@@ -47,14 +55,14 @@ impl HexCoord {
             rz = -rx - ry;
         }
 
-        // Suppress unused variable warning
+        // Suppress unused assignment warning for `ry` when it's only used in corrections
         let _ = ry;
 
         // Convert back to axial coordinates
         Self::new(rx as i32, rz as i32)
     }
 
-    // Get distance between two hex coordinates
+    /// Get distance between two hex coordinates.
     #[allow(dead_code)]
     pub fn distance(self, other: HexCoord) -> i32 {
         ((self.q - other.q).abs()
@@ -63,7 +71,7 @@ impl HexCoord {
             / 2
     }
 
-    // Get neighboring coordinates (corrected for FLAT-TOP hexagons)
+    /// Get neighboring coordinates (flat-top orientation).
     #[allow(dead_code)]
     pub fn neighbors(self) -> [HexCoord; 6] {
         [
@@ -77,7 +85,7 @@ impl HexCoord {
     }
 }
 
-// Sprite data for hexagons
+/// Sprite data for hexagons (terrain, units and items).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SpriteType {
     None,
@@ -93,7 +101,7 @@ pub enum SpriteType {
 }
 
 impl SpriteType {
-    // Get texture coordinates for sprite (UV mapping)
+    /// Get texture coordinates for sprite (UV mapping).
     #[allow(dead_code)]
     pub fn get_texture_coords(self) -> [f32; 8] {
         match self {
@@ -110,7 +118,7 @@ impl SpriteType {
         }
     }
 
-    // Get texture file path for sprite
+    /// Get texture file path for sprite if available.
     pub fn get_texture_path(self) -> Option<&'static str> {
         match self {
             SpriteType::None => None,
@@ -126,7 +134,7 @@ impl SpriteType {
         }
     }
 
-    // Get color tint for sprite (fallback when textures aren't loaded)
+    /// Get color tint for sprite (fallback when textures aren't loaded).
     pub fn get_color_tint(self) -> [f32; 3] {
         match self {
             SpriteType::None => [1.0, 1.0, 1.0],         // White (no tint)
@@ -142,7 +150,7 @@ impl SpriteType {
         }
     }
 
-    // Get all terrain sprite types (excluding None)
+    /// Get all terrain sprite types (excluding None).
     pub fn all_terrain() -> [SpriteType; 7] {
         [
             SpriteType::Forest,
@@ -155,13 +163,13 @@ impl SpriteType {
         ]
     }
 
-    // Get a random terrain sprite (excluding None)
+    /// Get a deterministic pseudo-random terrain sprite given a seed.
     pub fn random_terrain(seed: i32) -> SpriteType {
         let all = Self::all_terrain();
         all[(seed.abs() % 7) as usize]
     }
 
-    // Get texture array index for OpenGL shader
+    /// Get texture array index for OpenGL shader.
     pub fn get_texture_id(&self) -> f32 {
         match self {
             SpriteType::None => -1.0, // No texture
@@ -178,6 +186,7 @@ impl SpriteType {
     }
 }
 
+/// Types of highlighting applied to hexagons for UI feedback.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HighlightType {
     None,
@@ -185,6 +194,10 @@ pub enum HighlightType {
     MovementRange, // Blue highlight for movement range
 }
 
+/// A renderable hexagon used by the `HexGrid` and renderer.
+///
+/// Contains rendering state such as terrain `sprite`, optional `unit_sprite`/
+/// `item_sprite` overlays, the hex center `world_pos` and visual highlight state.
 #[derive(Clone)]
 pub struct Hexagon {
     pub coord: HexCoord,
@@ -197,6 +210,7 @@ pub struct Hexagon {
 }
 
 impl Hexagon {
+    /// Create a new `Hexagon` with sensible defaults and a deterministic seed-based terrain.
     pub fn new(coord: HexCoord, hex_size: f32) -> Self {
         let world_pos = coord.to_world_pos(hex_size);
 
@@ -222,42 +236,42 @@ impl Hexagon {
         }
     }
 
-    // Set unit sprite (rendered on top of terrain)
+    /// Set unit sprite (rendered on top of terrain)
     pub fn set_unit_sprite(&mut self, unit_sprite: Option<SpriteType>) {
         self.unit_sprite = unit_sprite;
     }
 
-    // Set item sprite (rendered on top of terrain and units)
+    /// Set item sprite (rendered on top of terrain and units)
     pub fn set_item_sprite(&mut self, item_sprite: Option<SpriteType>) {
         self.item_sprite = item_sprite;
     }
 
-    // Set terrain sprite (base layer)
+    /// Set terrain sprite (base layer)
     pub fn set_sprite(&mut self, sprite: SpriteType) {
         self.sprite = sprite;
     }
 
-    // Set highlight type
+    /// Set highlight type
     pub fn set_highlight(&mut self, highlight: HighlightType) {
         self.highlight = highlight;
     }
 
-    // Clear highlight
+    /// Clear highlight
     pub fn clear_highlight(&mut self) {
         self.highlight = HighlightType::None;
     }
 
-    // Get the display sprite (unit takes priority if present)
+    /// Get the display sprite (unit takes priority if present)
     pub fn get_display_sprite(&self) -> SpriteType {
         self.unit_sprite.unwrap_or(self.sprite)
     }
 
-    // Check if hex has a unit
+    /// Check if hex has a unit
     pub fn has_unit(&self) -> bool {
         self.unit_sprite.is_some()
     }
 
-    // Get the final display color
+    /// Get the final display color (blends terrain tint and highlights)
     pub fn get_display_color(&self) -> [f32; 3] {
         let display_sprite = self.get_display_sprite();
 
@@ -295,7 +309,7 @@ impl Hexagon {
         }
     }
 
-    // Check if hex has a sprite (terrain or unit)
+    /// Check if hex has a sprite (terrain or unit)
     pub fn has_sprite(&self) -> bool {
         self.sprite != SpriteType::None || self.unit_sprite.is_some()
     }

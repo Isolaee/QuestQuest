@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-/// Type of damage dealt by an attack
+/// Type of damage dealt by an attack.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DamageType {
     Slash,
@@ -14,7 +14,10 @@ pub enum DamageType {
     Dark,
 }
 
-/// Represents a specific attack that an item provides
+/// Represents a specific attack that an item provides.
+///
+/// Used for weapon attacks which may contain multiple `ItemAttack` entries
+/// (for weapons that strike multiple times or have special effects).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ItemAttack {
     /// Name of the attack (e.g., "Slash", "Stab")
@@ -28,7 +31,7 @@ pub struct ItemAttack {
 }
 
 impl ItemAttack {
-    /// Create a new item attack
+    /// Create a new item attack.
     pub fn new(
         name: impl Into<String>,
         damage: u32,
@@ -44,7 +47,7 @@ impl ItemAttack {
     }
 }
 
-/// Range type for attacks
+/// Range type for attacks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RangeType {
     Melee,
@@ -53,7 +56,7 @@ pub enum RangeType {
 }
 
 impl RangeType {
-    /// Get the base attack range for this range type (in hexes)
+    /// Get the base attack range for this range type (in hexes).
     pub fn base_range(&self) -> i32 {
         match self {
             RangeType::Melee => 1,  // 1 hex away
@@ -62,7 +65,7 @@ impl RangeType {
         }
     }
 
-    /// Get the name of this range type as a string
+    /// Get the name of this range type as a string.
     pub fn name(&self) -> &'static str {
         match self {
             RangeType::Melee => "Melee",
@@ -82,32 +85,33 @@ impl std::fmt::Display for RangeType {
     }
 }
 
-/// Properties that an item can have
+/// Properties that an item can have.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ItemProperties {
+    /// Weapon with combat-related properties
     Weapon {
         attack_bonus: i32,
         range_modifier: i32,
         range_type_override: Option<RangeType>,
         attacks: Vec<ItemAttack>,
     },
+    /// Armor providing defense and potentially movement penalty
     Armor {
         defense_bonus: i32,
         movement_penalty: i32,
     },
+    /// Accessories providing small bonuses
     Accessory {
         health_bonus: i32,
         attack_bonus: i32,
         defense_bonus: i32,
         movement_bonus: i32,
     },
-    Consumable {
-        uses: i32,
-        effect: ConsumableEffect,
-    },
+    /// Consumable items with limited uses and effects
+    Consumable { uses: i32, effect: ConsumableEffect },
 }
 
-/// Effects that consumable items can have
+/// Effects that consumable items can have.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ConsumableEffect {
     Heal {
