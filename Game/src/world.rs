@@ -169,7 +169,7 @@ impl GameWorld {
         turn_system.set_team_control(Team::Enemy, false);
         turn_system.set_team_control(Team::Neutral, false);
 
-        Self {
+        let mut world = Self {
             terrain: HashMap::new(),
             units: HashMap::new(),
             interactive_objects: HashMap::new(),
@@ -177,7 +177,12 @@ impl GameWorld {
             game_time: 0.0,
             pending_combat: None,
             turn_system,
-        }
+        };
+
+        // Populate terrain so movement costs are available by default
+        world.generate_terrain();
+
+        world
     }
 
     /// Generates procedural terrain for the entire world.
