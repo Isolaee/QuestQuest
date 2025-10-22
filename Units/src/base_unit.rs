@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::unit_trait::UnitId;
+use std::collections::HashMap;
 
 /// Base unit structure containing common data for all unit types.
 ///
@@ -68,6 +69,9 @@ pub struct BaseUnit {
     pub combat_stats: CombatStats,
     pub equipment: Equipment,
     pub inventory: Vec<Item>,
+    /// Optional per-unit terrain -> defense mappings (percentage 0-100).
+    /// If present, these override the race-based terrain defense values.
+    pub terrain_defenses: Option<HashMap<Terrain, u8>>,
 
     // Cached values (recalculated when equipment/level changes)
     pub cached_defense: i32,
@@ -125,6 +129,7 @@ impl BaseUnit {
             cached_movement: base_movement,
             cached_max_health: max_health,
             current_terrain: terrain,
+            terrain_defenses: None,
         }
     }
 
@@ -220,8 +225,16 @@ impl BaseUnit {
         // Ensure minimum range of 1
         self.combat_stats.attack_range = self.combat_stats.attack_range.max(1);
 
-        // Update terrain hit chance based on race and current terrain
-        let hit_chance = self.race.get_terrain_hit_chance(self.current_terrain);
+        // Update terrain hit chance based on per-unit mapping (if any) or race and current terrain
+        let hit_chance = if let Some(map) = &self.terrain_defenses {
+            // If the unit provides a mapping for the current terrain, use it, otherwise fallback to race
+            map.get(&self.current_terrain)
+                .copied()
+                .unwrap_or_else(|| self.race.get_terrain_hit_chance(self.current_terrain))
+        } else {
+            self.race.get_terrain_hit_chance(self.current_terrain)
+        };
+
         self.combat_stats.set_terrain_hit_chance(hit_chance);
     }
 

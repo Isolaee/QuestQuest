@@ -38,6 +38,21 @@ impl HumanArcher {
             combat_stats,
         );
 
+        // Create per-unit terrain defenses: archers are slightly better in open and forest
+        let mut terrain_defenses = std::collections::HashMap::new();
+        use crate::unit_race::Terrain::*;
+        terrain_defenses.insert(Forest0, 42);
+        terrain_defenses.insert(Forest1, 42);
+        terrain_defenses.insert(Grasslands, 46);
+        terrain_defenses.insert(HauntedWoods, 47);
+        terrain_defenses.insert(Hills, 48);
+        terrain_defenses.insert(Mountain, 50);
+        terrain_defenses.insert(Swamp, 52);
+
+        // Attach mapping to base (replace terrain_defenses Option)
+        let mut base = base;
+        base.terrain_defenses = Some(terrain_defenses);
+
         let attacks = vec![
             Attack::ranged("Longbow", 12, 1, combat::DamageType::Pierce, 3),
             Attack::melee("Short Blade", 6, 1, combat::DamageType::Slash),

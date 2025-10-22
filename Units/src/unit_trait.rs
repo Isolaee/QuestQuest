@@ -252,6 +252,19 @@ pub trait Unit {
     /// Get all available attacks for this unit
     fn get_attacks(&self) -> &[Attack];
 
+    /// Get the unit's defense value (base hit chance for enemies)
+    ///
+    /// This returns the percentage chance (0-100) that an enemy has to hit this unit
+    /// before applying attack modifiers. Lower values mean harder to hit.
+    ///
+    /// Default implementation uses race + terrain, but units can override for
+    /// custom defense values (e.g., evasive archers, heavily armored warriors).
+    fn get_defense(&self) -> u8 {
+        // Default: use terrain hit chance from combat stats
+        // This is calculated from race + terrain in recalculate_stats()
+        self.combat_stats().terrain_hit_chance
+    }
+
     // ===== Display Methods =====
 
     /// Get unit's display color based on race

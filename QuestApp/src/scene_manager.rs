@@ -17,6 +17,7 @@ pub enum SceneType {
 }
 
 /// Trait that all scenes must implement
+#[allow(dead_code)]
 pub trait Scene {
     /// Called when the scene becomes active
     fn on_enter(&mut self);

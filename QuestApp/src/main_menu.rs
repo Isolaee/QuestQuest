@@ -114,6 +114,7 @@ impl MainMenuScene {
     }
 
     /// Update screen dimensions (e.g., on window resize)
+    #[allow(dead_code)]
     pub fn update_screen_size(&mut self, width: f32, height: f32) {
         self.screen_width = width;
         self.screen_height = height;

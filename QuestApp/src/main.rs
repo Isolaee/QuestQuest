@@ -1282,11 +1282,11 @@ impl ApplicationHandler for GameApp {
                     let r2 = world_radius.min(-q + world_radius);
                     for r in r1..=r2 {
                         let coord = HexCoord::new(q, r);
-                        if !self.hex_grid.hexagons.contains_key(&coord) {
+                        self.hex_grid.hexagons.entry(coord).or_insert_with(|| {
                             let mut hex = graphics::Hexagon::new(coord, 50.0);
                             hex.set_sprite(SpriteType::Unit);
-                            self.hex_grid.hexagons.insert(coord, hex);
-                        }
+                            hex
+                        });
                     }
                 }
 
