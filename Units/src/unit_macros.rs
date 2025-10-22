@@ -1,17 +1,232 @@
-/// Macro to implement the common Unit trait methods that just delegate to BaseUnit
-/// This eliminates the massive boilerplate in each concrete unit type
+//! # Unit Macros Module
+//!
+//! This module provides declarative macros for implementing the [`Unit`](crate::unit_trait::Unit) trait
+//! on concrete unit types. It eliminates boilerplate code by providing automatic implementations
+//! of common trait methods that delegate to the underlying [`BaseUnit`](crate::base_unit::BaseUnit).
+//!
+//! ## Overview
+//!
+//! In the QuestQuest game, all unit types (warriors, mages, rangers, etc.) share a common
+//! set of behaviors defined by the `Unit` trait. Rather than manually implementing dozens
+//! of trait methods for each unit type, this module provides the `impl_unit_delegate!` macro
+//! to automatically generate these implementations.
+//!
+//! ## Features
+//!
+//! The macro implements the following categories of functionality:
+//!
+//! - **Identity Methods**: Access to unit ID, name, position, race, and type
+//! - **Movement System**: Position updates, movement validation, and range calculation
+//! - **Combat Statistics**: Access to health, attack, defense, and other combat-related stats
+//! - **Equipment Management**: Equipping/unequipping items and inventory operations
+//! - **Experience System**: Level progression, experience tracking, and stat recalculation
+//! - **Terrain Handling**: Current terrain tracking and terrain-based stat modifications
+//! - **Display Functions**: Information formatting for UI and debugging
+//! - **Attack System**: Attack collection from unit abilities and equipped weapons
+//!
+//! ## Usage Example
+//!
+//! ```ignore
+//! use units::{BaseUnit, impl_unit_delegate};
+//! use units::attack::Attack;
+//!
+//! pub struct DwarfWarrior {
+//!     base: BaseUnit,
+//!     attacks: Vec<Attack>,
+//! }
+//!
+//! // This single line implements all common Unit trait methods
+//! impl_unit_delegate!(DwarfWarrior);
+//! ```
+//!
+//! ## Implementation Details
+//!
+//! The macro generates implementations that:
+//! - Delegate most operations to the `self.base` field (which must be a `BaseUnit`)
+//! - Automatically handle stat recalculation when equipment or terrain changes
+//! - Merge attacks from the unit's native attacks and equipped weapons
+//! - Convert between item damage types and combat damage types
+//! - Provide formatted output for display purposes
+//!
+//! ## Requirements
+//!
+//! For a struct to use this macro, it must:
+//! - Have a field named `base` of type `BaseUnit`
+//! - Have a field named `attacks` of type `Vec<Attack>`
+//! - Be in scope of all necessary imports (handled automatically by the macro)
+
+/// Converts an item damage type to a combat damage type.
+///
+/// This helper function maps the damage types defined in the items system
+/// to the corresponding combat system damage types. Some item damage types
+/// may not have direct combat equivalents and are mapped to a default type.
+///
+/// # Arguments
+///
+/// * `dt` - The damage type from the items system
+///
+/// # Returns
+///
+/// Implements the `Unit` trait for a concrete unit type by delegating to `BaseUnit`.
+///
+/// This macro generates a complete implementation of the [`Unit`](crate::unit_trait::Unit) trait
+/// for any struct that contains a `base: BaseUnit` field and an `attacks: Vec<Attack>` field.
+/// It eliminates the need to manually write dozens of boilerplate delegation methods.
+///
+/// # Generated Methods
+///
+/// The macro implements the following trait methods (organized by category):
+///
+/// ## Identity Methods
+/// - `id()` - Returns the unique unit identifier
+/// - `name()` - Returns the unit's name
+/// - `position()` - Returns the unit's hex coordinate position
+/// - `race()` - Returns the unit's race (e.g., Dwarf, Elf, Human)
+/// - `unit_type()` - Returns the unit's type as a string (e.g., "Warrior", "Mage")
+///
+/// ## Movement Methods
+/// - `move_to(position)` - Attempts to move the unit to a new position
+/// - `can_move_to(position)` - Checks if a position is within movement range
+/// - `get_movement_range()` - Returns all valid positions the unit can move to
+///
+/// ## Combat Stats Methods
+/// - `combat_stats()` - Returns an immutable reference to combat statistics
+/// - `combat_stats_mut()` - Returns a mutable reference to combat statistics
+/// - `take_damage(damage)` - Applies damage to the unit
+/// - `heal(amount)` - Heals the unit by the specified amount
+/// - `is_alive()` - Checks if the unit's health is above zero
+/// - `can_attack(target_position)` - Checks if a position is within attack range
+///
+/// ## Equipment & Inventory Methods
+/// - `equipment()` - Returns an immutable reference to equipped items
+/// - `equipment_mut()` - Returns a mutable reference to equipped items
+/// - `inventory()` - Returns the unit's inventory items
+/// - `inventory_mut()` - Returns a mutable reference to the inventory
+/// - `equip_item(item_id)` - Equips an item from inventory, triggers stat recalculation
+/// - `unequip_item(item_id)` - Unequips an item to inventory, triggers stat recalculation
+/// - `add_item_to_inventory(item)` - Adds an item to the inventory
+/// - `remove_item_from_inventory(item_id)` - Removes and returns an item from inventory
+///
+/// ## Level & Experience Methods
+/// - `level()` - Returns the current level
+/// - `experience()` - Returns the current experience points
+/// - `add_experience(exp)` - Adds experience, returns `true` if leveled up
+/// - `experience_for_next_level()` - Returns experience needed for next level
+/// - `level_progress()` - Returns a 0.0-1.0 float representing progress to next level
+///
+/// ## Terrain Methods
+/// - `current_terrain()` - Returns the terrain the unit is currently on
+/// - `set_terrain(terrain)` - Updates terrain and recalculates stats
+///
+/// ## Utility Methods
+/// - `recalculate_stats()` - Recalculates stats based on level, equipment, and terrain
+///
+/// ## Display Methods
+/// - `get_display_color()` - Returns RGB color array for rendering
+/// - `get_info()` - Returns detailed multi-line unit information string
+/// - `get_summary()` - Returns a brief one-line unit status
+/// - `display_unit_info()` - Prints detailed information to console
+/// - `display_quick_info()` - Prints brief summary to console
+/// - `on_click()` - Handles click events, prints unit identification
+///
+/// ## Attack Methods
+/// - `get_attacks()` - Returns all available attacks (from unit + equipped weapons)
+///
+/// # Requirements
+///
+/// The target struct must have:
+/// - A `base` field of type [`BaseUnit`](crate::base_unit::BaseUnit)
+/// - An `attacks` field of type `Vec<`[`Attack`](crate::attack::Attack)`>`
 ///
 /// # Usage
+///
 /// ```ignore
+/// use units::{BaseUnit, impl_unit_delegate};
+/// use units::attack::Attack;
+/// use graphics::HexCoord;
+///
+/// pub struct DwarfWarrior {
+///     base: BaseUnit,
+///     attacks: Vec<Attack>,
+/// }
+///
+/// impl DwarfWarrior {
+///     pub fn new(name: String, position: HexCoord) -> Self {
+///         Self {
+///             base: BaseUnit::new(/* ... */),
+///             attacks: vec![/* ... */],
+///         }
+///     }
+/// }
+///
+/// // Implement the entire Unit trait with one macro call
 /// impl_unit_delegate!(DwarfWarrior);
 /// ```
 ///
-/// This will implement all the standard Unit trait methods that simply delegate to `self.base`
+/// # Stat Recalculation
+///
+/// The macro automatically triggers stat recalculation in these scenarios:
+/// - When items are equipped or unequipped
+/// - When the unit levels up (after gaining experience)
+/// - When the terrain changes
+///
+/// This ensures that equipment bonuses, terrain modifiers, and level-based stats
+/// are always up-to-date.
+///
+/// # Attack System Integration
+///
+/// The `get_attacks()` method merges attacks from multiple sources:
+/// 1. The unit's native `attacks` field (innate abilities)
+/// 2. Attacks provided by the equipped weapon (if any)
+/// 3. Attacks provided by equipped accessories (if any)
+///
+/// Item attacks are automatically converted from the items system's damage types
+/// to combat system damage types using the helper function `item_damage_type_to_combat`.
+///
+/// # Example: Creating a New Unit Type
+///
+/// ```ignore
+/// use units::{BaseUnit, impl_unit_delegate, Race};
+/// use units::attack::Attack;
+/// use combat::DamageType;
+/// use graphics::HexCoord;
+///
+/// pub struct ElvenArcher {
+///     base: BaseUnit,
+///     attacks: Vec<Attack>,
+/// }
+///
+/// impl ElvenArcher {
+///     pub fn new(name: String, position: HexCoord) -> Self {
+///         let mut base = BaseUnit::new(name, position, Race::Elf, "Archer".to_string());
+///         
+///         let attacks = vec![
+///             Attack::ranged("Long Shot", 15, 1, DamageType::Pierce, 4),
+///             Attack::melee("Quick Strike", 8, 2, DamageType::Slash),
+///         ];
+///         
+///         Self { base, attacks }
+///     }
+/// }
+///
+/// // All Unit trait methods are now available
+/// impl_unit_delegate!(ElvenArcher);
+/// ```
+///
+/// # See Also
+///
+/// - [`Unit`](crate::unit_trait::Unit) - The trait being implemented
+/// - [`BaseUnit`](crate::base_unit::BaseUnit) - The underlying unit implementation
+/// - [`Attack`](crate::attack::Attack) - Attack definitions
+/// - [`CombatStats`](combat::CombatStats) - Combat statistics structure
 #[macro_export]
 macro_rules! impl_unit_delegate {
     ($unit_type:ty) => {
+        use items::item_properties::ItemProperties;
         impl $crate::unit_trait::Unit for $unit_type {
-            // ===== Identity =====
+            // ===== Identity Methods =====
+            // These methods provide basic identification and location information for the unit.
+            // All delegate directly to the BaseUnit fields.
 
             fn id(&self) -> $crate::unit_trait::UnitId {
                 self.base.id
@@ -33,7 +248,9 @@ macro_rules! impl_unit_delegate {
                 &self.base.unit_type
             }
 
-            // ===== Movement =====
+            // ===== Movement Methods =====
+            // Handles unit movement, including validation and range calculation.
+            // Movement is constrained by the unit's movement_speed stat.
 
             fn move_to(&mut self, position: graphics::HexCoord) -> bool {
                 if self.can_move_to(position) {
@@ -44,7 +261,9 @@ macro_rules! impl_unit_delegate {
                 }
             }
 
-            // ===== Combat Stats =====
+            // ===== Combat Stats Methods =====
+            // Provides access to combat statistics such as health, attack, defense, etc.
+            // Both immutable and mutable access is provided for reading and modifying stats.
 
             fn combat_stats(&self) -> &combat::CombatStats {
                 &self.base.combat_stats
@@ -54,7 +273,10 @@ macro_rules! impl_unit_delegate {
                 &mut self.base.combat_stats
             }
 
-            // ===== Equipment & Inventory =====
+            // ===== Equipment & Inventory Methods =====
+            // Manages the unit's equipment slots and inventory system.
+            // Equipping/unequipping items automatically triggers stat recalculation
+            // to apply item bonuses and modifiers.
 
             fn equipment(&self) -> &items::Equipment {
                 &self.base.equipment
@@ -120,7 +342,10 @@ macro_rules! impl_unit_delegate {
                 }
             }
 
-            // ===== Level & Experience =====
+            // ===== Level & Experience Methods =====
+            // Handles the progression system including experience gain and leveling up.
+            // Experience requirements scale quadratically with level (level² × 100).
+            // Leveling up triggers stat recalculation and fully restores health.
 
             fn level(&self) -> i32 {
                 self.base.level
@@ -162,7 +387,10 @@ macro_rules! impl_unit_delegate {
                 }
             }
 
-            // ===== Terrain =====
+            // ===== Terrain Methods =====
+            // Manages the terrain type the unit is currently standing on.
+            // Different terrains can provide bonuses or penalties to unit stats,
+            // so changing terrain triggers stat recalculation.
 
             fn current_terrain(&self) -> $crate::unit_race::Terrain {
                 self.base.current_terrain
@@ -174,6 +402,7 @@ macro_rules! impl_unit_delegate {
             }
 
             // ===== Utility Methods =====
+            // General utility functions for common unit operations.
 
             fn is_alive(&self) -> bool {
                 self.base.combat_stats.is_alive()
@@ -198,6 +427,8 @@ macro_rules! impl_unit_delegate {
             }
 
             // ===== Display Methods =====
+            // Formatting and display functions for UI and debugging purposes.
+            // These provide various levels of detail from brief summaries to full info displays.
 
             fn get_display_color(&self) -> [f32; 3] {
                 self.base.race.get_display_color()
@@ -254,10 +485,61 @@ macro_rules! impl_unit_delegate {
             }
 
             // ===== Attack Methods =====
-            fn get_attacks(&self) -> &[$crate::attack::Attack] {
-                // For units with attacks field, this will work
-                // For units without, they should add: attacks: Vec::new()
-                &self.attacks
+            // Aggregates all available attacks from multiple sources:
+            // 1. The unit's innate attacks (from the attacks field)
+            // 2. Attacks provided by the equipped weapon
+            // 3. Attacks provided by equipped accessories
+            // This allows weapons and items to dynamically extend a unit's combat capabilities.
+
+            fn get_attacks(&self) -> Vec<$crate::attack::Attack> {
+                /// Helper function to convert item damage types to combat damage types.
+                /// Some item damage types may not map directly and default to Slash.
+                fn item_damage_type_to_combat(
+                    dt: items::item_properties::DamageType,
+                ) -> combat::DamageType {
+                    match dt {
+                        items::item_properties::DamageType::Slash => combat::DamageType::Slash,
+                        items::item_properties::DamageType::Pierce => combat::DamageType::Pierce,
+                        items::item_properties::DamageType::Blunt => combat::DamageType::Blunt,
+                        items::item_properties::DamageType::Fire => combat::DamageType::Fire,
+                        items::item_properties::DamageType::Dark => combat::DamageType::Dark,
+                        // Map others to closest or ignore (default to Slash)
+                        _ => combat::DamageType::Slash,
+                    }
+                }
+
+                // Start with the unit's innate attacks
+                let mut all_attacks = self.attacks.clone();
+
+                // Add attacks from equipped weapon
+                if let Some(weapon) = &self.base.equipment.weapon {
+                    if let ItemProperties::Weapon { attacks, .. } = &weapon.properties {
+                        for item_attack in attacks {
+                            all_attacks.push($crate::attack::Attack::melee(
+                                item_attack.name.clone(),
+                                item_attack.damage,
+                                item_attack.attack_times,
+                                item_damage_type_to_combat(item_attack.damage_type),
+                            ));
+                        }
+                    }
+                }
+
+                // Add attacks from equipped accessories (if any provide attacks)
+                for accessory in &self.base.equipment.accessories {
+                    if let ItemProperties::Weapon { attacks, .. } = &accessory.properties {
+                        for item_attack in attacks {
+                            all_attacks.push($crate::attack::Attack::melee(
+                                item_attack.name.clone(),
+                                item_attack.damage,
+                                item_attack.attack_times,
+                                item_damage_type_to_combat(item_attack.damage_type),
+                            ));
+                        }
+                    }
+                }
+
+                all_attacks
             }
         }
     };

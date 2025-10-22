@@ -249,8 +249,8 @@ pub trait Unit {
 
     // ===== Attack Methods =====
 
-    /// Get all available attacks for this unit
-    fn get_attacks(&self) -> &[Attack];
+    /// Get all available attacks for this unit (including equipped items)
+    fn get_attacks(&self) -> Vec<Attack>;
 
     /// Get the unit's defense value (base hit chance for enemies)
     ///
