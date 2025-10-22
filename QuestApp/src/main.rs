@@ -29,6 +29,10 @@
 //! The application uses the winit event loop with glutin for OpenGL context management.
 //! The main [`GameApp`] structure manages the game state, rendering, and event handling.
 
+mod game_scene;
+mod main_menu;
+mod scene_manager;
+
 use game::*;
 use glutin::context::ContextAttributesBuilder;
 use glutin::display::GetGlDisplay;
@@ -41,7 +45,9 @@ use graphics::{
     setup_dynamic_hexagons, GuideLibrary, HexCoord, HexGrid, HighlightType, Renderer, UiPanel,
     UnitDisplayInfo,
 };
+use main_menu::MainMenuScene;
 use raw_window_handle::HasWindowHandle;
+use scene_manager::{Scene, SceneManager, SceneType};
 use std::ffi::CString;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, WindowEvent};
@@ -107,6 +113,11 @@ struct GameApp {
     hower_debug_hex: Option<HexCoord>, // Debug: hex under cursor
     hower_debug_enabled: bool,         // Toggle for hower debug mode
     pickup_prompt: Option<PickupPrompt>, // Item pickup prompt state
+
+    // Scene management
+    scene_manager: SceneManager,
+    main_menu_scene: MainMenuScene,
+    game_initialized: bool, // Track if game scene has been initialized
 }
 
 /// Item pickup prompt state.
@@ -177,6 +188,193 @@ impl GameApp {
             hower_debug_hex: None,
             hower_debug_enabled: true, // Start with debug enabled
             pickup_prompt: None,
+
+            // Scene management - start at main menu
+            scene_manager: SceneManager::new(),
+            main_menu_scene: MainMenuScene::new(SCREEN_WIDTH, SCREEN_HEIGHT),
+            game_initialized: false,
+        }
+    }
+
+    /// Initialize the game scene - called when transitioning from menu to game
+    fn initialize_game_scene(&mut self) {
+        println!("🎮 Initializing Game Scene...");
+
+        // Hex grid is already initialized with terrain in new(), just update units
+        self.update_hex_grid_units();
+
+        println!("✅ Game scene initialized!");
+    }
+
+    /// Handle keyboard input for the game scene
+    fn handle_game_keyboard_input(&mut self, physical_key: winit::keyboard::PhysicalKey) {
+        let move_speed = 0.1;
+        match physical_key {
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
+                self.hex_grid.move_camera(0.0, move_speed);
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
+                self.hex_grid.move_camera(0.0, -move_speed);
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
+                self.hex_grid.move_camera(-move_speed, 0.0);
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
+                self.hex_grid.move_camera(move_speed, 0.0);
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyC) => {
+                // Show detailed unit info in console
+                if let Some(unit_id) = self.selected_unit {
+                    self.call_unit_on_click(unit_id);
+                } else {
+                    println!("No unit selected. Click on a unit first!");
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
+                // Priority 1: Check if guide is open, close it
+                let mut handled = false;
+                if let Some(renderer) = &mut self.renderer {
+                    if renderer.guide_display.active {
+                        renderer.guide_display.hide();
+                        println!("📚 Guide: Closed");
+                        handled = true;
+                    }
+                }
+
+                // Priority 2: Toggle menu (only if guide wasn't closed)
+                if !handled {
+                    if let Some(renderer) = &mut self.renderer {
+                        renderer.menu_display.toggle();
+                        if renderer.menu_display.active {
+                            println!("🎮 Menu: Opened (Press ESC again to close)");
+                        } else {
+                            println!("🎮 Menu: Closed");
+                        }
+                        handled = true;
+                    }
+                }
+
+                // Priority 3: Clear unit selection (only if nothing else was handled)
+                if !handled {
+                    self.clear_selection();
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyH) => {
+                // Toggle hower debug mode
+                self.hower_debug_enabled = !self.hower_debug_enabled;
+                if self.hower_debug_enabled {
+                    println!("🔍 hower DEBUG: Enabled - cursor will highlight hexes");
+                } else {
+                    println!("🔍 hower DEBUG: Disabled");
+                    // Clear any existing debug highlighting
+                    if let Some(prev_hex) = self.hower_debug_hex {
+                        if let Some(hex) = self.hex_grid.hexagons.get_mut(&prev_hex) {
+                            hex.color = [
+                                0.3 + 0.4 * ((prev_hex.q + prev_hex.r) % 3) as f32 / 3.0,
+                                0.4 + 0.3 * (prev_hex.q % 4) as f32 / 4.0,
+                                0.5 + 0.3 * (prev_hex.r % 5) as f32 / 5.0,
+                            ];
+                        }
+                    }
+                    self.hower_debug_hex = None;
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyY) => {
+                // Accept item pickup
+                if let Some(prompt) = self.pickup_prompt.take() {
+                    self.handle_item_pickup(prompt.unit_id, prompt.item_id);
+                    // Clear UI prompt
+                    if let Some(ui_panel) = &mut self.ui_panel {
+                        ui_panel.clear_pickup_prompt();
+                    }
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyN) => {
+                // Decline item pickup
+                if let Some(prompt) = self.pickup_prompt.take() {
+                    println!("❌ Declined to pick up '{}'", prompt.item_name);
+                    // Clear UI prompt
+                    if let Some(ui_panel) = &mut self.ui_panel {
+                        ui_panel.clear_pickup_prompt();
+                    }
+                }
+            }
+            // Guide/Encyclopedia Hotkeys (F1-F6)
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F1) => {
+                // Show combat system guide
+                if let Some(renderer) = &mut self.renderer {
+                    let guide = GuideLibrary::combat_system();
+                    renderer.guide_display.show(guide);
+                    println!("📚 Guide: Combat System");
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F2) => {
+                // Show movement system guide
+                if let Some(renderer) = &mut self.renderer {
+                    let guide = GuideLibrary::movement_system();
+                    renderer.guide_display.show(guide);
+                    println!("📚 Guide: Movement System");
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F3) => {
+                // Show character classes guide
+                if let Some(renderer) = &mut self.renderer {
+                    let guide = GuideLibrary::character_classes();
+                    renderer.guide_display.show(guide);
+                    println!("📚 Guide: Character Classes");
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F4) => {
+                // Show character races guide
+                if let Some(renderer) = &mut self.renderer {
+                    let guide = GuideLibrary::character_races();
+                    renderer.guide_display.show(guide);
+                    println!("📚 Guide: Character Races");
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F5) => {
+                // Show equipment system guide
+                if let Some(renderer) = &mut self.renderer {
+                    let guide = GuideLibrary::equipment_system();
+                    renderer.guide_display.show(guide);
+                    println!("📚 Guide: Equipment System");
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F6) => {
+                // Show terrain types guide
+                if let Some(renderer) = &mut self.renderer {
+                    let guide = GuideLibrary::terrain_types();
+                    renderer.guide_display.show(guide);
+                    println!("📚 Guide: Terrain Types");
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyG) => {
+                // Toggle guide display (hide if already showing)
+                if let Some(renderer) = &mut self.renderer {
+                    renderer.guide_display.toggle();
+                    if renderer.guide_display.active {
+                        println!("📚 Guide: Shown");
+                    } else {
+                        println!("📚 Guide: Hidden");
+                    }
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyI) => {
+                // Show info for selected unit (class-specific guide)
+                if let Some(unit_id) = self.selected_unit {
+                    if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                        let class_name = game_unit.unit().unit_type().to_lowercase();
+                        if let Some(renderer) = &mut self.renderer {
+                            let guide = GuideLibrary::unit_class_guide(&class_name);
+                            renderer.guide_display.show(guide);
+                            println!("📚 Guide: {} Info", class_name);
+                        }
+                    }
+                } else {
+                    println!("❌ No unit selected. Select a unit first!");
+                }
+            }
+            _ => {}
         }
     }
 
@@ -1052,41 +1250,46 @@ impl ApplicationHandler for GameApp {
                     Ok(ui_panel) => {
                         self.ui_panel = Some(ui_panel);
                         println!("✅ UI Panel initialized!");
+
+                        // Create a separate text renderer for the main menu
+                        match graphics::ui::text_renderer::TextRenderer::new() {
+                            Ok(text_renderer) => {
+                                let shared_renderer =
+                                    std::rc::Rc::new(std::cell::RefCell::new(text_renderer));
+                                self.main_menu_scene.set_text_renderer(shared_renderer);
+                            }
+                            Err(e) => {
+                                println!("Failed to create text renderer for main menu: {}", e);
+                            }
+                        }
                     }
                     Err(e) => {
                         println!("⚠️  Failed to create UI panel: {}", e);
                     }
                 }
 
-                println!("🎮 QuestQuest Game Window Started!");
+                // Populate hex grid with terrain (for game scene)
+                // This is radius 8 for the game world
+                let world_radius = 8;
+                for q in -world_radius..=world_radius {
+                    let r1 = (-world_radius).max(-q - world_radius);
+                    let r2 = world_radius.min(-q + world_radius);
+                    for r in r1..=r2 {
+                        let coord = HexCoord::new(q, r);
+                        if !self.hex_grid.hexagons.contains_key(&coord) {
+                            let mut hex = graphics::Hexagon::new(coord, 50.0);
+                            hex.set_sprite(SpriteType::Unit);
+                            self.hex_grid.hexagons.insert(coord, hex);
+                        }
+                    }
+                }
+
+                println!("🎮 QuestQuest Started!");
+                println!("� Showing Main Menu...");
                 println!();
-                println!("=== DEMO UNITS ===");
-                println!("⚔️  Thorin (Human Warrior) at (0,0) - Player Unit");
-                println!("👹 Orc Grunt (Orc Warrior) at (4,2) - Enemy Unit");
-                println!();
-                println!("🎁 Item: Iron Sword at (1,1) - available for pickup!");
-                println!();
-                println!("=== CONTROLS ===");
-                println!("🖱️  RIGHT-CLICK on a unit to select it and show movement range");
-                println!("🖱️  LEFT-CLICK on blue hexes to move the selected unit");
-                println!("⌨️  Arrow Keys - Move camera");
-                println!();
-                println!("=== HOTKEYS ===");
-                println!("🔤 C - Show detailed unit info in console");
-                println!("🔤 H - Toggle hover debug mode");
-                println!("🔤 G - Toggle guide display on/off");
-                println!("🔤 I - Show info for selected unit");
-                println!("🔤 ESC - Deselect unit / Close guide / Toggle menu");
-                println!();
-                println!("=== GUIDE ENCYCLOPEDIA (F-Keys) ===");
-                println!("📚 F1 - Combat System Guide");
-                println!("📚 F2 - Movement System Guide");
-                println!("� F3 - Character Classes Guide");
-                println!("📚 F4 - Character Races Guide");
-                println!("📚 F5 - Equipment System Guide");
-                println!("📚 F6 - Terrain Types Guide");
-                println!();
-                println!("🔍 Hover Debug: Currently ENABLED - cursor highlights hexes in yellow");
+                println!("=== MAIN MENU ===");
+                println!("Click 'Scenarios' to start the game");
+                println!("Press ESC to exit");
             }
             Err(e) => {
                 println!("Failed to create renderer: {}", e);
@@ -1125,6 +1328,31 @@ impl ApplicationHandler for GameApp {
         _window_id: WindowId,
         event: WindowEvent,
     ) {
+        // Check for scene transitions first
+        if self.scene_manager.process_transition() {
+            let current = self.scene_manager.current_scene();
+
+            match current {
+                SceneType::Game => {
+                    // Initialize game scene if not already done
+                    if !self.game_initialized {
+                        self.initialize_game_scene();
+                        self.game_initialized = true;
+                    }
+                }
+                SceneType::MainMenu => {
+                    // Return to main menu
+                    println!("🏠 Returned to Main Menu");
+                }
+                _ => {}
+            }
+
+            // Request redraw after scene change
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
+        }
+
         match event {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
@@ -1133,28 +1361,38 @@ impl ApplicationHandler for GameApp {
                 // Store cursor position for click handling
                 self.cursor_position = (position.x, position.y);
 
-                // Update combat confirmation button hover states
-                if let Some(renderer) = &mut self.renderer {
-                    if self.game_world.pending_combat.is_some() {
-                        renderer
-                            .combat_log_display
-                            .update_button_hover(position.x as f32, position.y as f32);
+                // Handle cursor movement based on current scene
+                match self.scene_manager.current_scene() {
+                    SceneType::MainMenu => {
+                        self.main_menu_scene
+                            .handle_cursor_move(position.x, position.y);
                     }
+                    SceneType::Game => {
+                        // Update combat confirmation button hover states
+                        if let Some(renderer) = &mut self.renderer {
+                            if self.game_world.pending_combat.is_some() {
+                                renderer
+                                    .combat_log_display
+                                    .update_button_hover(position.x as f32, position.y as f32);
+                            }
+                        }
+
+                        // Update menu button hover states
+                        if let Some(renderer) = &mut self.renderer {
+                            if renderer.menu_display.active {
+                                renderer
+                                    .menu_display
+                                    .update_hover(position.x as f32, position.y as f32);
+                            }
+                        }
+
+                        // hower DEBUG: Highlight hex under cursor
+                        self.hower(position.x, position.y);
+                    }
+                    _ => {}
                 }
 
-                // Update menu button hover states
-                if let Some(renderer) = &mut self.renderer {
-                    if renderer.menu_display.active {
-                        renderer
-                            .menu_display
-                            .update_hover(position.x as f32, position.y as f32);
-                    }
-                }
-
-                // hower DEBUG: Highlight hex under cursor
-                self.hower(position.x, position.y);
-
-                // Request redraw to show the debug highlighting
+                // Request redraw
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
@@ -1164,218 +1402,106 @@ impl ApplicationHandler for GameApp {
                 button,
                 ..
             } => {
-                match button {
-                    MouseButton::Left => {
-                        self.handle_left_click(self.cursor_position.0, self.cursor_position.1);
+                let is_left = button == MouseButton::Left;
+
+                // Handle click based on current scene
+                match self.scene_manager.current_scene() {
+                    SceneType::MainMenu => {
+                        if let Some(new_scene) = self.main_menu_scene.handle_click(
+                            self.cursor_position.0,
+                            self.cursor_position.1,
+                            is_left,
+                        ) {
+                            self.scene_manager.transition_to(new_scene);
+                        }
                     }
-                    MouseButton::Right => {
-                        self.handle_right_click(self.cursor_position.0, self.cursor_position.1);
-                    }
+                    SceneType::Game => match button {
+                        MouseButton::Left => {
+                            self.handle_left_click(self.cursor_position.0, self.cursor_position.1);
+                        }
+                        MouseButton::Right => {
+                            self.handle_right_click(self.cursor_position.0, self.cursor_position.1);
+                        }
+                        _ => {}
+                    },
                     _ => {}
                 }
+
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if event.state == winit::event::ElementState::Pressed {
-                    let move_speed = 0.1;
-                    match event.physical_key {
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                            self.hex_grid.move_camera(0.0, move_speed);
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                            self.hex_grid.move_camera(0.0, -move_speed);
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                            self.hex_grid.move_camera(-move_speed, 0.0);
-                        }
-                        winit::keyboard::PhysicalKey::Code(
-                            winit::keyboard::KeyCode::ArrowRight,
-                        ) => {
-                            self.hex_grid.move_camera(move_speed, 0.0);
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyC) => {
-                            // Show detailed unit info in console
-                            if let Some(unit_id) = self.selected_unit {
-                                self.call_unit_on_click(unit_id);
-                            } else {
-                                println!("No unit selected. Click on a unit first!");
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
-                            // Priority 1: Check if guide is open, close it
-                            let mut handled = false;
-                            if let Some(renderer) = &mut self.renderer {
-                                if renderer.guide_display.active {
-                                    renderer.guide_display.hide();
-                                    println!("📚 Guide: Closed");
-                                    handled = true;
-                                }
-                            }
-
-                            // Priority 2: Toggle menu (only if guide wasn't closed)
-                            if !handled {
-                                if let Some(renderer) = &mut self.renderer {
-                                    renderer.menu_display.toggle();
-                                    if renderer.menu_display.active {
-                                        println!("🎮 Menu: Opened (Press ESC again to close)");
-                                    } else {
-                                        println!("🎮 Menu: Closed");
-                                    }
-                                    handled = true;
-                                }
-                            }
-
-                            // Priority 3: Clear unit selection (only if nothing else was handled)
-                            if !handled {
-                                self.clear_selection();
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyH) => {
-                            // Toggle hower debug mode
-                            self.hower_debug_enabled = !self.hower_debug_enabled;
-                            if self.hower_debug_enabled {
-                                println!("🔍 hower DEBUG: Enabled - cursor will highlight hexes");
-                            } else {
-                                println!("🔍 hower DEBUG: Disabled");
-                                // Clear any existing debug highlighting
-                                if let Some(prev_hex) = self.hower_debug_hex {
-                                    if let Some(hex) = self.hex_grid.hexagons.get_mut(&prev_hex) {
-                                        hex.color = [
-                                            0.3 + 0.4 * ((prev_hex.q + prev_hex.r) % 3) as f32
-                                                / 3.0,
-                                            0.4 + 0.3 * (prev_hex.q % 4) as f32 / 4.0,
-                                            0.5 + 0.3 * (prev_hex.r % 5) as f32 / 5.0,
-                                        ];
-                                    }
-                                }
-                                self.hower_debug_hex = None;
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyY) => {
-                            // Accept item pickup
-                            if let Some(prompt) = self.pickup_prompt.take() {
-                                self.handle_item_pickup(prompt.unit_id, prompt.item_id);
-                                // Clear UI prompt
-                                if let Some(ui_panel) = &mut self.ui_panel {
-                                    ui_panel.clear_pickup_prompt();
+                    // Handle keyboard input based on current scene
+                    match self.scene_manager.current_scene() {
+                        SceneType::MainMenu => {
+                            if let winit::keyboard::PhysicalKey::Code(key_code) = event.physical_key
+                            {
+                                if let Some(new_scene) = self.main_menu_scene.handle_key(key_code) {
+                                    self.scene_manager.transition_to(new_scene);
                                 }
                             }
                         }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyN) => {
-                            // Decline item pickup
-                            if let Some(prompt) = self.pickup_prompt.take() {
-                                println!("❌ Declined to pick up '{}'", prompt.item_name);
-                                // Clear UI prompt
-                                if let Some(ui_panel) = &mut self.ui_panel {
-                                    ui_panel.clear_pickup_prompt();
-                                }
-                            }
-                        }
-                        // Guide/Encyclopedia Hotkeys (F1-F6)
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F1) => {
-                            // Show combat system guide
-                            if let Some(renderer) = &mut self.renderer {
-                                let guide = GuideLibrary::combat_system();
-                                renderer.guide_display.show(guide);
-                                println!("📚 Guide: Combat System");
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F2) => {
-                            // Show movement system guide
-                            if let Some(renderer) = &mut self.renderer {
-                                let guide = GuideLibrary::movement_system();
-                                renderer.guide_display.show(guide);
-                                println!("📚 Guide: Movement System");
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F3) => {
-                            // Show character classes guide
-                            if let Some(renderer) = &mut self.renderer {
-                                let guide = GuideLibrary::character_classes();
-                                renderer.guide_display.show(guide);
-                                println!("📚 Guide: Character Classes");
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F4) => {
-                            // Show character races guide
-                            if let Some(renderer) = &mut self.renderer {
-                                let guide = GuideLibrary::character_races();
-                                renderer.guide_display.show(guide);
-                                println!("📚 Guide: Character Races");
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F5) => {
-                            // Show equipment system guide
-                            if let Some(renderer) = &mut self.renderer {
-                                let guide = GuideLibrary::equipment_system();
-                                renderer.guide_display.show(guide);
-                                println!("📚 Guide: Equipment System");
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F6) => {
-                            // Show terrain types guide
-                            if let Some(renderer) = &mut self.renderer {
-                                let guide = GuideLibrary::terrain_types();
-                                renderer.guide_display.show(guide);
-                                println!("📚 Guide: Terrain Types");
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyG) => {
-                            // Toggle guide display (hide if already showing)
-                            if let Some(renderer) = &mut self.renderer {
-                                renderer.guide_display.toggle();
-                                if renderer.guide_display.active {
-                                    println!("📚 Guide: Shown");
-                                } else {
-                                    println!("📚 Guide: Hidden");
-                                }
-                            }
-                        }
-                        winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyI) => {
-                            // Show info for selected unit (class-specific guide)
-                            if let Some(unit_id) = self.selected_unit {
-                                if let Some(game_unit) = self.game_world.units.get(&unit_id) {
-                                    let class_name = game_unit.unit().unit_type().to_lowercase();
-                                    if let Some(renderer) = &mut self.renderer {
-                                        let guide = GuideLibrary::unit_class_guide(&class_name);
-                                        renderer.guide_display.show(guide);
-                                        println!("📚 Guide: {} Info", class_name);
-                                    }
-                                }
-                            } else {
-                                println!("❌ No unit selected. Select a unit first!");
-                            }
+                        SceneType::Game => {
+                            self.handle_game_keyboard_input(event.physical_key);
                         }
                         _ => {}
                     }
+
                     if let Some(window) = &self.window {
                         window.request_redraw();
                     }
                 }
             }
             WindowEvent::RedrawRequested => {
-                // Update unit positions on hex grid before rendering
-                // This synchronizes the visual representation with the game state
-                self.update_hex_grid_units();
+                // Render based on current scene
+                match self.scene_manager.current_scene() {
+                    SceneType::MainMenu => {
+                        self.main_menu_scene.render();
 
-                // Render all game layers and UI elements
-                if let Some(renderer) = &mut self.renderer {
-                    renderer.render(&self.hex_grid);
-
-                    // Render UI panel
-                    if let Some(ui_panel) = &mut self.ui_panel {
-                        ui_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT);
+                        // Swap buffers
+                        if let (Some(gl_context), Some(gl_surface)) =
+                            (&self.gl_context, &self.gl_surface)
+                        {
+                            gl_surface.swap_buffers(gl_context).unwrap();
+                        }
                     }
+                    SceneType::Game => {
+                        // Update unit positions on hex grid before rendering
+                        self.update_hex_grid_units();
 
-                    // Render UI overlay (in a real implementation)
-                    self.render_ui();
+                        // Render all game layers and UI elements
+                        if let Some(renderer) = &mut self.renderer {
+                            renderer.render(&self.hex_grid);
 
-                    if let (Some(gl_context), Some(gl_surface)) =
-                        (&self.gl_context, &self.gl_surface)
-                    {
-                        gl_surface.swap_buffers(gl_context).unwrap();
+                            // Render UI panel
+                            if let Some(ui_panel) = &mut self.ui_panel {
+                                ui_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT);
+                            }
+
+                            // Render UI overlay
+                            self.render_ui();
+
+                            if let (Some(gl_context), Some(gl_surface)) =
+                                (&self.gl_context, &self.gl_surface)
+                            {
+                                gl_surface.swap_buffers(gl_context).unwrap();
+                            }
+                        }
+                    }
+                    _ => {
+                        // Other scenes (Settings, SavedGames) - just clear for now
+                        unsafe {
+                            gl::ClearColor(0.1, 0.1, 0.15, 1.0);
+                            gl::Clear(gl::COLOR_BUFFER_BIT);
+                        }
+
+                        if let (Some(gl_context), Some(gl_surface)) =
+                            (&self.gl_context, &self.gl_surface)
+                        {
+                            gl_surface.swap_buffers(gl_context).unwrap();
+                        }
                     }
                 }
             }
