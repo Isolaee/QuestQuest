@@ -186,6 +186,48 @@ cd Units
 cargo test --test new_system_tests
 ```
 
+### Generate Documentation
+```bash
+# Generate documentation for all workspace crates
+cargo doc --workspace
+
+# Generate and open documentation in browser
+cargo doc --workspace --open
+
+# Generate documentation without dependencies (faster)
+cargo doc --workspace --no-deps
+
+# Generate documentation for a specific crate
+cargo doc -p units --open
+cargo doc -p graphics --open
+cargo doc -p combat --open
+```
+
+**Documentation Features:**
+- 📚 **Comprehensive API docs** for all public types and functions
+- 💡 **Code examples** embedded in documentation
+- 🔗 **Cross-referenced types** with clickable links between related items
+- 📖 **Module-level documentation** explaining each crate's purpose
+- ✅ **Doc tests** that are automatically verified during testing
+
+**Generated Documentation Includes:**
+- **Units Crate**: Unit trait, race/class system, factory patterns, combat stats
+- **Graphics Crate**: Rendering system, hexagonal coordinates, camera, UI components
+- **Combat Crate**: Damage types, resistances, combat resolution
+- **Game Crate**: World management, interactive objects
+- **Items Crate**: Equipment system, consumables, item properties
+
+**Documentation Location:**
+The generated HTML documentation is placed in `target/doc/`. The main index page will be at:
+```
+target/doc/units/index.html
+target/doc/graphics/index.html
+target/doc/combat/index.html
+target/doc/game/index.html
+```
+
+**Note:** Documentation tests (code examples in doc comments) are automatically run with `cargo test --workspace` to ensure examples stay up-to-date.
+
 ### Run Applications
 ```bash
 # Main interactive game application (recommended!)
