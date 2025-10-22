@@ -16,11 +16,12 @@
 //!
 //! ## Controls
 //!
+//! - **Mouse Hover**: View unit details in UI panel (automatic)
 //! - **Left Click**: Move selected unit, confirm actions, interact with UI
 //! - **Right Click**: Select unit, cancel actions
 //! - **Arrow Keys**: Move camera
 //! - **C**: Show detailed unit info in console
-//! - **H**: Toggle hover debug mode
+//! - **H**: Toggle hover debug mode (hex highlighting)
 //! - **ESC**: Open/close menu, deselect unit
 //!
 //! ## Architecture
@@ -65,15 +66,15 @@ const SCREEN_HEIGHT: f32 = 1080.0;
 /// - `gl_surface`: OpenGL surface for the window
 /// - `hex_grid`: The hexagonal grid system
 /// - `renderer`: Multi-layer renderer for terrain, units, and items
-/// - `ui_panel`: UI overlay for prompts and information
+/// - `ui_panel`: UI overlay for prompts and unit information (updates on hover)
 /// - `game_world`: Game state including units and objects
 /// - `selected_unit`: Currently selected unit (if any)
 /// - `show_unit_info`: Whether to display detailed unit info
 /// - `unit_info_text`: Cached unit information text
-/// - `cursor_position`: Current mouse cursor position
+/// - `cursor_position`: Current mouse cursor position (actively tracked)
 /// - `movement_range`: Valid movement hexes for selected unit
 /// - `hower_debug_hex`: Hex currently under cursor (debug mode)
-/// - `hower_debug_enabled`: Whether hover debug mode is active
+/// - `hower_debug_enabled`: Whether hover debug mode is active (toggle with 'H')
 /// - `pickup_prompt`: Active item pickup prompt (if any)
 ///
 /// # Example Usage
@@ -512,7 +513,27 @@ impl GameApp {
         }
     }
 
-    /// Check if a hex is within the unit's attack range
+    /// Checks if a hex is within the unit's attack range.
+    ///
+    /// Determines whether a target hex coordinate is within the attack range of the
+    /// specified unit, excluding the unit's own position.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the attacking unit
+    /// * `target_hex` - Target hex coordinate to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the target is within attack range (but not same hex), `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// if self.is_within_attack_range(selected_unit, enemy_hex) {
+    ///     // Can attack enemy at this position
+    /// }
+    /// ```
     fn is_within_attack_range(&self, unit_id: uuid::Uuid, target_hex: HexCoord) -> bool {
         if let Some(game_unit) = self.game_world.units.get(&unit_id) {
             let unit_pos = game_unit.position();
@@ -524,7 +545,27 @@ impl GameApp {
         }
     }
 
-    /// Check if target hex contains an enemy unit
+    /// Checks if the target hex contains an enemy unit.
+    ///
+    /// Determines whether the specified hex coordinate contains a unit that is
+    /// on a different team than the attacker.
+    ///
+    /// # Arguments
+    ///
+    /// * `attacker_id` - UUID of the attacking unit
+    /// * `target_hex` - Hex coordinate to check for enemy units
+    ///
+    /// # Returns
+    ///
+    /// `true` if an enemy unit is present at the target hex, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// if self.has_enemy_unit(player_unit, hex_coord) {
+    ///     // There's an enemy at this position
+    /// }
+    /// ```
     fn has_enemy_unit(&self, attacker_id: uuid::Uuid, target_hex: HexCoord) -> bool {
         if let Some(attacker) = self.game_world.units.get(&attacker_id) {
             let attacker_team = attacker.team();
@@ -539,6 +580,13 @@ impl GameApp {
         false
     }
 
+    /// Updates hex grid highlighting to show selected unit, movement range, and attack targets.
+    ///
+    /// Clears all existing highlights and applies new ones based on the currently
+    /// selected unit. Highlights include:
+    /// - Yellow highlight for selected unit's position
+    /// - Red highlight for enemies within attack range
+    /// - Blue highlight for valid movement hexes
     fn update_highlight_display(&mut self) {
         // Clear existing highlights
         self.hex_grid.clear_all_highlights();
@@ -573,6 +621,15 @@ impl GameApp {
             .highlight_hexes(&self.movement_range, HighlightType::MovementRange);
     }
 
+    /// Calls the unit's detailed information display method.
+    ///
+    /// Invokes the `show_details()` method on the specified unit to print
+    /// comprehensive unit information to the console, including stats, equipment,
+    /// and abilities.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit to display details for
     fn call_unit_on_click(&self, unit_id: uuid::Uuid) {
         // Try to get the unit and call its on_click method
         if let Some(game_obj) = self.game_world.units.get(&unit_id) {
@@ -703,6 +760,14 @@ impl GameApp {
         }
     }
 
+    /// Updates the unit information display in the UI panel.
+    ///
+    /// Retrieves unit data and updates both the cached text display and the
+    /// UI panel with current unit statistics, position, and attributes.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit to display information for
     fn update_unit_info_display(&mut self, unit_id: uuid::Uuid) {
         if let Some(game_unit) = self.game_world.units.get(&unit_id) {
             let position = game_unit.position();
@@ -742,11 +807,19 @@ impl GameApp {
         }
     }
 
+    /// Renders UI elements (currently handled by UiPanel).
+    ///
+    /// This method is retained for future UI expansion. Current UI rendering
+    /// is handled by the `UiPanel` component.
     fn render_ui(&self) {
         // UI info now rendered by UiPanel, no terminal output needed
     }
 
-    // Add this method to update the hex grid when units move
+    /// Updates the hex grid with current unit and item positions.
+    ///
+    /// Clears all existing unit and item sprites from the hex grid and re-adds
+    /// them based on the current game state. Terrain sprites are preserved.
+    /// This ensures the visual representation stays synchronized with the game world.
     fn update_hex_grid_units(&mut self) {
         // Clear existing unit and item sprites (keep terrain)
         for hex in self.hex_grid.hexagons.values_mut() {
@@ -767,38 +840,137 @@ impl GameApp {
         }
     }
 
-    /// hower method: Debug method to highlight hex under cursor
+    /// Tracks mouse hover position and updates UI with unit details.
+    ///
+    /// Continuously monitors the mouse position and performs the following:
+    /// - Converts screen coordinates to hex coordinates
+    /// - Detects units at the hovered hex
+    /// - Updates the UI panel with unit information when hovering over units
+    /// - Clears UI panel when hovering over empty hexes
+    /// - Optionally highlights the hovered hex (debug mode, toggled with 'H' key)
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - Screen X coordinate of mouse position in pixels
+    /// * `y` - Screen Y coordinate of mouse position in pixels
+    ///
+    /// # Behavior
+    ///
+    /// - **Unit Found**: Updates UI panel with name, stats, position, etc.
+    /// - **No Unit**: Clears UI panel unless a unit is currently selected
+    /// - **Debug Mode**: Highlights hovered hex in bright yellow
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Called automatically on CursorMoved event
+    /// self.hower(position.x, position.y);
+    /// ```
     fn hower(&mut self, x: f64, y: f64) {
-        if !self.hower_debug_enabled {
-            return;
-        }
-
         // Convert to hex coordinate using geometric conversion
         if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
-            // Clear previous debug highlighting
-            if let Some(prev_hex) = self.hower_debug_hex {
-                if let Some(hex) = self.hex_grid.hexagons.get_mut(&prev_hex) {
-                    // Reset to original color
-                    hex.color = [
-                        0.3 + 0.4 * ((prev_hex.q + prev_hex.r) % 3) as f32 / 3.0,
-                        0.4 + 0.3 * (prev_hex.q % 4) as f32 / 4.0,
-                        0.5 + 0.3 * (prev_hex.r % 5) as f32 / 5.0,
-                    ];
+            // Check if there's a unit at the hovered hex
+            if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
+                // Unit found - update UI panel with unit details
+                if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                    let unit = game_unit.unit();
+                    let stats = unit.combat_stats();
+                    let position = unit.position();
+
+                    let display_info = UnitDisplayInfo {
+                        name: unit.name().to_string(),
+                        race: format!("{:?}", unit.race()),
+                        class: unit.unit_type().to_string(),
+                        level: unit.level(),
+                        experience: unit.experience(),
+                        health: stats.health as u32,
+                        max_health: stats.max_health as u32,
+                        terrain: format!("{:?}", unit.current_terrain()),
+                        position_q: position.q,
+                        position_r: position.r,
+                    };
+
+                    if let Some(ui_panel) = &mut self.ui_panel {
+                        ui_panel.set_unit_info(display_info);
+                    }
+                }
+            } else {
+                // No unit at this hex - clear UI panel if not showing selected unit info
+                // Only clear if we're not hovering over the selected unit
+                let should_clear = if let Some(selected_id) = self.selected_unit {
+                    // Check if selected unit is at this hex
+                    if let Some(selected_unit) = self.game_world.units.get(&selected_id) {
+                        selected_unit.position() != hex_coord
+                    } else {
+                        true
+                    }
+                } else {
+                    true
+                };
+
+                if should_clear {
+                    if let Some(ui_panel) = &mut self.ui_panel {
+                        ui_panel.clear_unit_info();
+                    }
                 }
             }
 
-            // Set new debug hex
-            self.hower_debug_hex = Some(hex_coord);
+            // Debug highlighting (optional - can be toggled with 'H' key)
+            if self.hower_debug_enabled {
+                // Clear previous debug highlighting
+                if let Some(prev_hex) = self.hower_debug_hex {
+                    if let Some(hex) = self.hex_grid.hexagons.get_mut(&prev_hex) {
+                        // Reset to original color
+                        hex.color = [
+                            0.3 + 0.4 * ((prev_hex.q + prev_hex.r) % 3) as f32 / 3.0,
+                            0.4 + 0.3 * (prev_hex.q % 4) as f32 / 4.0,
+                            0.5 + 0.3 * (prev_hex.r % 5) as f32 / 5.0,
+                        ];
+                    }
+                }
 
-            // Apply bright debug color to current hex under cursor
-            if let Some(hex) = self.hex_grid.hexagons.get_mut(&hex_coord) {
-                hex.color = [1.0, 1.0, 0.0]; // Bright yellow for debugging
+                // Set new debug hex
+                self.hower_debug_hex = Some(hex_coord);
+
+                // Apply bright debug color to current hex under cursor
+                if let Some(hex) = self.hex_grid.hexagons.get_mut(&hex_coord) {
+                    hex.color = [1.0, 1.0, 0.0]; // Bright yellow for debugging
+                }
+            }
+        } else {
+            // Mouse is not over any valid hex - clear UI panel
+            if let Some(ui_panel) = &mut self.ui_panel {
+                ui_panel.clear_unit_info();
             }
         }
     }
 }
 
+/// Implementation of winit's ApplicationHandler trait for the game application.
+///
+/// This implementation manages the window lifecycle and event processing for the game,
+/// including initialization, rendering, and user input handling.
 impl ApplicationHandler for GameApp {
+    /// Called when the application is resumed or first started.
+    ///
+    /// Initializes the OpenGL context, creates the rendering window, loads game assets,
+    /// and sets up the initial game state. This is the main initialization point for
+    /// all graphics and game systems.
+    ///
+    /// # Arguments
+    ///
+    /// * `event_loop` - The active event loop managing the application lifecycle
+    ///
+    /// # Initialization Steps
+    ///
+    /// 1. Creates the game window with specified dimensions
+    /// 2. Initializes OpenGL context and surface
+    /// 3. Loads texture assets (terrain and items)
+    /// 4. Creates renderer with multi-layer support
+    /// 5. Initializes UI panel for information display
+    /// 6. Populates hex grid with terrain and game objects
+    /// 7. Loads guide encyclopedia entries
+    /// 8. Prints control instructions to console
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let window_attributes = winit::window::WindowAttributes::default()
             .with_title("QuestQuest - Interactive Game Window")
@@ -928,6 +1100,25 @@ impl ApplicationHandler for GameApp {
         self.gl_surface = Some(gl_surface);
     }
 
+    /// Handles window events from the operating system.
+    ///
+    /// Processes all user input and window events, including mouse movement, clicks,
+    /// keyboard input, and window closure. Events are handled with specific priority
+    /// orders to ensure correct interaction behavior.
+    ///
+    /// # Arguments
+    ///
+    /// * `event_loop` - The active event loop
+    /// * `_window_id` - Window identifier (unused, single window)
+    /// * `event` - The window event to process
+    ///
+    /// # Event Handling
+    ///
+    /// - **CloseRequested**: Exits the application
+    /// - **CursorMoved**: Updates hover states and UI panel with unit info
+    /// - **MouseInput**: Processes left/right clicks for unit selection and movement
+    /// - **KeyboardInput**: Handles camera controls, hotkeys, and game commands
+    /// - **RedrawRequested**: Renders the current game state to screen
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -1166,8 +1357,10 @@ impl ApplicationHandler for GameApp {
             }
             WindowEvent::RedrawRequested => {
                 // Update unit positions on hex grid before rendering
+                // This synchronizes the visual representation with the game state
                 self.update_hex_grid_units();
 
+                // Render all game layers and UI elements
                 if let Some(renderer) = &mut self.renderer {
                     renderer.render(&self.hex_grid);
 
