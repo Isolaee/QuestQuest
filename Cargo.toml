@@ -29,6 +29,7 @@ members = [
     "Game",
     "QuestApp"
 ]
+default-members = ["QuestApp"]
 
 [workspace.package]
 version = "0.1.0"
