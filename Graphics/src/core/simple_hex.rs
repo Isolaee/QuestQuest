@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_camera_conversion() {
-        let mut camera = SimpleCamera::new();
+        let camera = SimpleCamera::new();
         let window_size = Vec2::new(800.0, 600.0);
         let screen_center = Vec2::new(400.0, 300.0);
         let world_pos = camera.screen_to_world(screen_center, window_size);
