@@ -22,8 +22,7 @@ QuestQuest/
 │   │   │   ├── camera.rs     # Camera with view culling
 │   │   │   ├── grid.rs       # Hexagonal grid management
 │   │   │   ├── hex_lookup.rs # Hex coordinate lookup
-│   │   │   ├── hexagon.rs    # Hexagonal coordinate system
-│   │   │   └── simple_hex.rs # Simplified hex representation
+│   │   │   └── hexagon.rs    # Hexagonal coordinate system
 │   │   ├── math/       # Mathematical utilities
 │   │   │   ├── mod.rs
 │   │   │   └── vec2.rs       # 2D vector operations
