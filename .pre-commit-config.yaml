@@ -2,13 +2,13 @@ repos:
   - repo: local
     hooks:
       - id: cargo-fmt
-        name: Rust Format Check
+        name: Rust Format
         entry: cargo fmt
         language: system
         types: [rust]
         pass_filenames: false
-        args: [--all, --, --check]
-        description: Check if Rust code is formatted correctly
+        args: [--all]
+        description: Automatically format Rust code before commit
         
       - id: cargo-clippy
         name: Rust Clippy Lints
@@ -27,3 +27,12 @@ repos:
         pass_filenames: false
         args: [--all, --all-features]
         description: Run all Rust tests across all packages
+        
+      - id: cargo-doc
+        name: Rust Documentation
+        entry: cargo doc
+        language: system
+        types: [rust]
+        pass_filenames: false
+        args: [--all, --no-deps, --document-private-items]
+        description: Generate documentation for all packages
