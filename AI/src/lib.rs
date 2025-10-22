@@ -129,18 +129,33 @@ struct SearchNode {
 // For BinaryHeap ordering (min-heap by f)
 impl PartialEq for SearchNode {
     fn eq(&self, other: &Self) -> bool {
-        self.f == other.f
+        // consider both f and g for equality
+        self.f == other.f && self.g == other.g
     }
 }
 impl Eq for SearchNode {}
 impl PartialOrd for SearchNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        // Delegate to the total ordering implementation to keep PartialOrd canonical.
         Some(self.cmp(other))
     }
 }
 impl Ord for SearchNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        // We want a min-heap by f (lower f gets higher priority in the BinaryHeap),
+        // so reverse the usual comparison by comparing other.f to self.f. If f is equal,
+        // prefer the node with lower g (lower cost so far).
+        match other
+            .f
+            .partial_cmp(&self.f)
+            .unwrap_or(std::cmp::Ordering::Equal)
+        {
+            std::cmp::Ordering::Equal => other
+                .g
+                .partial_cmp(&self.g)
+                .unwrap_or(std::cmp::Ordering::Equal),
+            ord => ord,
+        }
     }
 }
 
@@ -153,9 +168,12 @@ pub fn plan_instances(
     max_nodes: usize,
 ) -> Option<Plan> {
     let mut open = BinaryHeap::new();
-    let mut seen: HashSet<Vec<(String, FactValue)>> = HashSet::new();
-
-    let h0 = heuristic(start, goal);
+    // seen used previously as a simple visited set; replace with best_g map that records
+    // the lowest g-value seen for each concrete state (by sorted facts key). This allows
+    // revisiting a state if we find a cheaper path to it, and avoids re-expanding worse
+    // paths to the same state.
+    let mut best_g: HashMap<Vec<(String, FactValue)>, f32> = HashMap::new();
+    let h0 = heuristic(start, goal, actions);
     open.push(SearchNode {
         state: start.clone(),
         g: 0.0,
@@ -176,13 +194,18 @@ pub fn plan_instances(
             return Some(node.actions);
         }
 
-        // Deduplicate by checking state's facts map converted into a sorted Vec
+        // Compute canonical key for state
         let mut key_vec: Vec<(String, FactValue)> = node.state.facts.clone().into_iter().collect();
         key_vec.sort_by(|a, b| a.0.cmp(&b.0));
-        if seen.contains(&key_vec) {
-            continue;
+
+        // If we have seen this state with a cheaper or equal g, skip expansion.
+        if let Some(&best) = best_g.get(&key_vec) {
+            if node.g >= best {
+                continue;
+            }
         }
-        seen.insert(key_vec);
+        // Record this node's g as the best known for this state
+        best_g.insert(key_vec.clone(), node.g);
 
         // Expand applicable actions
         for (i, a) in actions.iter().enumerate() {
@@ -190,7 +213,7 @@ pub fn plan_instances(
                 let mut new_state = node.state.clone();
                 new_state.apply_effects(&a.effects);
                 let g2 = node.g + a.cost;
-                let h2 = heuristic(&new_state, goal);
+                let h2 = heuristic(&new_state, goal, actions);
                 let mut actions2 = node.actions.clone();
                 actions2.push(i);
 
@@ -303,6 +326,7 @@ pub fn plan_for_team(
     // This is admissible (lower bound) because it ignores preconditions and assumes
     // a single action can be executed for each remaining agent.
     fn estimate_remaining_cost(
+        state: &WorldState,
         satisfied: &HashSet<String>,
         actions: &[ActionInstance],
         goals_per_agent: &HashMap<String, Vec<Goal>>,
@@ -313,49 +337,59 @@ pub fn plan_for_team(
             if satisfied.contains(agent) {
                 continue;
             }
-            // For this agent, find the minimal cost among actions that have an effect
-            // matching any of the agent's goals and are either owned by the agent or global.
-            let mut best = None::<f32>;
+
+            // Build per-agent visible actions (global or owned by agent)
+            let mut agent_actions: Vec<ActionInstance> = Vec::new();
+            for a in actions.iter() {
+                let include = match &a.agent {
+                    Some(id) => id == agent,
+                    None => true,
+                };
+                if include {
+                    agent_actions.push(a.clone());
+                }
+            }
+
+            // For this agent, compute the relaxed-plan cost to the first satisfiable goal in priority order
+            let mut best_goal_cost: Option<f32> = None;
             if let Some(goals) = goals_per_agent.get(agent) {
-                'goal_loop: for g in goals {
-                    for a in actions.iter() {
-                        // Check agent tag: action can be global (None) or belong to this agent
-                        let include = match &a.agent {
-                            Some(id) => id == agent,
-                            None => true,
-                        };
-                        if !include {
-                            continue;
-                        }
-                        for (ek, ev) in a.effects.iter() {
-                            if ek == &g.key && ev == &g.value {
-                                let c = a.cost;
-                                match best {
-                                    None => best = Some(c),
-                                    Some(b) if c < b => best = Some(c),
-                                    _ => {}
-                                }
-                                // found an action satisfying this goal; no need to check more effects
-                                continue 'goal_loop;
-                            }
-                        }
+                for g in goals {
+                    if state.satisfies(&g.key, &g.value) {
+                        best_goal_cost = Some(0.0);
+                        break;
+                    }
+                    let c = heuristic(state, g, &agent_actions);
+                    match best_goal_cost {
+                        None => best_goal_cost = Some(c),
+                        Some(b) if c < b => best_goal_cost = Some(c),
+                        _ => {}
                     }
                 }
             }
-            total += best.unwrap_or(1.0); // fallback lower bound
+
+            total += best_goal_cost.unwrap_or(1.0);
         }
         total
     }
 
     let mut open = BinaryHeap::new();
-    let mut seen: HashSet<StateSatisfiedKey> = HashSet::new();
+    // For the team planner we also track best_g per (state + satisfied set) key so we
+    // avoid re-expanding a (state,satisfied) combination if we've already reached it
+    // with an equal or lower g-value.
+    let mut best_g_team: HashMap<StateSatisfiedKey, f32> = HashMap::new();
 
     let total_agents = agent_order.len();
 
     open.push(TeamNode {
         state: start.clone(),
         g: 0.0,
-        f: estimate_remaining_cost(&initially_satisfied, actions, goals_per_agent, agent_order),
+        f: estimate_remaining_cost(
+            start,
+            &initially_satisfied,
+            actions,
+            goals_per_agent,
+            agent_order,
+        ),
         actions: Vec::new(),
         satisfied: initially_satisfied.clone(),
     });
@@ -375,15 +409,18 @@ pub fn plan_for_team(
             break;
         }
 
-        // Deduplicate by state+satisfied set
+        // Deduplicate by state+satisfied set; use best_g_team to allow re-visits only when cheaper.
         let mut key_vec: Vec<(String, FactValue)> = node.state.facts.clone().into_iter().collect();
         key_vec.sort_by(|a, b| a.0.cmp(&b.0));
         let mut sat_vec: Vec<String> = node.satisfied.iter().cloned().collect();
         sat_vec.sort();
-        if seen.contains(&(key_vec.clone(), sat_vec.clone())) {
-            continue;
+        let key: StateSatisfiedKey = (key_vec.clone(), sat_vec.clone());
+        if let Some(&best) = best_g_team.get(&key) {
+            if node.g >= best {
+                continue;
+            }
         }
-        seen.insert((key_vec, sat_vec));
+        best_g_team.insert(key, node.g);
 
         // Expand applicable GLOBAL actions (all actions in `actions` may be used in the team plan)
         for (i, a) in actions.iter().enumerate() {
@@ -408,8 +445,13 @@ pub fn plan_for_team(
                     }
                 }
 
-                let h2 =
-                    estimate_remaining_cost(&new_satisfied, actions, goals_per_agent, agent_order);
+                let h2 = estimate_remaining_cost(
+                    &new_state,
+                    &new_satisfied,
+                    actions,
+                    goals_per_agent,
+                    agent_order,
+                );
 
                 let mut actions2 = node.actions.clone();
                 actions2.push(i);
@@ -606,13 +648,80 @@ pub fn plan_for_team(
     result
 }
 
-fn heuristic(state: &WorldState, goal: &Goal) -> f32 {
+// Relaxed-plan heuristic using delete-relaxation cost-propagation.
+// We compute minimal cost to achieve facts under the relaxation where effects only add
+// facts (no deletes). Cost to achieve a fact is initialized to 0 for facts already
+// true in `state`. Then we repeatedly relax: for each action whose preconditions all
+// have a finite cost, the cost to achieve each of its effects can be improved to
+// action.cost + sum(costs of preconditions). This is a simple cost-propagation heuristic
+// inspired by FF (but much simpler) and gives stronger guidance than a constant.
+fn heuristic(state: &WorldState, goal: &Goal, actions: &[ActionInstance]) -> f32 {
     if state.satisfies(&goal.key, &goal.value) {
-        0.0
-    } else {
-        // Very simple: 1.0 if not satisfied
-        1.0
+        return 0.0;
     }
+
+    use std::f32;
+    let inf = f32::INFINITY;
+
+    // Collect universe of facts: start facts + all effects appearing in actions
+    let mut fact_costs: HashMap<(String, FactValue), f32> = HashMap::new();
+    for (k, v) in state.facts.iter() {
+        fact_costs.insert((k.clone(), v.clone()), 0.0);
+    }
+    for a in actions.iter() {
+        for (ek, ev) in a.effects.iter() {
+            fact_costs.entry((ek.clone(), ev.clone())).or_insert(inf);
+        }
+    }
+
+    // Relaxation loop: repeatedly relax until no changes or we have a finite cost for goal
+    let goal_key = (goal.key.clone(), goal.value.clone());
+    let mut changed = true;
+    // Limit iterations to avoid pathological loops: at most number of unique facts + 5
+    let max_iters = fact_costs.len().saturating_add(5);
+    let mut iter = 0usize;
+    while changed && iter < max_iters {
+        changed = false;
+        iter += 1;
+
+        for a in actions.iter() {
+            // Sum costs of preconditions; if any precondition is currently unreachable, skip
+            let mut pre_sum = 0.0f32;
+            let mut all_known = true;
+            for (pk, pv) in a.preconditions.iter() {
+                match fact_costs.get(&(pk.clone(), pv.clone())) {
+                    Some(&c) if c < inf => pre_sum += c,
+                    _ => {
+                        all_known = false;
+                        break;
+                    }
+                }
+            }
+            if !all_known {
+                continue;
+            }
+
+            let new_cost = pre_sum + a.cost;
+            for (ek, ev) in a.effects.iter() {
+                let key = (ek.clone(), ev.clone());
+                let prev = *fact_costs.get(&key).unwrap_or(&inf);
+                if new_cost < prev {
+                    fact_costs.insert(key, new_cost);
+                    changed = true;
+                }
+            }
+        }
+
+        // Early exit if we found a finite cost for goal
+        if let Some(&c) = fact_costs.get(&goal_key) {
+            if c < inf {
+                return c;
+            }
+        }
+    }
+
+    // If unreachable under relaxation, fallback to small lower bound (1.0)
+    fact_costs.get(&goal_key).cloned().unwrap_or(1.0)
 }
 
 #[cfg(test)]

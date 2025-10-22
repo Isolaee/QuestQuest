@@ -699,11 +699,16 @@ version = "0.1.0"
 dependencies = [
  "ai",
  "combat",
+ "gl",
+ "glutin",
+ "glutin-winit",
  "graphics",
  "items",
+ "raw-window-handle",
  "serde",
  "units",
  "uuid",
+ "winit",
 ]
 
 [[package]]

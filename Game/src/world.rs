@@ -231,7 +231,7 @@ impl GameWorld {
     /// Extract a minimal AI world state for the given team.
     ///
     /// Prototype: encode unit positions and alive flags as simple string facts.
-    fn extract_world_state_for_team(&self, team: Team) -> AiWorldState {
+    pub fn extract_world_state_for_team(&self, team: Team) -> AiWorldState {
         let mut ws = AiWorldState::new();
 
         for (id, unit) in &self.units {
@@ -262,7 +262,7 @@ impl GameWorld {
     /// Prototype actions:
     /// - Move to adjacent hex (precond: At=id_pos)
     /// - Attack adjacent enemy (precond: At=id_pos, EnemyAt=other_pos)
-    fn generate_team_actions(&self, team: Team) -> Vec<AiActionInstance> {
+    pub fn generate_team_actions(&self, team: Team) -> Vec<AiActionInstance> {
         let mut out: Vec<AiActionInstance> = Vec::new();
 
         // Dijkstra-like reachable calculation using integer costs
