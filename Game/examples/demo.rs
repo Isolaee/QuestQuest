@@ -68,7 +68,7 @@ fn main() {
             let coord = HexCoord::new(q, r);
             if let Some(terrain) = world.get_terrain(coord) {
                 println!(
-                    "   {:?}: {:?} (movement cost: {:.1})",
+                    "   {:?}: {:?} (movement cost: {})",
                     coord,
                     terrain.sprite_type(),
                     terrain.movement_cost()
@@ -144,7 +144,7 @@ fn main() {
     println!("\n🏗️ Terrain Modification:");
     if let Some(terrain) = world.get_terrain_mut(HexCoord::new(0, 1)) {
         let old_cost = terrain.movement_cost();
-        terrain.set_movement_cost(0.5); // Make it easier to traverse
+        terrain.set_movement_cost(1); // Make it easier to traverse
         terrain.set_metadata("modified".to_string(), "true".to_string());
         println!(
             "   Modified terrain at (0,1): cost {} -> {}",

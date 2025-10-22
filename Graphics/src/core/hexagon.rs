@@ -184,6 +184,25 @@ impl SpriteType {
             SpriteType::Item => 7.0,  // Item texture at unit 7
         }
     }
+
+    /// Returns a default movement cost for this sprite/terrain.
+    ///
+    /// Costs are expressed in the same units the Game uses for movement points.
+    pub fn movement_cost(&self) -> i32 {
+        match self {
+            SpriteType::None => 1,
+            SpriteType::Forest => 2,
+            SpriteType::Forest2 => 2,
+            SpriteType::Grasslands => 1,
+            SpriteType::HauntedWoods => 2,
+            SpriteType::Hills => 3,
+            SpriteType::Mountain => 4,
+            SpriteType::Swamp => 3,
+            // Non-terrain types — default to 1 so they don't block movement cost logic
+            SpriteType::Unit => 1,
+            SpriteType::Item => 1,
+        }
+    }
 }
 
 /// Types of highlighting applied to hexagons for UI feedback.

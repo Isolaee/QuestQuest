@@ -156,7 +156,7 @@ pub trait GameObject {
 /// let mut tile = TerrainTile::new(position, SpriteType::Forest);
 ///
 /// // Check movement cost
-/// assert_eq!(tile.movement_cost(), 2.0);
+/// assert_eq!(tile.movement_cost(), 2);
 ///
 /// // Add metadata
 /// tile.set_metadata("description".to_string(), "Dense forest".to_string());
@@ -176,11 +176,11 @@ impl TerrainTile {
     ///
     /// Movement cost and blocking behavior are automatically determined based on
     /// the sprite type:
-    /// - Grasslands: 1.0 movement cost
-    /// - Forest: 2.0 movement cost
-    /// - Hills: 2.5 movement cost
-    /// - Mountain: 4.0 movement cost (blocks movement)
-    /// - Swamp: 3.0 movement cost
+    /// - Grasslands: 1 movement cost
+    /// - Forest: 2 movement cost
+    /// - Hills: 3 movement cost
+    /// - Mountain: 4 movement cost (blocks movement)
+    /// - Swamp: 3 movement cost
     ///
     /// # Arguments
     ///
@@ -196,17 +196,8 @@ impl TerrainTile {
     /// let tile = TerrainTile::new(HexCoord::new(0, 0), SpriteType::Grasslands);
     /// ```
     pub fn new(position: HexCoord, sprite_type: SpriteType) -> Self {
-        let movement_cost = match sprite_type {
-            SpriteType::None => 1.0,
-            SpriteType::Grasslands => 1.0,
-            SpriteType::Forest => 2.0,
-            SpriteType::Forest2 => 1.5,
-            SpriteType::Hills => 2.5,
-            SpriteType::Mountain => 4.0,
-            SpriteType::Swamp => 3.0,
-            SpriteType::HauntedWoods => 2.0,
-            _ => 1.0, // Default cost
-        };
+        // Use canonical movement cost from SpriteType so costs are centralized
+        let movement_cost = sprite_type.movement_cost() as f32;
 
         let can_block = matches!(sprite_type, SpriteType::Mountain);
 
@@ -224,8 +215,8 @@ impl TerrainTile {
     ///
     /// Movement cost affects pathfinding and determines how many action points
     /// are required to move through this tile.
-    pub fn movement_cost(&self) -> f32 {
-        self.movement_cost
+    pub fn movement_cost(&self) -> i32 {
+        self.movement_cost as i32
     }
 
     /// Sets the movement cost for this terrain.
@@ -233,8 +224,8 @@ impl TerrainTile {
     /// # Arguments
     ///
     /// * `cost` - New movement cost (typically 1.0-4.0 for standard terrain)
-    pub fn set_movement_cost(&mut self, cost: f32) {
-        self.movement_cost = cost;
+    pub fn set_movement_cost(&mut self, cost: i32) {
+        self.movement_cost = cost as f32;
     }
 
     /// Adds or updates metadata for this terrain tile.
@@ -320,10 +311,8 @@ pub struct GameUnit {
     team: Team,
     last_action_time: f32,
     action_cooldown: f32,
-    /// Remaining movement points for the current turn. Units cannot move
-    /// more than this value in total during their team's turn. This is
-    /// measured in the same units as terrain movement cost (f32).
-    moves_left: f32,
+    /// Remaining movement points for the current turn (integer tiles).
+    moves_left: i32,
 }
 
 impl GameUnit {
@@ -347,7 +336,7 @@ impl GameUnit {
     /// ```
     pub fn new(unit: Box<dyn units::Unit>) -> Self {
         // Initialize moves_left from the underlying unit's combat stats
-        let movement = unit.combat_stats().movement_speed as f32;
+        let movement = unit.combat_stats().movement_speed;
         Self {
             id: Uuid::new_v4(),
             unit,
@@ -376,7 +365,7 @@ impl GameUnit {
     /// let enemy_unit = GameUnit::new_with_team(Box::new(warrior), Team::Enemy);
     /// ```
     pub fn new_with_team(unit: Box<dyn units::Unit>, team: Team) -> Self {
-        let movement = unit.combat_stats().movement_speed as f32;
+        let movement = unit.combat_stats().movement_speed;
         Self {
             id: Uuid::new_v4(),
             unit,
@@ -448,25 +437,25 @@ impl GameUnit {
     }
 
     /// Returns the remaining movement points for this unit this turn.
-    pub fn moves_left(&self) -> f32 {
+    pub fn moves_left(&self) -> i32 {
         self.moves_left
     }
 
     /// Sets the remaining movement points for this unit.
-    pub fn set_moves_left(&mut self, val: f32) {
-        self.moves_left = val.max(0.0);
+    pub fn set_moves_left(&mut self, val: i32) {
+        self.moves_left = val.max(0);
     }
 
     /// Resets the unit's movement points to its maximum movement for the
     /// current stats (usually called at the start of the unit's team's turn).
     pub fn reset_moves_to_max(&mut self) {
-        self.moves_left = self.unit.combat_stats().movement_speed as f32;
+        self.moves_left = self.unit.combat_stats().movement_speed;
     }
 
     /// Attempts to consume movement points. Returns true if the unit had
     /// enough moves and the cost was subtracted, false otherwise.
-    pub fn consume_moves(&mut self, cost: f32) -> bool {
-        if cost <= 0.0 {
+    pub fn consume_moves(&mut self, cost: i32) -> bool {
+        if cost <= 0 {
             return true;
         }
         if self.moves_left >= cost {

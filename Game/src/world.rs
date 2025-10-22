@@ -550,7 +550,7 @@ impl GameWorld {
             return Err("Position is blocked or invalid".to_string());
         }
 
-        // Determine movement cost for the target tile
+        // Determine movement cost for the target tile (integer)
         let movement_cost = self.get_movement_cost(new_position);
 
         if let Some(unit) = self.units.get_mut(&unit_id) {
@@ -937,11 +937,12 @@ impl GameWorld {
     /// # Returns
     ///
     /// Movement cost as f32, or `f32::INFINITY` for invalid/missing terrain
-    pub fn get_movement_cost(&self, position: HexCoord) -> f32 {
+    pub fn get_movement_cost(&self, position: HexCoord) -> i32 {
         if let Some(terrain) = self.get_terrain(position) {
             terrain.movement_cost()
         } else {
-            f32::INFINITY // Invalid terrain has infinite cost
+            // Invalid terrain treated as very high cost to block movement
+            i32::MAX
         }
     }
 
