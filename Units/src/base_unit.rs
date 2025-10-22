@@ -1,3 +1,9 @@
+//! Base unit implementation and shared data structures.
+//!
+//! This module provides [`BaseUnit`], which contains the common data and functionality
+//! shared by all concrete unit implementations. It handles stat caching, equipment
+//! bonuses, and level progression.
+
 use crate::unit_race::{Race, Terrain};
 use combat::CombatStats;
 use graphics::HexCoord;
@@ -7,8 +13,44 @@ use uuid::Uuid;
 
 use crate::unit_trait::UnitId;
 
-/// Base unit structure containing common data for all unit types
-/// This holds the shared state that all concrete unit implementations use
+/// Base unit structure containing common data for all unit types.
+///
+/// This structure holds the shared state that all concrete unit implementations use,
+/// including identity, position, stats, equipment, and progression. It provides
+/// methods for stat recalculation and equipment management.
+///
+/// # Fields
+///
+/// - `id`: Unique identifier for the unit
+/// - `name`: Display name
+/// - `position`: Current hex coordinate
+/// - `race`: Character race
+/// - `unit_type`: Type identifier (e.g., "Human Warrior")
+/// - `experience`: Current experience points
+/// - `level`: Current level
+/// - `combat_stats`: Base combat statistics
+/// - `equipment`: Currently equipped items
+/// - `inventory`: Items in the unit's backpack
+/// - `cached_*`: Pre-calculated values for performance
+/// - `current_terrain`: The terrain type at the unit's position
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use units::{BaseUnit, Race, Terrain};
+/// use combat::{CombatStats, RangeCategory, Resistances};
+/// use graphics::HexCoord;
+///
+/// let stats = CombatStats::new(100, 10, 5, RangeCategory::Melee, Resistances::default());
+/// let unit = BaseUnit::new(
+///     "Warrior".to_string(),
+///     HexCoord::new(0, 0),
+///     Race::Human,
+///     "Human Warrior".to_string(),
+///     Terrain::Grasslands,
+///     stats,
+/// );
+/// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BaseUnit {
     // Identity
@@ -38,7 +80,23 @@ pub struct BaseUnit {
 }
 
 impl BaseUnit {
-    /// Create a new base unit with specified combat stats
+    /// Creates a new base unit with the specified combat stats.
+    ///
+    /// This constructor initializes a level 1 unit with no experience,
+    /// empty equipment, and cached stats calculated from the base stats.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The unit's display name
+    /// * `position` - Starting position on the hex grid
+    /// * `race` - The unit's race
+    /// * `unit_type` - Type identifier (e.g., "Human Warrior")
+    /// * `terrain` - The terrain at the starting position
+    /// * `combat_stats` - Base combat statistics
+    ///
+    /// # Returns
+    ///
+    /// A new `BaseUnit` instance at level 1 with 0 experience.
     pub fn new(
         name: String,
         position: HexCoord,
@@ -70,7 +128,24 @@ impl BaseUnit {
         }
     }
 
-    /// Create a base unit with specific level and experience
+    /// Creates a base unit with a specific level and experience.
+    ///
+    /// This is useful for creating higher-level units or loading saved games.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The unit's display name
+    /// * `position` - Starting position on the hex grid
+    /// * `race` - The unit's race
+    /// * `unit_type` - Type identifier (e.g., "Human Warrior")
+    /// * `level` - Initial level (minimum 1)
+    /// * `experience` - Initial experience points (minimum 0)
+    /// * `terrain` - The terrain at the starting position
+    /// * `combat_stats` - Base combat statistics
+    ///
+    /// # Returns
+    ///
+    /// A new `BaseUnit` instance with the specified level and experience.
     #[allow(clippy::too_many_arguments)]
     pub fn new_with_level(
         name: String,
@@ -88,7 +163,18 @@ impl BaseUnit {
         base
     }
 
-    /// Recalculate all derived stats based on base stats, equipment, and level
+    /// Recalculates all derived stats based on base stats, equipment, and level.
+    ///
+    /// This method should be called after:
+    /// - Equipping or unequipping items
+    /// - Leveling up
+    /// - Applying buffs or debuffs
+    ///
+    /// It updates:
+    /// - `cached_max_health`: Base health + level bonuses + equipment bonuses
+    /// - `cached_attack`: Base attack + level bonuses + equipment bonuses
+    /// - `cached_movement`: Base movement + equipment bonuses
+    /// - `cached_defense`: Sum of all resistances
     pub fn recalculate_stats(&mut self) {
         // Base stats from initial combat_stats
         let base_health = self.combat_stats.max_health;

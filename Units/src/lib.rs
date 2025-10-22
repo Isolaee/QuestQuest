@@ -1,3 +1,36 @@
+//! # Units Crate
+//!
+//! This crate provides a comprehensive unit system for the QuestQuest game.
+//! It includes character races, classes, combat stats, equipment management,
+//! and a flexible trait-based unit system.
+//!
+//! ## Core Components
+//!
+//! - **[`Unit`]** trait: The main interface that all units must implement
+//! - **[`BaseUnit`]**: Common data structure shared by all unit implementations
+//! - **[`UnitFactory`]**: Factory for creating different unit types
+//! - **[`Race`]**: Character races with terrain-specific bonuses
+//! - **[`UnitClass`]**: Character classes with unique resistances and abilities
+//! - **[`Attack`]**: Attack definitions with damage types and ranges
+//!
+//! ## Example
+//!
+//! ```rust,no_run
+//! use units::{UnitFactory, Terrain};
+//! use graphics::HexCoord;
+//!
+//! // Create a human warrior at position (0, 0)
+//! let mut warrior = UnitFactory::create_human_warrior(
+//!     "Aragorn".to_string(),
+//!     HexCoord::new(0, 0),
+//!     Terrain::Grasslands,
+//! );
+//!
+//! // Access unit properties
+//! println!("Unit: {}", warrior.name());
+//! println!("Health: {}", warrior.combat_stats().health);
+//! ```
+
 pub mod attack;
 pub mod base_unit;
 pub mod combat;

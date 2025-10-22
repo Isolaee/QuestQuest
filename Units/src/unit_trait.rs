@@ -1,3 +1,9 @@
+//! Core unit trait and related types.
+//!
+//! This module defines the main [`Unit`] trait that all units in the game must implement.
+//! The trait provides a unified interface for unit identity, movement, combat, inventory
+//! management, and progression.
+
 use crate::attack::Attack;
 use crate::unit_race::{Race, Terrain};
 use combat::CombatStats;
@@ -5,99 +11,225 @@ use graphics::HexCoord;
 use items::{Equipment, Item, ItemId};
 use uuid::Uuid;
 
-/// Unique identifier for units
+/// Unique identifier for units.
+///
+/// Each unit has a UUID to uniquely identify it in the game world.
 pub type UnitId = Uuid;
 
-/// Core trait that all units must implement
-/// Units can move and manage inventory. Combat is handled by combat stats.
+/// Core trait that all units must implement.
+///
+/// This trait provides a unified interface for all unit types in the game,
+/// including heroes, enemies, and NPCs. It handles:
+///
+/// - **Identity**: Name, ID, position, race, and type
+/// - **Combat**: Access to combat statistics and equipment
+/// - **Inventory**: Item management and equipment handling
+/// - **Progression**: Level and experience tracking
+/// - **Movement**: Position and terrain management
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use units::{Unit, UnitFactory, Terrain};
+/// use graphics::HexCoord;
+///
+/// let mut unit = UnitFactory::create_human_warrior(
+///     "Knight".to_string(),
+///     HexCoord::new(0, 0),
+///     Terrain::Grasslands,
+/// );
+///
+/// // Check unit identity
+/// println!("Name: {}", unit.name());
+/// println!("Race: {:?}", unit.race());
+/// println!("Level: {}", unit.level());
+///
+/// // Move the unit
+/// unit.move_to(HexCoord::new(1, 0));
+///
+/// // Check health
+/// if unit.is_alive() {
+///     println!("Unit is alive with {} HP", unit.combat_stats().health);
+/// }
+/// ```
 pub trait Unit {
     // ===== Identity =====
 
-    /// Get the unit's unique identifier
+    /// Returns the unit's unique identifier.
+    ///
+    /// This UUID persists for the lifetime of the unit and can be used
+    /// to track the unit across saves and network synchronization.
     fn id(&self) -> UnitId;
 
-    /// Get the unit's name
+    /// Returns the unit's display name.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::{Unit, UnitFactory, Terrain};
+    /// # use graphics::HexCoord;
+    /// # let unit = UnitFactory::create_human_warrior("Aragorn".to_string(), HexCoord::new(0, 0), Terrain::Grasslands);
+    /// assert_eq!(unit.name(), "Aragorn");
+    /// ```
     fn name(&self) -> &str;
 
-    /// Get the unit's current position
+    /// Returns the unit's current position on the hex grid.
     fn position(&self) -> HexCoord;
 
-    /// Get the unit's race
+    /// Returns the unit's race.
+    ///
+    /// Race affects terrain bonuses, base stats, and visual appearance.
     fn race(&self) -> Race;
 
-    /// Get the unit's type (e.g., "Human Warrior", "Goblin Grunt", etc.)
+    /// Returns the unit's type identifier.
+    ///
+    /// This is a string like "Human Warrior", "Elf Archer", or "Goblin Grunt"
+    /// that identifies the specific unit template.
     fn unit_type(&self) -> &str;
 
-    // ===== Combat Methods =====
+    // ===== Movement =====
 
-    /// Move to a new position, returns true if successful
+    /// Moves the unit to a new position.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - The target hex coordinate
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the move was successful, `false` otherwise.
+    /// Movement may fail due to obstacles, lack of movement points, or other game rules.
     fn move_to(&mut self, position: HexCoord) -> bool;
 
     // ===== Stats Access =====
 
-    /// Get reference to combat stats
+    /// Returns a reference to the unit's combat statistics.
+    ///
+    /// Combat stats include health, attack power, defense, movement speed,
+    /// resistances, and other combat-relevant values.
     fn combat_stats(&self) -> &CombatStats;
 
-    /// Get mutable reference to combat stats
+    /// Returns a mutable reference to the unit's combat statistics.
+    ///
+    /// Use this to modify health, apply buffs/debuffs, or update other combat values.
     fn combat_stats_mut(&mut self) -> &mut CombatStats;
 
     // ===== Equipment & Inventory =====
 
-    /// Get reference to equipment
+    /// Returns a reference to the unit's equipped items.
+    ///
+    /// Equipment includes weapons, armor, accessories, and other worn items
+    /// that provide stat bonuses.
     fn equipment(&self) -> &Equipment;
 
-    /// Get mutable reference to equipment
+    /// Returns a mutable reference to the unit's equipped items.
     fn equipment_mut(&mut self) -> &mut Equipment;
 
-    /// Get reference to inventory
+    /// Returns a reference to the unit's inventory.
+    ///
+    /// The inventory contains all items the unit is carrying but not currently equipped.
     fn inventory(&self) -> &[Item];
 
-    /// Get mutable reference to inventory
+    /// Returns a mutable reference to the unit's inventory.
     fn inventory_mut(&mut self) -> &mut Vec<Item>;
 
-    /// Equip an item from inventory
+    /// Equips an item from the inventory.
+    ///
+    /// # Arguments
+    ///
+    /// * `item_id` - The unique identifier of the item to equip
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The item is not in the inventory
+    /// - The item cannot be equipped by this unit
+    /// - The equipment slot is incompatible
     fn equip_item(&mut self, item_id: ItemId) -> Result<(), String>;
 
-    /// Unequip an item to inventory
+    /// Unequips an item and moves it to the inventory.
+    ///
+    /// # Arguments
+    ///
+    /// * `item_id` - The unique identifier of the equipped item to remove
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the item is not currently equipped.
     fn unequip_item(&mut self, item_id: ItemId) -> Result<(), String>;
 
-    /// Add item to inventory
+    /// Adds an item to the unit's inventory.
+    ///
+    /// # Arguments
+    ///
+    /// * `item` - The item to add
     fn add_item_to_inventory(&mut self, item: Item);
 
-    /// Remove item from inventory
+    /// Removes an item from the inventory and returns it.
+    ///
+    /// # Arguments
+    ///
+    /// * `item_id` - The unique identifier of the item to remove
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(item)` if the item was found and removed, `None` otherwise.
     fn remove_item_from_inventory(&mut self, item_id: ItemId) -> Option<Item>;
 
     // ===== Level & Experience =====
 
-    /// Get current level
+    /// Returns the unit's current level.
+    ///
+    /// Level affects base stats and unlocks new abilities.
     fn level(&self) -> i32;
 
-    /// Get current experience
+    /// Returns the unit's current experience points.
     fn experience(&self) -> i32;
 
-    /// Add experience and return true if leveled up
+    /// Adds experience points to the unit.
+    ///
+    /// # Arguments
+    ///
+    /// * `exp` - The amount of experience to add
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the unit leveled up, `false` otherwise.
+    /// When leveling up, base stats are automatically increased.
     fn add_experience(&mut self, exp: i32) -> bool;
 
-    /// Get experience required for next level
+    /// Returns the experience required to reach the next level.
     fn experience_for_next_level(&self) -> i32;
 
-    /// Get level progress as percentage (0.0 to 1.0)
+    /// Returns the progress toward the next level as a percentage.
+    ///
+    /// # Returns
+    ///
+    /// A value between 0.0 and 1.0, where 0.0 is no progress and 1.0 is ready to level up.
     fn level_progress(&self) -> f32;
 
     // ===== Terrain =====
 
-    /// Get current terrain
+    /// Returns the terrain type the unit is currently standing on.
+    ///
+    /// Terrain affects movement cost, combat bonuses, and visibility.
     fn current_terrain(&self) -> Terrain;
 
-    /// Set current terrain
+    /// Sets the terrain type for the unit's current position.
+    ///
+    /// This should be called when the unit moves to update terrain-based modifiers.
     fn set_terrain(&mut self, terrain: Terrain);
 
     // ===== Utility Methods =====
 
-    /// Check if unit is alive
+    /// Checks if the unit is alive.
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the unit's health is greater than 0, `false` otherwise.
     fn is_alive(&self) -> bool;
 
-    /// Check if unit can attack target position
+    /// Checks if the unit can attack a target at the given position.
     fn can_attack(&self, target_position: HexCoord) -> bool;
 
     /// Check if unit can move to target position

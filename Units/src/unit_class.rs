@@ -1,8 +1,31 @@
+//! Unit classes and profession system.
+//!
+//! This module defines character classes (Warrior, Archer, Mage, etc.) and their
+//! associated combat characteristics including damage resistances, default attack types,
+//! and range categories.
+
 use combat::{DamageType, RangeCategory, Resistances};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Represents different unit classes/professions
+/// Represents different unit classes or professions.
+///
+/// Each class has unique resistances to different damage types, preferred
+/// combat ranges, and default damage types for their attacks.
+///
+/// # Examples
+///
+/// ```rust
+/// use units::UnitClass;
+/// use combat::DamageType;
+///
+/// let warrior = UnitClass::Warrior;
+/// assert_eq!(warrior.get_name(), "Warrior");
+/// assert_eq!(warrior.get_default_damage_type(), DamageType::Slash);
+///
+/// // Warriors have high resistance to physical damage
+/// let resistances = warrior.get_resistances();
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum UnitClass {
     Warrior,
@@ -15,7 +38,11 @@ pub enum UnitClass {
 }
 
 impl UnitClass {
-    /// Get the display name of the class
+    /// Returns the display name of the class.
+    ///
+    /// # Returns
+    ///
+    /// A string slice with the class's human-readable name.
     pub fn get_name(self) -> &'static str {
         match self {
             UnitClass::Warrior => "Warrior",
@@ -28,7 +55,12 @@ impl UnitClass {
         }
     }
 
-    /// Get default range category for this class
+    /// Returns the default range category for this class.
+    ///
+    /// # Returns
+    ///
+    /// - `RangeCategory::Melee` for close-combat classes (Warrior, Rogue, Cleric, Paladin)
+    /// - `RangeCategory::Range` for ranged classes (Archer, Mage, Ranger)
     pub fn get_default_range(self) -> RangeCategory {
         match self {
             UnitClass::Warrior => RangeCategory::Melee,
@@ -41,7 +73,16 @@ impl UnitClass {
         }
     }
 
-    /// Get default damage type for this class
+    /// Returns the default damage type for this class.
+    ///
+    /// This represents the typical weapon or attack method used by the class.
+    ///
+    /// # Returns
+    ///
+    /// - `DamageType::Slash`: Warrior, Paladin (swords)
+    /// - `DamageType::Pierce`: Archer, Ranger, Rogue (arrows, bows, daggers)
+    /// - `DamageType::Blunt`: Cleric (maces)
+    /// - `DamageType::Fire`: Mage (magic)
     pub fn get_default_damage_type(self) -> DamageType {
         match self {
             UnitClass::Warrior => DamageType::Slash, // Sword
@@ -54,7 +95,28 @@ impl UnitClass {
         }
     }
 
-    /// Get class resistances (% reduction for each damage type)
+    /// Returns the damage resistances for this class.
+    ///
+    /// Resistances are percentage reductions for each damage type:
+    /// - Warriors have high physical damage resistance (armor)
+    /// - Mages have high magical damage resistance but low physical
+    /// - Rogues have moderate resistances through agility
+    /// - Clerics and Paladins have divine protection against dark magic
+    ///
+    /// # Returns
+    ///
+    /// A `Resistances` struct with percentage values (0-100) for each damage type.
+    /// Higher values mean more damage reduction.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use units::UnitClass;
+    ///
+    /// let warrior = UnitClass::Warrior;
+    /// let resistances = warrior.get_resistances();
+    /// // Warriors have 30% resistance to blunt damage from heavy armor
+    /// ```
     pub fn get_resistances(self) -> Resistances {
         match self {
             UnitClass::Warrior => Resistances::new(

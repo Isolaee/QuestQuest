@@ -1,7 +1,28 @@
+//! Character races and terrain system.
+//!
+//! This module defines the various playable and non-playable races in the game,
+//! along with terrain types and their interactions. Each race has different
+//! defensive bonuses based on the terrain they're standing on.
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Represents different races available in the game
+/// Represents the different races available in the game.
+///
+/// Each race has unique characteristics and terrain affinities that affect
+/// their defensive capabilities. Races range from common fantasy staples
+/// (Human, Elf, Dwarf) to more exotic options (Dragonborn, Changeling)
+/// and hostile creatures (Orc, Goblin, Undead).
+///
+/// # Examples
+///
+/// ```rust
+/// use units::{Race, Terrain};
+///
+/// let race = Race::Elf;
+/// let defense = race.get_base_defense(Terrain::Forest0);
+/// println!("Elf defense in forest: {}", defense);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Race {
     Human,
@@ -26,8 +47,31 @@ pub enum Race {
 }
 
 impl Race {
-    /// Get racial base defense (hit chance %) based on terrain - lower is better
-    /// This represents how hard the unit is to hit based on racial traits and terrain
+    /// Returns the racial base defense value based on terrain.
+    ///
+    /// Lower values are better (harder to hit). This represents how well
+    /// a race can utilize terrain for defensive purposes.
+    ///
+    /// # Arguments
+    ///
+    /// * `terrain` - The terrain type to check
+    ///
+    /// # Returns
+    ///
+    /// A percentage value (0-100) where lower is harder to hit. For example:
+    /// - Elves in forests get around 42% (excellent cover)
+    /// - Dwarves in mountains get around 48% (excellent defensive position)
+    /// - Most races in grasslands get around 48-50% (minimal cover)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use units::{Race, Terrain};
+    ///
+    /// let elf_forest_defense = Race::Elf.get_base_defense(Terrain::Forest0);
+    /// let dwarf_mountain_defense = Race::Dwarf.get_base_defense(Terrain::Mountain);
+    /// assert!(elf_forest_defense < 45); // Elves are excellent in forests
+    /// ```
     pub fn get_base_defense(self, terrain: Terrain) -> u8 {
         match (self, terrain) {
             // Human - adaptable, decent everywhere
@@ -203,16 +247,36 @@ impl Race {
         }
     }
 
-    /// Get terrain-based hit chance for attacks (0-100%)
-    /// Higher value means easier to hit
-    /// This is based on the get_base_defense values - returning as hit chance
+    /// Returns the terrain-based hit chance for attacks.
+    ///
+    /// This is equivalent to `get_base_defense` but framed as an offensive value.
+    /// Higher values mean the target is easier to hit.
+    ///
+    /// # Arguments
+    ///
+    /// * `terrain` - The terrain type where combat occurs
+    ///
+    /// # Returns
+    ///
+    /// A percentage (0-100) representing the base hit chance against this race
+    /// on this terrain before other modifiers.
     pub fn get_terrain_hit_chance(self, terrain: Terrain) -> u8 {
         // The get_base_defense returns "how hard to hit" percentage
         // We use it directly as hit chance (lower defense = harder to hit = lower hit chance)
         self.get_base_defense(terrain)
     }
 
-    /// Get racial attack bonus modifier
+    /// Returns the racial attack bonus modifier.
+    ///
+    /// Some races are naturally more aggressive or skilled in combat,
+    /// granting them bonuses or penalties to their attack values.
+    ///
+    /// # Returns
+    ///
+    /// An integer modifier applied to attack calculations:
+    /// - Positive values (e.g., Orc +2, Half-Orc +2) increase damage
+    /// - Zero (e.g., Human, Dwarf) provides no modifier
+    /// - Negative values (e.g., Kobold -2, Gnome -1) decrease damage
     pub fn get_attack_bonus(self) -> i32 {
         match self {
             Race::Human => 0,      // Balanced
@@ -237,7 +301,17 @@ impl Race {
         }
     }
 
-    /// Get racial movement speed modifier
+    /// Returns the racial movement speed modifier.
+    ///
+    /// Different races have different base movement capabilities due to
+    /// size, physiology, and natural agility.
+    ///
+    /// # Returns
+    ///
+    /// An integer modifier applied to movement calculations:
+    /// - `+1`: Swift races (Elf, Goblin, Kobold)
+    /// - `0`: Standard speed (Human, Orc, most races)
+    /// - `-1`: Slower races (Dwarf, Gnome, Triton on land, Skeleton, Undead)
     pub fn get_movement_bonus(self) -> i32 {
         match self {
             Race::Human => 0,      // Standard speed
@@ -262,7 +336,11 @@ impl Race {
         }
     }
 
-    /// Get the display name of the race
+    /// Returns the display name of the race.
+    ///
+    /// # Returns
+    ///
+    /// A string slice with the race's human-readable name.
     pub fn get_name(self) -> &'static str {
         match self {
             Race::Human => "Human",
@@ -287,7 +365,14 @@ impl Race {
         }
     }
 
-    /// Get the display color for rendering units of this race
+    /// Returns the display color for rendering units of this race.
+    ///
+    /// Each race has a distinctive color for easy visual identification
+    /// on the game map.
+    ///
+    /// # Returns
+    ///
+    /// An RGB color array with values in the range [0.0, 1.0].
     pub fn get_display_color(self) -> [f32; 3] {
         match self {
             Race::Human => [0.8, 0.7, 0.6],         // Flesh tone
@@ -312,7 +397,11 @@ impl Race {
         }
     }
 
-    /// Get all available races
+    /// Returns all available races in the game.
+    ///
+    /// # Returns
+    ///
+    /// An array containing all 19 race variants.
     pub fn all_races() -> [Race; 19] {
         [
             Race::Human,
@@ -364,7 +453,19 @@ impl fmt::Display for Race {
     }
 }
 
-/// Represents different terrain types in the game
+/// Represents different terrain types in the game.
+///
+/// Terrain affects movement costs, defensive bonuses, and line of sight.
+/// Different races perform better on certain terrains.
+///
+/// # Variants
+///
+/// - `Forest0`, `Forest1`: Dense woodland with cover
+/// - `Grasslands`: Open plains (default terrain)
+/// - `HauntedWoods`: Cursed forests with undead advantages
+/// - `Hills`: Elevated terrain with defensive bonuses
+/// - `Mountain`: High altitude, difficult terrain
+/// - `Swamp`: Waterlogged terrain, slows most units
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Terrain {
     Forest0,
