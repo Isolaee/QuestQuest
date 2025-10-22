@@ -109,13 +109,25 @@ pub fn resolve_combat(
                 attack_number
             );
 
-            let hit_roll = rng.gen_range(0..100);
+            let hit_roll_1 = rng.gen_range(0..100);
+            let hit_roll_2 = rng.gen_range(0..100);
             let hit_chance = attacker.terrain_hit_chance;
 
-            print!("│ Roll: {} vs {}% hit chance → ", hit_roll, hit_chance);
+            print!("│ Roll 1: {} vs {}% hit chance → ", hit_roll_1, hit_chance);
+            if hit_roll_1 < hit_chance {
+                println!("✓ SUCCESS");
+            } else {
+                println!("✗ FAIL");
+            }
+            print!("│ Roll 2: {} vs {}% hit chance → ", hit_roll_2, hit_chance);
+            if hit_roll_2 < hit_chance {
+                println!("✓ SUCCESS");
+            } else {
+                println!("✗ FAIL");
+            }
 
-            if hit_roll < hit_chance {
-                println!("✓ HIT!");
+            if hit_roll_1 < hit_chance && hit_roll_2 < hit_chance {
+                println!("✓ DOUBLE SUCCESS! HIT!");
                 result.attacker_hit = true;
 
                 // Calculate damage for this single attack with resistance
@@ -145,7 +157,7 @@ pub fn resolve_combat(
                     result.defender_casualties = 1;
                 }
             } else {
-                println!("✗ MISS!");
+                println!("✗ MISS! Need two successes to hit.");
             }
 
             println!("└───────────────────────────────────────────────────────┘\n");
@@ -159,13 +171,31 @@ pub fn resolve_combat(
                 attack_number
             );
 
-            let counter_roll = rng.gen_range(0..100);
+            let counter_roll_1 = rng.gen_range(0..100);
+            let counter_roll_2 = rng.gen_range(0..100);
             let hit_chance = defender.terrain_hit_chance;
 
-            print!("│ Roll: {} vs {}% hit chance → ", counter_roll, hit_chance);
+            print!(
+                "│ Roll 1: {} vs {}% hit chance → ",
+                counter_roll_1, hit_chance
+            );
+            if counter_roll_1 < hit_chance {
+                println!("✓ SUCCESS");
+            } else {
+                println!("✗ FAIL");
+            }
+            print!(
+                "│ Roll 2: {} vs {}% hit chance → ",
+                counter_roll_2, hit_chance
+            );
+            if counter_roll_2 < hit_chance {
+                println!("✓ SUCCESS");
+            } else {
+                println!("✗ FAIL");
+            }
 
-            if counter_roll < hit_chance {
-                println!("✓ HIT!");
+            if counter_roll_1 < hit_chance && counter_roll_2 < hit_chance {
+                println!("✓ DOUBLE SUCCESS! HIT!");
                 result.defender_hit = true;
 
                 // Calculate counter damage for this single attack with resistance
@@ -196,7 +226,7 @@ pub fn resolve_combat(
                     result.attacker_casualties = 1;
                 }
             } else {
-                println!("✗ MISS!");
+                println!("✗ MISS! Need two successes to hit.");
             }
 
             println!("└───────────────────────────────────────────────────────┘\n");
