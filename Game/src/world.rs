@@ -21,6 +21,10 @@
 //! 5. Defeated units are removed from the world
 
 use crate::objects::*;
+use ai::{
+    ActionInstance as AiActionInstance, FactValue as AiFactValue, Goal as AiGoal,
+    WorldState as AiWorldState,
+};
 use graphics::{HexCoord, SpriteType};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -217,6 +221,287 @@ impl GameWorld {
                 }
             }
         }
+    }
+
+    /// Extract a minimal AI world state for the given team.
+    ///
+    /// Prototype: encode unit positions and alive flags as simple string facts.
+    fn extract_world_state_for_team(&self, team: Team) -> AiWorldState {
+        let mut ws = AiWorldState::new();
+
+        for (id, unit) in &self.units {
+            // fact keys: "Unit:{id}:At" => "q,r" string
+            let pos = unit.position();
+            let key_pos = format!("Unit:{}:At", id);
+            ws.insert(
+                key_pos.clone(),
+                AiFactValue::Str(format!("{},{}", pos.q, pos.r)),
+            );
+
+            // alive flag
+            let alive_key = format!("Unit:{}:Alive", id);
+            ws.insert(alive_key, AiFactValue::Bool(true));
+        }
+
+        // Additionally include a team marker
+        ws.insert(
+            "CurrentTeam".to_string(),
+            AiFactValue::Str(format!("{:?}", team)),
+        );
+
+        ws
+    }
+
+    /// Generate simple grounded actions for all units of `team`.
+    ///
+    /// Prototype actions:
+    /// - Move to adjacent hex (precond: At=id_pos)
+    /// - Attack adjacent enemy (precond: At=id_pos, EnemyAt=other_pos)
+    fn generate_team_actions(&self, team: Team) -> Vec<AiActionInstance> {
+        let mut out: Vec<AiActionInstance> = Vec::new();
+
+        // Dijkstra-like reachable calculation using integer costs
+        fn compute_reachable(
+            world: &GameWorld,
+            unit_id: Uuid,
+            start: HexCoord,
+            max_cost: i32,
+        ) -> HashMap<HexCoord, i32> {
+            use std::cmp::Reverse;
+            use std::collections::BinaryHeap;
+
+            let mut dist: HashMap<HexCoord, i32> = HashMap::new();
+            // Use primitive tuple in heap so ordering is defined
+            let mut heap: BinaryHeap<(Reverse<i32>, (i32, i32))> = BinaryHeap::new();
+
+            dist.insert(start, 0);
+            heap.push((Reverse(0), (start.q, start.r)));
+
+            while let Some((Reverse(cost), (cq, cr))) = heap.pop() {
+                let coord = HexCoord::new(cq, cr);
+                if let Some(&best) = dist.get(&coord) {
+                    if cost > best {
+                        continue;
+                    }
+                }
+
+                for nb in coord.neighbors().iter() {
+                    // Skip out-of-bounds
+                    if nb.distance(HexCoord::new(0, 0)) > world.world_radius {
+                        continue;
+                    }
+                    // Skip impassable terrain
+                    if let Some(terrain) = world.get_terrain(*nb) {
+                        if terrain.blocks_movement() {
+                            continue;
+                        }
+                    }
+                    // Skip occupied tiles by other units
+                    let units_there = world.get_units_at_position(*nb);
+                    let occupied_by_other = units_there.iter().any(|u| u.id() != unit_id);
+                    if occupied_by_other {
+                        continue;
+                    }
+
+                    let step_cost = world.get_movement_cost(*nb);
+                    let new_cost = cost + step_cost;
+                    if new_cost > max_cost {
+                        continue;
+                    }
+
+                    match dist.get(nb) {
+                        None => {
+                            dist.insert(*nb, new_cost);
+                            heap.push((Reverse(new_cost), (nb.q, nb.r)));
+                        }
+                        Some(&c) => {
+                            if new_cost < c {
+                                dist.insert(*nb, new_cost);
+                                heap.push((Reverse(new_cost), (nb.q, nb.r)));
+                            }
+                        }
+                    }
+                }
+            }
+
+            dist
+        }
+
+        for (id, unit) in &self.units {
+            if unit.team() != team {
+                continue;
+            }
+
+            let uid_str = id.to_string();
+            let pos = unit.position();
+            let moves_left = unit.moves_left();
+
+            let reachable = compute_reachable(self, *id, pos, moves_left);
+
+            // Ground Move actions for each reachable tile (excluding start)
+            for (tile, cost) in &reachable {
+                if *tile == pos {
+                    continue;
+                }
+
+                let preconds = vec![(
+                    format!("Unit:{}:At", id),
+                    AiFactValue::Str(format!("{},{}", pos.q, pos.r)),
+                )];
+                let effects = vec![(
+                    format!("Unit:{}:At", id),
+                    AiFactValue::Str(format!("{},{}", tile.q, tile.r)),
+                )];
+
+                out.push(AiActionInstance {
+                    name: format!("Move-{}->{},{}", uid_str, tile.q, tile.r),
+                    preconditions: preconds,
+                    effects,
+                    cost: *cost as f32,
+                    agent: Some(uid_str.clone()),
+                });
+            }
+
+            // Ground Attack actions for reachable attack positions adjacent to enemies
+            for (other_id, other_unit) in &self.units {
+                if other_unit.team() == team {
+                    continue;
+                }
+                let enemy_pos = other_unit.position();
+
+                for adj in enemy_pos.neighbors().iter() {
+                    let can_from_here = if *adj == pos {
+                        true
+                    } else {
+                        reachable.contains_key(adj)
+                    };
+                    if !can_from_here {
+                        continue;
+                    }
+
+                    let preconds = vec![
+                        (
+                            format!("Unit:{}:At", id),
+                            AiFactValue::Str(format!("{},{}", adj.q, adj.r)),
+                        ),
+                        (format!("Unit:{}:Alive", other_id), AiFactValue::Bool(true)),
+                    ];
+                    let effects =
+                        vec![(format!("Unit:{}:Alive", other_id), AiFactValue::Bool(false))];
+
+                    out.push(AiActionInstance {
+                        name: format!("Attack-{}-{}-from-{},{}", uid_str, other_id, adj.q, adj.r),
+                        preconditions: preconds,
+                        effects,
+                        cost: 1.0,
+                        agent: Some(uid_str.clone()),
+                    });
+                }
+            }
+        }
+
+        out
+    }
+
+    /// Run the AI planner for the current team if the current team is AI-controlled.
+    ///
+    /// This prototype: when it's an AI team's turn, plan sequentially for each unit,
+    /// execute move actions (via `move_unit`) or request combat (via `request_combat`),
+    /// then end the turn.
+    pub fn run_ai_for_current_team(&mut self) {
+        let current_team = self.turn_system.current_team();
+        if self.turn_system.is_current_team_player_controlled() {
+            return; // Player team handled by UI
+        }
+
+        // Prepare AI world state and actions
+        let ws = self.extract_world_state_for_team(current_team);
+        let actions = self.generate_team_actions(current_team);
+
+        // Build goals: naive goal is to kill any enemy unit found (per agent we add goals later)
+        use std::collections::HashMap as StdHashMap;
+        let mut goals_per_agent: StdHashMap<String, Vec<AiGoal>> = StdHashMap::new();
+        let mut agent_order: Vec<String> = Vec::new();
+
+        for (id, unit) in &self.units {
+            if unit.team() != current_team {
+                continue;
+            }
+            let aid = id.to_string();
+            agent_order.push(aid.clone());
+
+            // Goals for agent: prefer to kill adjacent enemy if any; otherwise move (no explicit goal)
+            let mut goals: Vec<AiGoal> = Vec::new();
+            // find any adjacent enemies
+            for nb in unit.position().neighbors().iter() {
+                let units_here = self.get_units_at_position(*nb);
+                for u in units_here {
+                    if u.team() != current_team {
+                        // goal: that unit is not alive
+                        goals.push(AiGoal {
+                            key: format!("Unit:{}:Alive", u.id()),
+                            value: AiFactValue::Bool(false),
+                        });
+                    }
+                }
+            }
+            goals_per_agent.insert(aid, goals);
+        }
+
+        // Call team planner (bounded search per agent)
+        let plans = ai::plan_for_team(&ws, &actions, &goals_per_agent, &agent_order, 500);
+
+        // Execute plans per agent
+        for (agent, plan) in plans {
+            if plan.is_empty() {
+                continue;
+            }
+            // find unit uuid
+            if let Ok(uuid) = Uuid::parse_str(&agent) {
+                // For simplicity, perform actions in plan for this agent
+                let agent_actions: Vec<AiActionInstance> = actions
+                    .iter()
+                    .filter(|a| a.agent.as_ref().map(|s| s == &agent).unwrap_or(false))
+                    .cloned()
+                    .collect();
+                for &idx in &plan {
+                    if let Some(a) = agent_actions.get(idx) {
+                        // If action is Move (name starts with Move-), parse target and call move_unit
+                        if a.name.starts_with("Move-") {
+                            // effects contain Unit:{id}:At -> "q,r"
+                            if let Some((_, AiFactValue::Str(dest))) = a.effects.first() {
+                                let parts: Vec<&str> = dest.split(',').collect();
+                                if parts.len() == 2 {
+                                    if let (Ok(q), Ok(r)) =
+                                        (parts[0].parse::<i32>(), parts[1].parse::<i32>())
+                                    {
+                                        let dest_coord = HexCoord::new(q, r);
+                                        // Use move_unit; ignore errors for prototype
+                                        let _ = self.move_unit(uuid, dest_coord);
+                                    }
+                                }
+                            }
+                        } else if a.name.starts_with("Attack-") {
+                            // effects contain Unit:{other}:Alive=false; extract other id
+                            if let Some((k, _)) = a.effects.first() {
+                                if k.starts_with("Unit:") && k.ends_with(":Alive") {
+                                    let mid = &k[5..k.len() - 6];
+                                    if let Ok(target_uuid) = Uuid::parse_str(mid) {
+                                        // Request combat (this will set pending_combat)
+                                        let _ = self.request_combat(uuid, target_uuid);
+                                        // For prototype, immediately execute combat
+                                        let _ = self.execute_pending_combat();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // End AI turn after actions
+        self.turn_system.end_turn();
     }
 
     /// Generates terrain type based on hex coordinate position.

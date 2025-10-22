@@ -27,7 +27,8 @@ members = [
     "Items",
     "Combat",
     "Game",
-    "QuestApp"
+    "QuestApp",
+    "ai"
 ]
 default-members = ["QuestApp"]
 

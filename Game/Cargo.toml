@@ -9,6 +9,7 @@ graphics = { path = "../Graphics" }
 units = { path = "../Units" }
 items = { path = "../Items" }
 combat = { path = "../Combat" }
+ai = { path = "../ai" }
 
 # External dependencies
 uuid = { version = "1.10", features = ["v4", "serde"] }
