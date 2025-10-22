@@ -139,6 +139,9 @@ pub struct GameWorld {
 
     /// Pending combat awaiting player confirmation
     pub pending_combat: Option<PendingCombat>,
+
+    /// Turn-based gameplay system
+    pub turn_system: crate::turn_system::TurnSystem,
 }
 
 impl GameWorld {
@@ -160,6 +163,12 @@ impl GameWorld {
     /// assert_eq!(world.world_radius(), 15);
     /// ```
     pub fn new(world_radius: i32) -> Self {
+        let mut turn_system = crate::turn_system::TurnSystem::new();
+        // By default, only Player team is player-controlled
+        turn_system.set_team_control(Team::Player, true);
+        turn_system.set_team_control(Team::Enemy, false);
+        turn_system.set_team_control(Team::Neutral, false);
+
         Self {
             terrain: HashMap::new(),
             units: HashMap::new(),
@@ -167,6 +176,7 @@ impl GameWorld {
             world_radius,
             game_time: 0.0,
             pending_combat: None,
+            turn_system,
         }
     }
 
@@ -495,6 +505,21 @@ impl GameWorld {
     /// }
     /// ```
     pub fn move_unit(&mut self, unit_id: Uuid, new_position: HexCoord) -> Result<(), String> {
+        // Check if game has started
+        if !self.turn_system.is_game_started() {
+            return Err("Game has not started yet".to_string());
+        }
+
+        // Check if it's this unit's team's turn
+        if let Some(unit) = self.units.get(&unit_id) {
+            let unit_team = unit.team();
+            if !self.turn_system.is_team_turn(unit_team) {
+                return Err(format!("Not {:?}'s turn", unit_team));
+            }
+        } else {
+            return Err("Unit not found".to_string());
+        }
+
         // Check if there's an enemy unit at the target position
         let units_at_target: Vec<Uuid> = self
             .get_units_at_position(new_position)
@@ -527,6 +552,8 @@ impl GameWorld {
 
         if let Some(unit) = self.units.get_mut(&unit_id) {
             unit.set_position(new_position);
+            // Mark unit as having acted (moved) this turn
+            self.turn_system.mark_unit_acted(unit_id);
             Ok(())
         } else {
             Err("Unit not found".to_string())
@@ -920,6 +947,9 @@ impl GameWorld {
     pub fn update(&mut self, delta_time: f32) {
         self.game_time += delta_time;
 
+        // Update turn system (handles AI turn auto-pass)
+        self.turn_system.update(delta_time);
+
         // Update all units
         for unit in self.units.values_mut() {
             unit.update(delta_time);
@@ -979,6 +1009,65 @@ impl GameWorld {
     /// is considered part of the game world.
     pub fn world_radius(&self) -> i32 {
         self.world_radius
+    }
+
+    // ===== Turn System Methods =====
+
+    /// Starts the game and begins turn-based gameplay
+    pub fn start_turn_based_game(&mut self) {
+        self.turn_system.start_game();
+    }
+
+    /// Ends the current turn and advances to the next team
+    pub fn end_current_turn(&mut self) {
+        self.turn_system.end_turn();
+    }
+
+    /// Returns the team whose turn it currently is
+    pub fn current_turn_team(&self) -> Team {
+        self.turn_system.current_team()
+    }
+
+    /// Checks if it's the specified team's turn
+    pub fn is_team_turn(&self, team: Team) -> bool {
+        self.turn_system.is_team_turn(team)
+    }
+
+    /// Checks if the current team is player-controlled
+    pub fn is_current_team_player_controlled(&self) -> bool {
+        self.turn_system.is_current_team_player_controlled()
+    }
+
+    /// Returns the current turn number
+    pub fn turn_number(&self) -> u32 {
+        self.turn_system.turn_number()
+    }
+
+    /// Returns time remaining in AI turn (0 if player turn)
+    pub fn ai_turn_time_remaining(&self) -> f32 {
+        self.turn_system.ai_turn_time_remaining()
+    }
+
+    /// Checks if a unit can act (not already acted and correct team turn)
+    pub fn can_unit_act(&self, unit_id: Uuid) -> bool {
+        if let Some(unit) = self.units.get(&unit_id) {
+            let is_team_turn = self.turn_system.is_team_turn(unit.team());
+            let has_not_acted = !self.turn_system.has_unit_acted(unit_id);
+            is_team_turn && has_not_acted
+        } else {
+            false
+        }
+    }
+
+    /// Sets whether a team is player-controlled
+    pub fn set_team_control(&mut self, team: Team, is_player_controlled: bool) {
+        self.turn_system
+            .set_team_control(team, is_player_controlled);
+    }
+
+    /// Sets the AI turn delay
+    pub fn set_ai_turn_delay(&mut self, delay: f32) {
+        self.turn_system.set_ai_turn_delay(delay);
     }
 }
 

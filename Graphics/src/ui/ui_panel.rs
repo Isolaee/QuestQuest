@@ -54,6 +54,7 @@ pub struct UiPanel {
     pickup_prompt: Option<String>,     // Item name for pickup prompt
     pickup_yes_button: Option<Button>, // Pick up button
     pickup_no_button: Option<Button>,  // Leave it button
+    pub end_turn_button: Button,       // End turn button
 }
 
 impl UiPanel {
@@ -65,6 +66,15 @@ impl UiPanel {
 
         let (vao, vbo, shader_program) = unsafe { Self::setup_ui_rendering()? };
         let text_renderer = TextRenderer::new()?;
+
+        // Create end turn button at bottom of panel
+        // y=0 is at TOP of screen, so bottom is at y=height
+        let button_width = 280.0;
+        let button_height = 50.0;
+        let button_x = x + (width - button_width) / 2.0;
+        // Position 20px from bottom of screen (y + height - button_height - margin)
+        let button_y = y + height - button_height - 20.0;
+        let end_turn_button = Button::new(button_x, button_y, button_width, button_height);
 
         Ok(Self {
             x,
@@ -79,6 +89,7 @@ impl UiPanel {
             pickup_prompt: None,
             pickup_yes_button: None,
             pickup_no_button: None,
+            end_turn_button,
         })
     }
 
@@ -298,6 +309,11 @@ impl UiPanel {
         }
     }
 
+    /// Check if a click position hits the "End Turn" button
+    pub fn check_end_turn_button_click(&self, x: f32, y: f32) -> bool {
+        self.end_turn_button.contains(x, y)
+    }
+
     pub fn render(&mut self, screen_width: f32, screen_height: f32) {
         unsafe {
             // Disable depth testing for UI rendering
@@ -337,6 +353,9 @@ impl UiPanel {
             if let Some(item_name) = self.pickup_prompt.clone() {
                 self.render_pickup_prompt(screen_width, screen_height, &item_name);
             }
+
+            // Render end turn button
+            self.render_end_turn_button(screen_width, screen_height);
 
             gl::BindVertexArray(0);
 
@@ -740,6 +759,33 @@ impl UiPanel {
             button_width,
             button_height,
         ));
+    }
+
+    unsafe fn render_end_turn_button(&mut self, screen_width: f32, screen_height: f32) {
+        // Render the end turn button at the bottom of the panel
+        let btn = &self.end_turn_button;
+
+        // Button background (blue-ish)
+        self.render_box(btn.x, btn.y, btn.width, btn.height, [0.2, 0.4, 0.7, 1.0]);
+
+        // Button border (lighter blue)
+        self.render_border(btn.x, btn.y, btn.width, btn.height, [0.4, 0.6, 0.9, 1.0]);
+
+        // Render "END TURN" text centered on button
+        let text = "END TURN";
+        let text_size = 14.0;
+        let text_x = btn.x + (btn.width / 2.0) - (text.len() as f32 * text_size * 0.3);
+        let text_y = btn.y + (btn.height / 2.0) - (text_size / 2.0);
+
+        self.text_renderer.render_text(
+            text,
+            text_x,
+            text_y,
+            text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            screen_width,
+            screen_height,
+        );
     }
 
     unsafe fn render_box(&self, x: f32, y: f32, width: f32, height: f32, color: [f32; 4]) {

@@ -34,7 +34,7 @@ use uuid::Uuid;
 /// let enemy_team = Team::Enemy;
 /// assert_ne!(player_team, enemy_team);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Team {
     /// Player-controlled units
     Player,

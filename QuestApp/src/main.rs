@@ -119,6 +119,9 @@ struct GameApp {
     main_menu_scene: MainMenuScene,
     game_initialized: bool, // Track if game scene has been initialized
     exit_requested: bool,   // Flag to request application exit
+
+    // Turn system tracking
+    last_update_time: std::time::Instant, // Track time for delta calculations
 }
 
 /// Item pickup prompt state.
@@ -195,6 +198,9 @@ impl GameApp {
             main_menu_scene: MainMenuScene::new(SCREEN_WIDTH, SCREEN_HEIGHT),
             game_initialized: false,
             exit_requested: false,
+
+            // Turn system tracking
+            last_update_time: std::time::Instant::now(),
         }
     }
 
@@ -204,6 +210,9 @@ impl GameApp {
 
         // Hex grid is already initialized with terrain in new(), just update units
         self.update_hex_grid_units();
+
+        // Start the turn-based game
+        self.game_world.start_turn_based_game();
 
         println!("✅ Game scene initialized!");
     }
@@ -230,6 +239,15 @@ impl GameApp {
                     self.call_unit_on_click(unit_id);
                 } else {
                     println!("No unit selected. Click on a unit first!");
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Space) => {
+                // End current turn (only works if it's a player turn)
+                if self.game_world.is_current_team_player_controlled() {
+                    self.game_world.end_current_turn();
+                    self.clear_selection(); // Clear any unit selection when turn ends
+                } else {
+                    println!("⚠️  Cannot end turn - not your turn!");
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
@@ -489,6 +507,18 @@ impl GameApp {
 
         // Priority 2: Check if clicking on UI buttons
         if let Some(ui_panel) = &self.ui_panel {
+            // Check end turn button
+            if ui_panel.check_end_turn_button_click(x as f32, y as f32) {
+                if self.game_world.is_current_team_player_controlled() {
+                    self.game_world.end_current_turn();
+                    self.clear_selection();
+                    println!("⏭️  Turn ended via UI button");
+                } else {
+                    println!("⚠️  Cannot end turn - not your turn!");
+                }
+                return; // Don't process hex click
+            }
+
             // Check pickup prompt buttons
             if self.pickup_prompt.is_some() {
                 if ui_panel.check_yes_button_click(x as f32, y as f32) {
@@ -1013,10 +1043,57 @@ impl GameApp {
 
     /// Renders UI elements (currently handled by UiPanel).
     ///
-    /// This method is retained for future UI expansion. Current UI rendering
-    /// is handled by the `UiPanel` component.
-    fn render_ui(&self) {
-        // UI info now rendered by UiPanel, no terminal output needed
+    /// Renders additional UI elements like turn information.
+    ///
+    /// This method renders turn-based game UI on top of the main rendering.
+    /// Current UI rendering for unit info is handled by the `UiPanel` component.
+    fn render_ui(&mut self) {
+        // Display turn information
+        if let Some(renderer) = &mut self.renderer {
+            let current_team = self.game_world.current_turn_team();
+            let turn_number = self.game_world.turn_number();
+            let is_player_turn = self.game_world.is_current_team_player_controlled();
+
+            let turn_text = if is_player_turn {
+                format!(
+                    "Turn {}: {:?}'s Turn (Your Turn)",
+                    turn_number + 1,
+                    current_team
+                )
+            } else {
+                let time_remaining = self.game_world.ai_turn_time_remaining();
+                format!(
+                    "Turn {}: {:?}'s Turn (AI - {:.1}s)",
+                    turn_number + 1,
+                    current_team,
+                    time_remaining
+                )
+            };
+
+            // Render turn info at top of screen
+            renderer.text_renderer.render_text(
+                &turn_text,
+                10.0,
+                SCREEN_HEIGHT - 30.0,
+                0.5,
+                [1.0, 1.0, 1.0, 1.0],
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT,
+            );
+
+            // Show "End Turn" button for player turns
+            if is_player_turn {
+                renderer.text_renderer.render_text(
+                    "[SPACE] End Turn",
+                    SCREEN_WIDTH - 200.0,
+                    SCREEN_HEIGHT - 30.0,
+                    0.4,
+                    [0.8, 1.0, 0.8, 1.0],
+                    SCREEN_WIDTH,
+                    SCREEN_HEIGHT,
+                );
+            }
+        }
     }
 
     /// Updates the hex grid with current unit and item positions.
@@ -1468,6 +1545,11 @@ impl ApplicationHandler for GameApp {
                 }
             }
             WindowEvent::RedrawRequested => {
+                // Calculate delta time for game updates
+                let now = std::time::Instant::now();
+                let delta_time = (now - self.last_update_time).as_secs_f32();
+                self.last_update_time = now;
+
                 // Render based on current scene
                 match self.scene_manager.current_scene() {
                     SceneType::MainMenu => {
@@ -1481,6 +1563,9 @@ impl ApplicationHandler for GameApp {
                         }
                     }
                     SceneType::Game => {
+                        // Update game state (turn system, AI, etc.)
+                        self.game_world.update(delta_time);
+
                         // Update unit positions on hex grid before rendering
                         self.update_hex_grid_units();
 

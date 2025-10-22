@@ -14,6 +14,7 @@
 //!
 //! - [`objects`]: Defines the `GameObject` trait and implementations for terrain, units, and interactive objects
 //! - [`world`]: Provides the `GameWorld` structure for managing all game entities and interactions
+//! - [`turn_system`]: Manages turn-based gameplay mechanics
 //!
 //! ## Examples
 //!
@@ -31,9 +32,11 @@
 //! ```
 
 pub mod objects;
+pub mod turn_system;
 pub mod world;
 
 pub use objects::*;
+pub use turn_system::*;
 pub use world::*;
 
 // Re-export commonly used types from dependencies
