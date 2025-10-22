@@ -112,6 +112,11 @@ pub struct Goal {
 /// Planner result: sequence of template indices (actions)
 pub type Plan = Vec<usize>;
 
+// Helper alias to reduce type complexity warnings in clippy. Represents a
+// deduplication key composed of the sorted state's fact vector and the
+// sorted list of satisfied agent ids.
+type StateSatisfiedKey = (Vec<(String, FactValue)>, Vec<String>);
+
 // Node for A* search in state-space
 #[derive(Clone)]
 struct SearchNode {
@@ -225,9 +230,341 @@ pub fn plan_for_team(
     agent_order: &[String],
     max_nodes_per_agent: usize,
 ) -> HashMap<String, Plan> {
-    let mut result: HashMap<String, Plan> = HashMap::new();
-    let mut current_state = start.clone();
+    // Joint team planner: search for a global interleaved sequence of actions (indices into `actions`)
+    // that results in at least one goal satisfied for each agent (one of the goals in their priority list).
+    // If joint planning fails (node limit), fall back to the previous sequential per-agent planner.
 
+    // Precompute per-agent action lists and mapping from global action index -> local index in that agent's list
+    let mut per_agent_actions: HashMap<String, Vec<ActionInstance>> = HashMap::new();
+    let mut global_to_local: HashMap<String, HashMap<usize, usize>> = HashMap::new();
+    for agent in agent_order {
+        let mut vec: Vec<ActionInstance> = Vec::new();
+        let mut map: HashMap<usize, usize> = HashMap::new();
+        for (i, a) in actions.iter().enumerate() {
+            let include = match &a.agent {
+                Some(id) => id == agent,
+                None => true,
+            };
+            if include {
+                map.insert(i, vec.len());
+                vec.push(a.clone());
+            }
+        }
+        per_agent_actions.insert(agent.clone(), vec);
+        global_to_local.insert(agent.clone(), map);
+    }
+
+    // Helper: determine which agent goals are already satisfied in a state
+    let mut initially_satisfied: HashSet<String> = HashSet::new();
+    for agent in agent_order {
+        if let Some(goals) = goals_per_agent.get(agent) {
+            for g in goals {
+                if start.satisfies(&g.key, &g.value) {
+                    initially_satisfied.insert(agent.clone());
+                    break;
+                }
+            }
+        }
+    }
+
+    // Search node for joint planner
+    #[derive(Clone)]
+    struct TeamNode {
+        state: WorldState,
+        g: f32,
+        f: f32,
+        actions: Vec<usize>, // global action indices
+        satisfied: HashSet<String>,
+    }
+
+    impl PartialEq for TeamNode {
+        fn eq(&self, other: &Self) -> bool {
+            self.f == other.f
+        }
+    }
+    impl Eq for TeamNode {}
+    impl PartialOrd for TeamNode {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+    impl Ord for TeamNode {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            // reverse because BinaryHeap is max-heap by default
+            other
+                .f
+                .partial_cmp(&self.f)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        }
+    }
+
+    // Heuristic: estimate remaining cost as the sum, for each unsatisfied agent,
+    // of the minimal action.cost among actions that would satisfy one of their goals.
+    // This is admissible (lower bound) because it ignores preconditions and assumes
+    // a single action can be executed for each remaining agent.
+    fn estimate_remaining_cost(
+        satisfied: &HashSet<String>,
+        actions: &[ActionInstance],
+        goals_per_agent: &HashMap<String, Vec<Goal>>,
+        agent_order: &[String],
+    ) -> f32 {
+        let mut total = 0.0f32;
+        for agent in agent_order {
+            if satisfied.contains(agent) {
+                continue;
+            }
+            // For this agent, find the minimal cost among actions that have an effect
+            // matching any of the agent's goals and are either owned by the agent or global.
+            let mut best = None::<f32>;
+            if let Some(goals) = goals_per_agent.get(agent) {
+                'goal_loop: for g in goals {
+                    for a in actions.iter() {
+                        // Check agent tag: action can be global (None) or belong to this agent
+                        let include = match &a.agent {
+                            Some(id) => id == agent,
+                            None => true,
+                        };
+                        if !include {
+                            continue;
+                        }
+                        for (ek, ev) in a.effects.iter() {
+                            if ek == &g.key && ev == &g.value {
+                                let c = a.cost;
+                                match best {
+                                    None => best = Some(c),
+                                    Some(b) if c < b => best = Some(c),
+                                    _ => {}
+                                }
+                                // found an action satisfying this goal; no need to check more effects
+                                continue 'goal_loop;
+                            }
+                        }
+                    }
+                }
+            }
+            total += best.unwrap_or(1.0); // fallback lower bound
+        }
+        total
+    }
+
+    let mut open = BinaryHeap::new();
+    let mut seen: HashSet<StateSatisfiedKey> = HashSet::new();
+
+    let total_agents = agent_order.len();
+
+    open.push(TeamNode {
+        state: start.clone(),
+        g: 0.0,
+        f: estimate_remaining_cost(&initially_satisfied, actions, goals_per_agent, agent_order),
+        actions: Vec::new(),
+        satisfied: initially_satisfied.clone(),
+    });
+
+    let mut nodes_expanded = 0usize;
+    let mut found_joint_plan: Option<Vec<usize>> = None;
+
+    while let Some(node) = open.pop() {
+        nodes_expanded += 1;
+        if nodes_expanded > max_nodes_per_agent {
+            break; // give up on joint planning
+        }
+
+        // Goal test: all agents satisfied
+        if node.satisfied.len() == total_agents {
+            found_joint_plan = Some(node.actions.clone());
+            break;
+        }
+
+        // Deduplicate by state+satisfied set
+        let mut key_vec: Vec<(String, FactValue)> = node.state.facts.clone().into_iter().collect();
+        key_vec.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut sat_vec: Vec<String> = node.satisfied.iter().cloned().collect();
+        sat_vec.sort();
+        if seen.contains(&(key_vec.clone(), sat_vec.clone())) {
+            continue;
+        }
+        seen.insert((key_vec, sat_vec));
+
+        // Expand applicable GLOBAL actions (all actions in `actions` may be used in the team plan)
+        for (i, a) in actions.iter().enumerate() {
+            if a.is_applicable(&node.state) {
+                let mut new_state = node.state.clone();
+                new_state.apply_effects(&a.effects);
+                let g2 = node.g + a.cost;
+
+                // Update satisfied set by checking for newly satisfied goals for any agent
+                let mut new_satisfied = node.satisfied.clone();
+                for agent in agent_order {
+                    if new_satisfied.contains(agent) {
+                        continue;
+                    }
+                    if let Some(goals) = goals_per_agent.get(agent) {
+                        for g in goals {
+                            if new_state.satisfies(&g.key, &g.value) {
+                                new_satisfied.insert(agent.clone());
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                let h2 =
+                    estimate_remaining_cost(&new_satisfied, actions, goals_per_agent, agent_order);
+
+                let mut actions2 = node.actions.clone();
+                actions2.push(i);
+
+                open.push(TeamNode {
+                    state: new_state,
+                    g: g2,
+                    f: g2 + h2,
+                    actions: actions2,
+                    satisfied: new_satisfied,
+                });
+            }
+        }
+    }
+
+    // Prepare result map
+    let mut result: HashMap<String, Plan> = HashMap::new();
+
+    if let Some(joint) = found_joint_plan {
+        // Split joint plan into per-agent plans. We'll assign global (agent==None) actions to the
+        // first agent (in agent_order) that still lacks a satisfied goal at that point; if all are
+        // satisfied, assign to the first agent as fallback.
+        // Initialize per-agent plan vectors
+        for agent in agent_order {
+            result.insert(agent.clone(), Vec::new());
+        }
+
+        let mut sim_state = start.clone();
+        let mut satisfied = HashSet::new();
+        // Track per-agent assigned (simulated) cost to enable cost-balancing when assigning global actions
+        let mut assigned_costs: HashMap<String, f32> = HashMap::new();
+        for agent in agent_order {
+            assigned_costs.insert(agent.clone(), 0.0);
+        }
+        for agent in agent_order {
+            if let Some(goals) = goals_per_agent.get(agent) {
+                for g in goals {
+                    if sim_state.satisfies(&g.key, &g.value) {
+                        satisfied.insert(agent.clone());
+                        break;
+                    }
+                }
+            }
+        }
+
+        for &global_idx in &joint {
+            if let Some(action) = actions.get(global_idx) {
+                // Decide which agent this action is assigned to
+                let assigned_agent = if let Some(aid) = &action.agent {
+                    aid.clone()
+                } else {
+                    // Candidate agents are those for whom this global action exists in their per-agent action list
+                    let mut candidates: Vec<&String> = Vec::new();
+                    for agent in agent_order {
+                        if let Some(map) = global_to_local.get(agent) {
+                            if map.contains_key(&global_idx) {
+                                candidates.push(agent);
+                            }
+                        }
+                    }
+
+                    // Fallback: if no candidate agent has this exact grounded action, allow any agent
+                    if candidates.is_empty() {
+                        candidates = agent_order.iter().collect();
+                    }
+
+                    // Score candidates: prefer agents for whom this action immediately satisfies an unsatisfied goal (big bonus),
+                    // and prefer agents with lower current assigned cost (to balance load).
+                    let mut best_agent: Option<String> = None;
+                    let mut best_score: f32 = f32::NEG_INFINITY;
+                    for &cand in &candidates {
+                        let mut score: f32 = 0.0;
+                        // bonus if this action's effects satisfy any unsatisfied goal for candidate
+                        if let Some(goals) = goals_per_agent.get(cand) {
+                            for g in goals {
+                                if !satisfied.contains(cand)
+                                    && action
+                                        .effects
+                                        .iter()
+                                        .any(|(k, v)| k == &g.key && v == &g.value)
+                                {
+                                    score += 1000.0;
+                                    break;
+                                }
+                            }
+                        }
+                        // penalize by currently assigned cost (prefer lower cost)
+                        if let Some(c) = assigned_costs.get(cand) {
+                            score -= *c;
+                        }
+
+                        if score > best_score {
+                            best_score = score;
+                            best_agent = Some(cand.clone());
+                        }
+                    }
+
+                    best_agent.unwrap_or_else(|| agent_order[0].clone())
+                };
+
+                // Map global index -> local index for that agent
+                let local_map = global_to_local.get(&assigned_agent).unwrap();
+                if let Some(local_idx) = local_map.get(&global_idx) {
+                    if let Some(plan_vec) = result.get_mut(&assigned_agent) {
+                        plan_vec.push(*local_idx);
+                    }
+                    // update assigned cost for balancing
+                    if let Some(cost) = assigned_costs.get_mut(&assigned_agent) {
+                        *cost += action.cost;
+                    }
+                } else {
+                    // As a fallback, try to find a matching action by equality (rare)
+                    if let Some(agent_actions) = per_agent_actions.get(&assigned_agent) {
+                        if let Some(pos) = agent_actions.iter().position(|aa| {
+                            aa.name == action.name
+                                && aa.effects == action.effects
+                                && aa.preconditions == action.preconditions
+                        }) {
+                            if let Some(plan_vec) = result.get_mut(&assigned_agent) {
+                                plan_vec.push(pos);
+                                if let Some(cost) = assigned_costs.get_mut(&assigned_agent) {
+                                    *cost += action.cost;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Apply effects to sim_state and update satisfied set
+                sim_state.apply_effects(&action.effects);
+                // If this action satisfied a goal for the assigned agent, preference already applied via scoring,
+                // but we still update the satisfied set here.
+                for agent in agent_order {
+                    if satisfied.contains(agent) {
+                        continue;
+                    }
+                    if let Some(goals) = goals_per_agent.get(agent) {
+                        for g in goals {
+                            if sim_state.satisfies(&g.key, &g.value) {
+                                satisfied.insert(agent.clone());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // Fallback: original sequential per-agent planner
+    // Log a debug message so callers can observe that joint planning failed and fallback was used.
+    eprintln!("ai::plan_for_team: joint team planning failed after {} node expansions, falling back to sequential per-agent planner", nodes_expanded);
+    let mut current_state = start.clone();
     for agent in agent_order {
         // Gather actions applicable to this agent (agent==None actions considered global)
         let agent_actions: Vec<ActionInstance> = actions
@@ -253,18 +590,15 @@ pub fn plan_for_team(
 
             if let Some(plan) = chosen_plan {
                 // Store plan and apply it to current_state
-                // Apply actions in plan order
                 for &action_index in &plan {
                     let action = &agent_actions[action_index];
                     current_state.apply_effects(&action.effects);
                 }
                 result.insert(agent.clone(), plan);
             } else {
-                // No plan found: empty plan
                 result.insert(agent.clone(), Vec::new());
             }
         } else {
-            // No goals for this agent
             result.insert(agent.clone(), Vec::new());
         }
     }

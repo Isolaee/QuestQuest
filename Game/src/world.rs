@@ -29,6 +29,11 @@ use graphics::{HexCoord, SpriteType};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+// Weight applied to expected damage when converting to a negative cost (higher -> more aggressive)
+const ATTACK_EXPECTED_UTILITY_WEIGHT: f32 = 1.0;
+// Minimum action cost to avoid non-positive costs which may confuse planner ordering
+const MIN_ACTION_COST: f32 = 0.01;
+
 /// Information about a unit's attack for display in combat dialogs.
 ///
 /// Used to present attack options to the player before combat begins.
@@ -362,40 +367,94 @@ impl GameWorld {
                 });
             }
 
-            // Ground Attack actions for reachable attack positions adjacent to enemies
+            // Ground Attack actions for reachable attack positions based on unit's available attacks and ranges
             for (other_id, other_unit) in &self.units {
                 if other_unit.team() == team {
                     continue;
                 }
                 let enemy_pos = other_unit.position();
 
-                for adj in enemy_pos.neighbors().iter() {
-                    let can_from_here = if *adj == pos {
-                        true
-                    } else {
-                        reachable.contains_key(adj)
-                    };
-                    if !can_from_here {
-                        continue;
+                // Candidate attacker positions: current position + reachable tiles
+                let mut candidate_positions: Vec<HexCoord> = reachable.keys().cloned().collect();
+                if !candidate_positions.contains(&pos) {
+                    candidate_positions.push(pos);
+                }
+
+                // Query the unit's available attacks (includes equipped weapons)
+                let attacks = unit.unit().get_attacks();
+
+                for attack in attacks.iter() {
+                    for from in &candidate_positions {
+                        let dist = from.distance(enemy_pos);
+                        // Use attack's own range check
+                        if !attack.can_reach(dist) {
+                            continue;
+                        }
+
+                        // Ensure the unit can actually be at `from` this turn (either already there or reachable)
+                        let can_from_here = *from == pos || reachable.contains_key(from);
+                        if !can_from_here {
+                            continue;
+                        }
+
+                        let preconds = vec![
+                            (
+                                format!("Unit:{}:At", id),
+                                AiFactValue::Str(format!("{},{}", from.q, from.r)),
+                            ),
+                            (format!("Unit:{}:Alive", other_id), AiFactValue::Bool(true)),
+                        ];
+                        let effects =
+                            vec![(format!("Unit:{}:Alive", other_id), AiFactValue::Bool(false))];
+
+                        // Estimate expected damage and hit chance to convert into an expected-utility cost.
+                        // Hit chance is approximated using the same formula as combat resolver:
+                        // final_hit_chance = (defender.get_defense() as i32 - attacker_race_bonus*2).clamp(10,95)
+                        let defender_def = other_unit.unit().get_defense() as i32;
+                        let attacker_bonus = unit.unit().race().get_attack_bonus();
+                        let final_hit_chance =
+                            (defender_def - attacker_bonus * 2).clamp(10, 95) as u8;
+                        let hit_prob = final_hit_chance as f32 / 100.0;
+
+                        // Compute expected damage on hit using attack.damage and defender resistances
+                        let def_stats = other_unit.unit().combat_stats();
+                        let resistance =
+                            def_stats.resistances.get_resistance(attack.damage_type) as f32;
+                        let resist_mul = 1.0 - (resistance / 100.0);
+                        let damage_on_hit = (attack.damage as f32 * resist_mul).max(1.0);
+
+                        let expected_damage = hit_prob * damage_on_hit;
+
+                        // Movement cost to get to `from` (0 if already at pos)
+                        let movement_cost = if *from == pos {
+                            0
+                        } else {
+                            *reachable.get(from).unwrap_or(&0)
+                        };
+
+                        // Convert to planner cost: movement cost + base action cost - expected utility
+                        // Planner minimizes cost, so higher expected_damage should lower cost.
+                        let mut computed_cost = movement_cost as f32 + 1.0
+                            - (ATTACK_EXPECTED_UTILITY_WEIGHT * expected_damage);
+                        if computed_cost < MIN_ACTION_COST {
+                            computed_cost = MIN_ACTION_COST;
+                        }
+
+                        out.push(AiActionInstance {
+                            name: format!(
+                                "Attack-{}-{}-{}-from-{},{}",
+                                uid_str,
+                                other_id,
+                                attack.name.replace(' ', "_"),
+                                from.q,
+                                from.r
+                            ),
+                            preconditions: preconds,
+                            effects,
+                            cost: computed_cost,
+                            agent: Some(uid_str.clone()),
+                        });
                     }
-
-                    let preconds = vec![
-                        (
-                            format!("Unit:{}:At", id),
-                            AiFactValue::Str(format!("{},{}", adj.q, adj.r)),
-                        ),
-                        (format!("Unit:{}:Alive", other_id), AiFactValue::Bool(true)),
-                    ];
-                    let effects =
-                        vec![(format!("Unit:{}:Alive", other_id), AiFactValue::Bool(false))];
-
-                    out.push(AiActionInstance {
-                        name: format!("Attack-{}-{}-from-{},{}", uid_str, other_id, adj.q, adj.r),
-                        preconditions: preconds,
-                        effects,
-                        cost: 1.0,
-                        agent: Some(uid_str.clone()),
-                    });
                 }
             }
         }
