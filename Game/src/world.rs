@@ -550,7 +550,16 @@ impl GameWorld {
             return Err("Position is blocked or invalid".to_string());
         }
 
+        // Determine movement cost for the target tile
+        let movement_cost = self.get_movement_cost(new_position);
+
         if let Some(unit) = self.units.get_mut(&unit_id) {
+            // Ensure the unit has enough movement points left
+            if !unit.consume_moves(movement_cost) {
+                return Err("Not enough movement points".to_string());
+            }
+
+            // Perform move
             unit.set_position(new_position);
             // Mark unit as having acted (moved) this turn
             self.turn_system.mark_unit_acted(unit_id);
@@ -1016,11 +1025,28 @@ impl GameWorld {
     /// Starts the game and begins turn-based gameplay
     pub fn start_turn_based_game(&mut self) {
         self.turn_system.start_game();
+        // Reset movement points for units on the starting team
+        let current_team = self.turn_system.current_team();
+        self.reset_moves_for_team(current_team);
     }
 
     /// Ends the current turn and advances to the next team
     pub fn end_current_turn(&mut self) {
+        // End the turn in the turn system (advances to next team)
         self.turn_system.end_turn();
+
+        // Reset movement points for units on the new current team
+        let current_team = self.turn_system.current_team();
+        self.reset_moves_for_team(current_team);
+    }
+
+    /// Resets movement points for all units belonging to a given team.
+    fn reset_moves_for_team(&mut self, team: Team) {
+        for unit in self.units.values_mut() {
+            if unit.team() == team {
+                unit.reset_moves_to_max();
+            }
+        }
     }
 
     /// Returns the team whose turn it currently is

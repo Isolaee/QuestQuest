@@ -320,6 +320,10 @@ pub struct GameUnit {
     team: Team,
     last_action_time: f32,
     action_cooldown: f32,
+    /// Remaining movement points for the current turn. Units cannot move
+    /// more than this value in total during their team's turn. This is
+    /// measured in the same units as terrain movement cost (f32).
+    moves_left: f32,
 }
 
 impl GameUnit {
@@ -342,12 +346,15 @@ impl GameUnit {
     /// let game_unit = GameUnit::new(Box::new(warrior));
     /// ```
     pub fn new(unit: Box<dyn units::Unit>) -> Self {
+        // Initialize moves_left from the underlying unit's combat stats
+        let movement = unit.combat_stats().movement_speed as f32;
         Self {
             id: Uuid::new_v4(),
             unit,
             team: Team::Player, // Default to Player team
             last_action_time: 0.0,
             action_cooldown: 1.0, // 1 second default cooldown
+            moves_left: movement,
         }
     }
 
@@ -369,12 +376,14 @@ impl GameUnit {
     /// let enemy_unit = GameUnit::new_with_team(Box::new(warrior), Team::Enemy);
     /// ```
     pub fn new_with_team(unit: Box<dyn units::Unit>, team: Team) -> Self {
+        let movement = unit.combat_stats().movement_speed as f32;
         Self {
             id: Uuid::new_v4(),
             unit,
             team,
             last_action_time: 0.0,
             action_cooldown: 1.0,
+            moves_left: movement,
         }
     }
 
@@ -436,6 +445,36 @@ impl GameUnit {
     /// equipment, and other relevant information.
     pub fn show_unit_details(&self) {
         self.unit.on_click();
+    }
+
+    /// Returns the remaining movement points for this unit this turn.
+    pub fn moves_left(&self) -> f32 {
+        self.moves_left
+    }
+
+    /// Sets the remaining movement points for this unit.
+    pub fn set_moves_left(&mut self, val: f32) {
+        self.moves_left = val.max(0.0);
+    }
+
+    /// Resets the unit's movement points to its maximum movement for the
+    /// current stats (usually called at the start of the unit's team's turn).
+    pub fn reset_moves_to_max(&mut self) {
+        self.moves_left = self.unit.combat_stats().movement_speed as f32;
+    }
+
+    /// Attempts to consume movement points. Returns true if the unit had
+    /// enough moves and the cost was subtracted, false otherwise.
+    pub fn consume_moves(&mut self, cost: f32) -> bool {
+        if cost <= 0.0 {
+            return true;
+        }
+        if self.moves_left >= cost {
+            self.moves_left -= cost;
+            true
+        } else {
+            false
+        }
     }
 
     /// Returns unit details as a formatted string.
