@@ -2,13 +2,15 @@ repos:
   - repo: local
     hooks:
       - id: cargo-fmt
-        name: Rust Format
-        entry: cargo fmt
+        name: Rust Format (Auto-stage)
+        entry: powershell.exe -ExecutionPolicy Bypass -File scripts/fmt-and-stage.ps1
         language: system
         types: [rust]
         pass_filenames: false
-        args: [--all]
-        description: Automatically format Rust code before commit
+        description: Automatically format Rust code and stage changes before commit
+        # Note: This will auto-format and stage changes
+        # Files are automatically added to the commit
+        stages: [pre-commit]
         
       - id: cargo-clippy
         name: Rust Clippy Lints
