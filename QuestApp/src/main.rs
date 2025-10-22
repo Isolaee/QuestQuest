@@ -118,6 +118,7 @@ struct GameApp {
     scene_manager: SceneManager,
     main_menu_scene: MainMenuScene,
     game_initialized: bool, // Track if game scene has been initialized
+    exit_requested: bool,   // Flag to request application exit
 }
 
 /// Item pickup prompt state.
@@ -193,6 +194,7 @@ impl GameApp {
             scene_manager: SceneManager::new(),
             main_menu_scene: MainMenuScene::new(SCREEN_WIDTH, SCREEN_HEIGHT),
             game_initialized: false,
+            exit_requested: false,
         }
     }
 
@@ -467,11 +469,15 @@ impl GameApp {
                             println!("📂 Load Game: Not yet implemented");
                         }
                         MenuAction::ExitToMainMenu => {
-                            println!("🏠 Exit to Main Menu: Not yet implemented");
+                            println!("🏠 Exiting to Main Menu...");
+                            // Hide the menu first
+                            renderer.menu_display.hide();
+                            // Transition back to main menu
+                            self.scene_manager.transition_to(SceneType::MainMenu);
                         }
                         MenuAction::ExitGame => {
-                            println!("👋 Exit Game: Not yet implemented");
-                            // TODO: Implement proper exit
+                            println!("👋 Exiting game...");
+                            self.exit_requested = true;
                         }
                     }
                     return; // Don't process other clicks when menu is active
@@ -1351,6 +1357,13 @@ impl ApplicationHandler for GameApp {
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
+        }
+
+        // Check if exit was requested
+        if self.exit_requested {
+            println!("👋 Goodbye!");
+            event_loop.exit();
+            return;
         }
 
         match event {

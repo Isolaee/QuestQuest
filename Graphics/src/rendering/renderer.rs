@@ -109,8 +109,9 @@ impl Default for MenuDisplay {
 
 impl MenuDisplay {
     pub fn new() -> Self {
-        // Create default menu buttons centered on screen
-        let center_x = (1200.0 - 200.0) / 2.0; // Center horizontally (assuming 1200px screen)
+        // Create default menu buttons - will be repositioned when window size is known
+        // Initial positions are placeholders
+        let center_x = 500.0;
         let start_y = 150.0;
         let button_spacing = 60.0;
 
@@ -148,6 +149,30 @@ impl MenuDisplay {
             buttons,
             position: (300.0, 100.0),
             size: (600.0, 600.0),
+        }
+    }
+
+    /// Update menu positions based on actual window dimensions
+    pub fn update_for_screen_size(&mut self, screen_width: f32, screen_height: f32) {
+        // Center the menu panel on screen
+        let panel_width = 600.0;
+        let panel_height = 600.0;
+        self.position = (
+            (screen_width - panel_width) / 2.0,
+            (screen_height - panel_height) / 2.0,
+        );
+        self.size = (panel_width, panel_height);
+
+        // Position buttons within the panel
+        let button_width = 300.0;
+        let button_height = 50.0;
+        let button_start_x = self.position.0 + (panel_width - button_width) / 2.0;
+        let button_start_y = self.position.1 + 100.0;
+        let button_spacing = 60.0;
+
+        for (i, button) in self.buttons.iter_mut().enumerate() {
+            button.position = (button_start_x, button_start_y + i as f32 * button_spacing);
+            button.size = (button_width, button_height);
         }
     }
 
@@ -526,7 +551,7 @@ impl Renderer {
 
         let text_renderer = TextRenderer::new()?;
 
-        Ok(Self {
+        let mut renderer = Self {
             vao,
             shader_program,
             vertex_buffer: VertexBuffer::new(vbo),
@@ -538,7 +563,14 @@ impl Renderer {
             text_renderer,
             window_width,
             window_height,
-        })
+        };
+
+        // Initialize menu positions based on actual window size
+        renderer
+            .menu_display
+            .update_for_screen_size(window_width, window_height);
+
+        Ok(renderer)
     }
 
     pub fn render(&mut self, hex_grid: &HexGrid) {
@@ -940,9 +972,9 @@ impl Renderer {
         let (panel_x, panel_y) = self.menu_display.position;
         let (panel_width, panel_height) = self.menu_display.size;
 
-        // Screen dimensions (should match window size)
-        let screen_width = 1200.0;
-        let screen_height = 800.0;
+        // Use actual screen dimensions
+        let screen_width = self.window_width;
+        let screen_height = self.window_height;
 
         let mut vertices = Vec::new();
 
@@ -1198,8 +1230,8 @@ impl Renderer {
     }
 
     unsafe fn render_menu_text(&mut self) {
-        let window_width = 1200.0;
-        let window_height = 800.0;
+        let window_width = self.window_width;
+        let window_height = self.window_height;
 
         // Render title
         let title = "GAME MENU";
