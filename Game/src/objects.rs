@@ -317,6 +317,10 @@ pub struct GameUnit {
     action_cooldown: f32,
     /// Remaining movement points for the current turn (integer tiles).
     moves_left: i32,
+    /// Optional per-unit AI executor used during AI-controlled turns
+    pub ai_executor: Option<ai::ActionExecutor>,
+    /// Planned AI actions (grounded ActionInstance sequence)
+    pub ai_plan: Vec<ai::ActionInstance>,
 }
 
 impl GameUnit {
@@ -352,6 +356,8 @@ impl GameUnit {
             last_action_time: 0.0,
             action_cooldown: 1.0, // 1 second default cooldown
             moves_left: movement,
+            ai_executor: None,
+            ai_plan: Vec::new(),
         }
     }
 
@@ -386,6 +392,8 @@ impl GameUnit {
             last_action_time: 0.0,
             action_cooldown: 1.0,
             moves_left: movement,
+            ai_executor: None,
+            ai_plan: Vec::new(),
         }
     }
 

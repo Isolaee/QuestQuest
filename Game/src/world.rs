@@ -1431,6 +1431,202 @@ impl GameWorld {
             unit.update(delta_time);
         }
 
+        // Simple AI integration: if it's an AI-controlled team's turn, let each AI unit
+        // plan and execute a short plan. We'll take a snapshot of enemy info first to avoid
+        // borrow conflicts, then iterate units and use their executor/plan.
+        if !self.is_current_team_player_controlled() {
+            let current_team = self.turn_system.current_team();
+
+            // Snapshot enemies: list of (id, pos, health, alive)
+            let enemies: Vec<(Uuid, graphics::HexCoord, u32, bool)> = self
+                .units
+                .iter()
+                .filter_map(|(eid, u)| {
+                    if u.team() != current_team {
+                        Some((
+                            *eid,
+                            u.position(),
+                            u.unit().combat_stats().health as u32,
+                            u.unit().is_alive(),
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let unit_ids: Vec<Uuid> = self.units.keys().cloned().collect();
+
+            use std::collections::HashMap as Map;
+            let mut planned_plans: Map<Uuid, Vec<ai::ActionInstance>> = Map::new();
+
+            // Planning pass (immutable borrows)
+            for uid in &unit_ids {
+                if let Some(unit_ref) = self.units.get(uid) {
+                    if unit_ref.team() != current_team {
+                        continue;
+                    }
+
+                    if unit_ref.ai_plan.is_empty() {
+                        if enemies.is_empty() {
+                            continue;
+                        }
+
+                        let mut state = ai::WorldState::new();
+                        let pos = unit_ref.position();
+                        state.insert(
+                            "At".to_string(),
+                            ai::FactValue::Str(format!("{}:{}", pos.q, pos.r)),
+                        );
+
+                        let (_enemy_id, opos, ohealth, oalive) = enemies[0];
+                        state.insert(
+                            "EnemyAt".to_string(),
+                            ai::FactValue::Str(format!("{}:{}", opos.q, opos.r)),
+                        );
+                        state.insert(
+                            "EnemyHealth".to_string(),
+                            ai::FactValue::Int(ohealth as i32),
+                        );
+                        state.insert("EnemyAlive".to_string(), ai::FactValue::Bool(oalive));
+
+                        let move_t = ai::ActionTemplate {
+                            name: "MoveToEnemy".to_string(),
+                            preconditions: vec![(
+                                "At".to_string(),
+                                ai::FactValue::Str(format!("{}:{}", pos.q, pos.r)),
+                            )],
+                            effects: vec![(
+                                "At".to_string(),
+                                ai::FactValue::Str(format!("{}:{}", opos.q, opos.r)),
+                            )],
+                            cost: 1.0,
+                        };
+
+                        let attack_template = ai::AttackTemplate {
+                            name_base: "Attack".to_string(),
+                            damage: 5,
+                            cost: 1.0,
+                            range: 1,
+                        };
+
+                        let mut instances: Vec<ai::ActionInstance> = Vec::new();
+                        instances.push(ai::ground_action_from_template(
+                            &move_t,
+                            Some(unit_ref.name()),
+                        ));
+                        let mut att =
+                            attack_template.ground_for_state(&state, Some(unit_ref.name()));
+                        instances.append(&mut att);
+
+                        let goal = ai::Goal {
+                            key: "EnemyAlive".to_string(),
+                            value: ai::FactValue::Bool(false),
+                        };
+                        if let Some(plan_idx) = ai::plan_instances(&state, &instances, &goal, 500) {
+                            let plan_vec: Vec<ai::ActionInstance> =
+                                plan_idx.iter().map(|&i| instances[i].clone()).collect();
+                            planned_plans.insert(*uid, plan_vec);
+                        }
+                    }
+                }
+            }
+
+            // Execution pass (mutable borrows). Collect pending updates to apply after loop.
+            let mut unit_pos_updates: Vec<(Uuid, graphics::HexCoord)> = Vec::new();
+            let mut enemy_health_updates: Vec<(Uuid, i32)> = Vec::new();
+
+            for uid in unit_ids {
+                // Mutable borrow per unit
+                if let Some(unit_mut) = self.units.get_mut(&uid) {
+                    if unit_mut.team() != current_team {
+                        continue;
+                    }
+
+                    if unit_mut.ai_executor.is_none() {
+                        unit_mut.ai_executor = Some(ai::ActionExecutor::new());
+                    }
+
+                    // Assign planned plan if present
+                    if unit_mut.ai_plan.is_empty() {
+                        if let Some(p) = planned_plans.remove(&uid) {
+                            unit_mut.ai_plan = p;
+                        }
+                    }
+
+                    // Read position before taking a mutable borrow of the executor
+                    let p = unit_mut.position();
+                    let mut ws = ai::WorldState::new();
+                    ws.insert(
+                        "At".to_string(),
+                        ai::FactValue::Str(format!("{}:{}", p.q, p.r)),
+                    );
+                    if !enemies.is_empty() {
+                        let (_, op, oh, oa) = enemies[0];
+                        ws.insert(
+                            "EnemyAt".to_string(),
+                            ai::FactValue::Str(format!("{}:{}", op.q, op.r)),
+                        );
+                        ws.insert("EnemyHealth".to_string(), ai::FactValue::Int(oh as i32));
+                        ws.insert("EnemyAlive".to_string(), ai::FactValue::Bool(oa));
+                    }
+
+                    if let Some(ex) = &mut unit_mut.ai_executor {
+                        if ex.current.is_none() && !unit_mut.ai_plan.is_empty() {
+                            let next = unit_mut.ai_plan.remove(0);
+                            let runtime = if next.name.starts_with("Move") {
+                                ai::RuntimeAction::Timed {
+                                    instance: next,
+                                    duration: 1.0,
+                                    elapsed: 0.0,
+                                }
+                            } else {
+                                ai::RuntimeAction::Instant(next)
+                            };
+                            ex.start(runtime);
+                        }
+
+                        let mut applied_ws = ws.clone();
+                        let completed = ex.update(delta_time, &mut applied_ws);
+
+                        // Record position update if changed
+                        if let Some(ai::FactValue::Str(newpos)) = applied_ws.get("At") {
+                            if let Some((qstr, rstr)) = newpos.split_once(':') {
+                                if let (Ok(q), Ok(r)) = (qstr.parse::<i32>(), rstr.parse::<i32>()) {
+                                    unit_pos_updates.push((uid, graphics::HexCoord::new(q, r)));
+                                }
+                            }
+                        }
+
+                        // Record enemy health update for first enemy
+                        if !enemies.is_empty() {
+                            let (enemy_id, _, _, _) = enemies[0];
+                            if let Some(ai::FactValue::Int(h)) = applied_ws.get("EnemyHealth") {
+                                enemy_health_updates.push((enemy_id, *h));
+                            }
+                        }
+
+                        if completed {
+                            self.turn_system.mark_unit_acted(unit_mut.id());
+                        }
+                    }
+                }
+            }
+
+            // Apply recorded updates
+            for (uid, newpos) in unit_pos_updates {
+                if let Some(u) = self.units.get_mut(&uid) {
+                    u.set_position(newpos);
+                }
+            }
+            for (eid, h) in enemy_health_updates {
+                if let Some(enemy_unit) = self.units.get_mut(&eid) {
+                    let stats = enemy_unit.unit_mut().combat_stats_mut();
+                    stats.health = h;
+                }
+            }
+        }
+
         // Handle interactions between objects at the same position
         self.process_interactions();
     }
