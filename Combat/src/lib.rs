@@ -23,7 +23,7 @@
 //!
 //! ## Examples
 //!
-//! ```ignore
+//! ```
 //! use combat::{CombatStats, DamageType, RangeCategory, Resistances, resolve_combat};
 //!
 //! // Create combatants
@@ -43,9 +43,10 @@
 //!     Resistances::default()
 //! );
 //!
-//! // Resolve combat
+//! // Resolve combat; avoid asserting exact values because results are randomized.
 //! let result = resolve_combat(&mut attacker, &mut defender, DamageType::Slash);
-//! println!("Attacker dealt {} damage", result.attacker_damage_dealt);
+//! assert!(result.attacker_casualties <= 1);
+//! assert!(result.defender_casualties <= 1);
 //! ```
 
 mod combat_action;

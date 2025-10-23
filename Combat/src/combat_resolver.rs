@@ -41,17 +41,19 @@ use rand::Rng;
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use combat::{resolve_combat, CombatStats, DamageType, RangeCategory, Resistances};
 ///
+/// // Create two combatants using the public constructors
 /// let mut warrior = CombatStats::new(100, 20, 5, RangeCategory::Melee, Resistances::default());
 /// let mut goblin = CombatStats::new(50, 10, 4, RangeCategory::Melee, Resistances::default());
 ///
+/// // Run the resolver. The combat outcome is randomized; assert invariants
+/// // that should always hold instead of expecting a specific numeric result.
 /// let result = resolve_combat(&mut warrior, &mut goblin, DamageType::Slash);
-///
-/// if result.defender_casualties > 0 {
-///     println!("Goblin defeated!");
-/// }
+/// assert!(result.attacker_casualties <= 1);
+/// assert!(result.defender_casualties <= 1);
+/// assert!(result.attacker_damage_dealt as i128 + result.defender_damage_dealt as i128 >= 0);
 /// ```
 pub fn resolve_combat(
     attacker: &mut CombatStats,

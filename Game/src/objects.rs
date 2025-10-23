@@ -68,13 +68,15 @@ pub enum Team {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use game::{GameObject, TerrainTile};
-/// use graphics::{HexCoord, SpriteType};
+/// ```
+/// use game::{TerrainTile, GameObject};
+/// use graphics::HexCoord;
+/// use graphics::SpriteType;
 ///
 /// let tile = TerrainTile::new(HexCoord::new(0, 0), SpriteType::Grasslands);
-/// println!("Tile at: {:?}", tile.position());
-/// println!("Movement cost: {}", tile.movement_cost());
+/// assert_eq!(tile.position(), HexCoord::new(0, 0));
+/// let c = tile.movement_cost();
+/// assert!(c >= 1);
 /// ```
 pub trait GameObject {
     /// Returns the unique identifier for this object.
@@ -293,17 +295,19 @@ impl GameObject for TerrainTile {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use game::{GameUnit, Team};
-/// use units::warrior::Warrior;
 /// use graphics::HexCoord;
+/// use units::unit_factory::UnitFactory;
 ///
-/// let warrior = Warrior::new("Ragnar".to_string(), HexCoord::new(0, 0));
-/// let mut game_unit = GameUnit::new(Box::new(warrior));
+/// let boxed = UnitFactory::create_human_warrior(
+///     "Ragnar".to_string(),
+///     HexCoord::new(0, 0),
+///     units::unit_race::Terrain::Grasslands,
+/// );
+/// let mut game_unit = GameUnit::new(boxed);
 /// game_unit.set_team(Team::Player);
-///
-/// println!("Unit: {}", game_unit.name());
-/// println!("Team: {:?}", game_unit.team());
+/// assert_eq!(game_unit.team(), Team::Player);
 /// ```
 pub struct GameUnit {
     id: Uuid,
@@ -326,13 +330,17 @@ impl GameUnit {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
     /// use game::GameUnit;
-    /// use units::warrior::Warrior;
     /// use graphics::HexCoord;
+    /// use units::unit_factory::UnitFactory;
     ///
-    /// let warrior = Warrior::new("Bjorn".to_string(), HexCoord::new(0, 0));
-    /// let game_unit = GameUnit::new(Box::new(warrior));
+    /// let boxed = UnitFactory::create_human_warrior(
+    ///     "Bjorn".to_string(),
+    ///     HexCoord::new(0, 0),
+    ///     units::unit_race::Terrain::Grasslands,
+    /// );
+    /// let _game_unit = GameUnit::new(boxed);
     /// ```
     pub fn new(unit: Box<dyn units::Unit>) -> Self {
         // Initialize moves_left from the underlying unit's combat stats
@@ -356,13 +364,18 @@ impl GameUnit {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
     /// use game::{GameUnit, Team};
-    /// use units::warrior::Warrior;
     /// use graphics::HexCoord;
+    /// use units::unit_factory::UnitFactory;
     ///
-    /// let warrior = Warrior::new("Enemy Guard".to_string(), HexCoord::new(5, 5));
-    /// let enemy_unit = GameUnit::new_with_team(Box::new(warrior), Team::Enemy);
+    /// let boxed = UnitFactory::create_human_warrior(
+    ///     "Enemy Guard".to_string(),
+    ///     HexCoord::new(5, 5),
+    ///     units::unit_race::Terrain::Grasslands,
+    /// );
+    /// let enemy_unit = GameUnit::new_with_team(boxed, Team::Enemy);
+    /// assert_eq!(enemy_unit.team(), Team::Enemy);
     /// ```
     pub fn new_with_team(unit: Box<dyn units::Unit>, team: Team) -> Self {
         let movement = unit.combat_stats().movement_speed;
@@ -592,13 +605,15 @@ impl InteractiveObject {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
     /// use game::InteractiveObject;
     /// use graphics::HexCoord;
-    /// use units::Item;
+    /// use items::item_definitions::create_iron_sword;
     ///
-    /// let sword = Item { /* ... */ };
+    /// // Use helper from item_definitions to create a concrete Item
+    /// let sword = create_iron_sword();
     /// let pickup = InteractiveObject::new_item_pickup(HexCoord::new(5, 3), sword);
+    /// assert!(pickup.has_item());
     /// ```
     pub fn new_item_pickup(position: HexCoord, item: units::Item) -> Self {
         Self {

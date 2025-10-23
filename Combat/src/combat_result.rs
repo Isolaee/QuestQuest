@@ -11,18 +11,16 @@
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```
 /// use combat::{resolve_combat, CombatStats, DamageType, RangeCategory, Resistances};
 ///
 /// let mut attacker = CombatStats::new(100, 20, 5, RangeCategory::Melee, Resistances::default());
 /// let mut defender = CombatStats::new(80, 15, 4, RangeCategory::Melee, Resistances::default());
 ///
 /// let result = resolve_combat(&mut attacker, &mut defender, DamageType::Slash);
-///
-/// println!("Attacker dealt {} damage", result.attacker_damage_dealt);
-/// if result.defender_casualties > 0 {
-///     println!("Defender was defeated!");
-/// }
+/// // We don't assert specific damage values because resolve_combat uses randomness.
+/// assert!(result.attacker_casualties <= 1);
+/// assert!(result.defender_casualties <= 1);
 /// ```
 #[derive(Debug, Clone)]
 pub struct CombatResult {

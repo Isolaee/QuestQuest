@@ -11,21 +11,23 @@
 //! - Unit activation tracking (which units have acted)
 //! - Turn phase management
 //!
-//! ## Example
-//!
-//! ```ignore
-//! use game::TurnSystem;
-//!
-//! let mut turn_system = TurnSystem::new();
-//! turn_system.start_game();
-//!
-//! // During update loop
-//! turn_system.update(delta_time);
-//! if turn_system.should_end_turn() {
-//!     turn_system.end_turn();
-//! }
-//! ```
-
+/// ## Example
+///
+/// ```
+/// use game::TurnSystem;
+/// use game::Team;
+/// use game::TurnPhase;
+///
+/// let mut turn_system = TurnSystem::new();
+/// turn_system.start_game();
+/// assert!(turn_system.phase() == TurnPhase::Active);
+/// // Simulate passing time for AI teams (default AI delay is 3.0s)
+/// turn_system.set_team_control(Team::Player, true);
+/// turn_system.set_team_control(Team::Enemy, false);
+/// // Ensure player turn doesn't auto-advance
+/// turn_system.update(5.0);
+/// assert_eq!(turn_system.current_team(), Team::Player);
+/// ```
 use crate::Team;
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -54,16 +56,15 @@ pub enum TurnPhase {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// let mut turn_system = TurnSystem::new();
-/// turn_system.add_team(Team::Player, true);  // Player-controlled
-/// turn_system.add_team(Team::Enemy, false);  // AI-controlled
-/// turn_system.start_game();
+/// ```
+/// use game::TurnSystem;
+/// use game::Team;
 ///
-/// // Check whose turn it is
-/// if turn_system.is_team_turn(Team::Player) {
-///     println!("Player's turn!");
-/// }
+/// let mut turn_system = TurnSystem::new();
+/// turn_system.set_team_control(Team::Player, true);
+/// turn_system.set_team_control(Team::Enemy, false);
+/// turn_system.start_game();
+/// assert!(turn_system.is_team_turn(Team::Player));
 /// ```
 pub struct TurnSystem {
     /// List of teams participating in the turn order

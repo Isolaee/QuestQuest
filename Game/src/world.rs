@@ -606,11 +606,20 @@ impl GameWorld {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
     /// use game::{GameWorld, GameUnit};
+    /// use graphics::HexCoord;
+    /// use units::unit_factory::UnitFactory;
     ///
-    /// let mut world = GameWorld::new(10);
-    /// let unit_id = world.add_unit(some_game_unit);
+    /// let mut world = GameWorld::new(4);
+    /// let boxed = UnitFactory::create_goblin_grunt(
+    ///     "Gob1".to_string(),
+    ///     HexCoord::new(0, 0),
+    ///     units::unit_race::Terrain::Grasslands,
+    /// );
+    /// let u = GameUnit::new(boxed);
+    /// let id = world.add_unit(u);
+    /// assert!(world.get_unit(id).is_some());
     /// ```
     pub fn add_unit(&mut self, unit: GameUnit) -> Uuid {
         let id = unit.id();
@@ -854,17 +863,38 @@ impl GameWorld {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```
     /// use game::GameWorld;
     /// use graphics::HexCoord;
+    /// use units::unit_factory::UnitFactory;
+    /// use game::{GameUnit, Team};
     ///
-    /// let mut world = GameWorld::new(10);
-    /// // ... add units ...
+    /// let mut world = GameWorld::new(4);
+    /// world.start_turn_based_game();
     ///
-    /// match world.move_unit(unit_id, HexCoord::new(1, 0)) {
-    ///     Ok(()) => println!("Unit moved successfully"),
-    ///     Err(msg) => println!("Movement failed: {}", msg),
-    /// }
+    /// // Create player unit and add to world
+    /// let boxed_p = UnitFactory::create_goblin_grunt(
+    ///     "Player".to_string(),
+    ///     HexCoord::new(0,0),
+    ///     units::unit_race::Terrain::Grasslands,
+    /// );
+    /// let mut pu = GameUnit::new(boxed_p);
+    /// pu.set_team(Team::Player);
+    /// let pid = world.add_unit(pu);
+    ///
+    /// // Create enemy next to player
+    /// let boxed_e = UnitFactory::create_goblin_grunt(
+    ///     "Enemy".to_string(),
+    ///     HexCoord::new(1,0),
+    ///     units::unit_race::Terrain::Grasslands,
+    /// );
+    /// let mut eu = GameUnit::new(boxed_e);
+    /// eu.set_team(Team::Enemy);
+    /// let _eid = world.add_unit(eu);
+    ///
+    /// // Moving into the enemy tile should request combat (returns Err or sets pending_combat)
+    /// let res = world.move_unit(pid, HexCoord::new(1,0));
+    /// assert!(res.is_err() || world.pending_combat.is_some());
     /// ```
     pub fn move_unit(&mut self, unit_id: Uuid, new_position: HexCoord) -> Result<(), String> {
         // Check if game has started
