@@ -51,10 +51,11 @@ pub struct UiPanel {
     shader_program: GLuint,
     unit_info: Option<UnitDisplayInfo>,
     text_renderer: TextRenderer,
-    pickup_prompt: Option<String>,     // Item name for pickup prompt
-    pickup_yes_button: Option<Button>, // Pick up button
-    pickup_no_button: Option<Button>,  // Leave it button
-    pub end_turn_button: Button,       // End turn button
+    pickup_prompt: Option<String>,      // Item name for pickup prompt
+    pickup_yes_button: Option<Button>,  // Pick up button
+    pickup_no_button: Option<Button>,   // Leave it button
+    pickup_text_button: Option<Button>, // Box around the item name
+    pub end_turn_button: Button,        // End turn button
 }
 
 impl UiPanel {
@@ -89,6 +90,7 @@ impl UiPanel {
             pickup_prompt: None,
             pickup_yes_button: None,
             pickup_no_button: None,
+            pickup_text_button: None,
             end_turn_button,
         })
     }
@@ -263,6 +265,7 @@ impl UiPanel {
         self.pickup_prompt = None;
         self.pickup_yes_button = None;
         self.pickup_no_button = None;
+        self.pickup_text_button = None;
     }
 
     /// Get a mutable reference to the text renderer
@@ -354,13 +357,13 @@ impl UiPanel {
                 self.render_pickup_prompt(screen_width, screen_height, &item_name);
             }
 
-            // Render end turn button
-            self.render_end_turn_button(screen_width, screen_height);
-
             gl::BindVertexArray(0);
 
             // Render text on top of everything else
             self.render_unit_text(screen_width, screen_height);
+
+            // Render end turn button last so it remains visible above any prompts
+            self.render_end_turn_button(screen_width, screen_height);
         }
     }
 
@@ -675,72 +678,222 @@ impl UiPanel {
         &mut self,
         screen_width: f32,
         screen_height: f32,
-        _item_name: &str,
+        item_name: &str,
     ) {
-        // Render at the bottom of the UI panel (not bottom of screen)
+        // Render near the bottom of the UI panel, but place above the End Turn button
+        // so the pickup choices don't overlap the End Turn button.
         let margin = 10.0;
         let prompt_width = self.width - (margin * 2.0);
         let prompt_x = self.x + margin;
-        // Position at bottom of UI panel
-        let prompt_y = self.y + self.height - 60.0; // Just enough height for two buttons
-
-        // Calculate button dimensions
-        let button_width = (prompt_width - 30.0) / 2.0;
-        let button_height = 50.0;
+        // Text sizes and padding
+        let item_text_size = 14.0; // slightly larger for item name
+        let btn_text_size = 14.0;
+        // Increase padding to give the item name a larger box like the screenshot
+        let text_padding_x = 16.0;
+        let mut text_padding_y = 10.0;
         let button_spacing = 10.0;
+        let gap_between_text_and_buttons = 12.0;
 
-        // "Pick Up" button (left, green)
-        let yes_button_x = prompt_x + 10.0;
-        let button_y = prompt_y;
+        // Labels
+        let pick_label = "Pick Up";
+        let no_label = "Leave";
 
+        // Compute widths based on label length (simple heuristic)
+        // Compute button widths based on label length (simple heuristic)
+        let pick_text_w = (pick_label.len() as f32) * btn_text_size * 0.6;
+        let no_text_w = (no_label.len() as f32) * btn_text_size * 0.6;
+
+        let pick_button_width = pick_text_w + text_padding_x * 2.0;
+        let no_button_width = no_text_w + text_padding_x * 2.0;
+
+        // Button height based on text size + vertical padding
+        let mut button_height = btn_text_size + text_padding_y * 2.0;
+
+        // Box dimensions for the text (padding around text)
+        let measured_width = (item_name.len() as f32 * item_text_size * 0.6) + text_padding_x * 2.0;
+        let min_text_box_width = 140.0; // reasonable minimum so short names look roomy
+        let text_box_width = measured_width.max(min_text_box_width);
+        // Make the text box slightly taller as in the screenshot
+        let mut text_box_height = item_text_size + text_padding_y * 2.0 + 6.0;
+
+        // Total width of the two buttons (without extra container padding)
+        let total_buttons_width = pick_button_width + no_button_width + button_spacing;
+
+        // Container padding inside the container around buttons
+        let container_padding = 8.0;
+        // Determine inner width of container (space for buttons or text box)
+        let container_inner_width = total_buttons_width.max(text_box_width);
+        let container_width = container_inner_width + container_padding * 2.0;
+
+        // Compute the vertical layout so the whole prompt sits above the End Turn button
+        let container_height = button_height + container_padding * 2.0;
+        // total_prompt_height intentionally omitted (computed sizes used directly)
+
+        // Place container so its bottom sits margin pixels above the End Turn button top
+        let mut container_top_y = if self.end_turn_button.y > 0.0 {
+            // end_turn_button.y is the top of the button; place container so it doesn't overlap
+            (self.end_turn_button.y - margin) - container_height
+        } else {
+            // Fallback to bottom of panel
+            self.y + self.height - container_height - 60.0
+        };
+
+        // Determine text box top Y above container
+        let mut text_box_y = container_top_y - gap_between_text_and_buttons - text_box_height;
+
+        // Ensure the prompt stays within the panel bounds; if text overflows, try to shrink vertical padding
+        let top_limit = self.y + margin;
+        if text_box_y < top_limit {
+            // Try shrinking vertical padding to make it fit
+            text_padding_y = 6.0;
+            button_height = btn_text_size + text_padding_y * 2.0;
+            text_box_height = item_text_size + text_padding_y * 2.0 + 6.0;
+            let container_height_adj = button_height + container_padding * 2.0;
+            // Recompute container top so bottom remains above End Turn button
+            container_top_y = (self.end_turn_button.y - margin) - container_height_adj;
+            text_box_y = container_top_y - gap_between_text_and_buttons - text_box_height;
+            // If still overflowing, clamp to top_limit (best effort)
+            if text_box_y < top_limit {
+                text_box_y = top_limit;
+                container_top_y = text_box_y + text_box_height + gap_between_text_and_buttons;
+            }
+        }
+
+        // Compute container X so container is centered inside prompt area
+        let container_x = prompt_x + (prompt_width - container_width) / 2.0;
+        // Compute starting X for the buttons centered inside the container inner area
+        let buttons_start_x =
+            container_x + container_padding + (container_inner_width - total_buttons_width) / 2.0;
+        let yes_button_x = buttons_start_x;
+        let no_button_x = yes_button_x + pick_button_width + button_spacing;
+        // Button Y
+        let button_y = container_top_y + container_padding;
+
+        // Compute text box X centered relative to container
+        let text_box_x = container_x + (container_width - text_box_width) / 2.0;
+
+        // Render box background and border behind item name
+        self.render_box(
+            text_box_x,
+            text_box_y,
+            text_box_width,
+            text_box_height,
+            [0.12, 0.12, 0.16, 1.0],
+        );
+        self.render_border(
+            text_box_x,
+            text_box_y,
+            text_box_width,
+            text_box_height,
+            [0.6, 0.6, 0.7, 1.0],
+        );
+
+        // Clamp item name to fit inside text box and center it
+        // Estimate character width using same heuristic used elsewhere (0.6 * size)
+        let available_text_width = text_box_width - text_padding_x * 2.0;
+        let approx_char_w = item_text_size * 0.6;
+        let max_chars = (available_text_width / approx_char_w).floor() as usize;
+
+        let display_name = if item_name.chars().count() > max_chars && max_chars > 3 {
+            // Reserve 1 char for ellipsis character '…'
+            let mut truncated = item_name.chars().take(max_chars - 1).collect::<String>();
+            truncated.push('…');
+            truncated
+        } else {
+            item_name.to_string()
+        };
+
+        let item_text_x =
+            text_box_x + text_box_width / 2.0 - (display_name.len() as f32 * item_text_size * 0.3);
+        let item_text_y = text_box_y + (text_box_height / 2.0) - (item_text_size / 2.0);
+        self.text_renderer.render_text(
+            &display_name,
+            item_text_x,
+            item_text_y,
+            item_text_size,
+            [1.0, 1.0, 1.0, 1.0],
+            screen_width,
+            screen_height,
+        );
+
+        // Store text box as a button for click detection
+        self.pickup_text_button = Some(Button::new(
+            text_box_x,
+            text_box_y,
+            text_box_width,
+            text_box_height,
+        ));
+
+        // Draw the computed container and buttons using the earlier computed values
+        self.render_box(
+            container_x,
+            container_top_y,
+            container_width,
+            container_height,
+            [0.14, 0.14, 0.18, 1.0],
+        );
+        self.render_border(
+            container_x,
+            container_top_y,
+            container_width,
+            container_height,
+            [0.45, 0.45, 0.5, 1.0],
+        );
+
+        // Render Pick Up button box and border
         self.render_box(
             yes_button_x,
             button_y,
-            button_width,
+            pick_button_width,
             button_height,
             [0.2, 0.6, 0.2, 1.0],
         );
         self.render_border(
             yes_button_x,
             button_y,
-            button_width,
+            pick_button_width,
             button_height,
             [0.3, 1.0, 0.3, 1.0],
         );
 
+        // Render pick label centered in its button
+        let pick_text_x = yes_button_x + pick_button_width / 2.0
+            - (pick_label.len() as f32 * btn_text_size * 0.3);
+        let pick_text_y = button_y + (button_height / 2.0) - (btn_text_size / 2.0);
         self.text_renderer.render_text(
-            "Pick Up",
-            yes_button_x + button_width / 2.0 - 35.0,
-            button_y + button_height / 2.0 + 5.0,
-            0.5,
+            pick_label,
+            pick_text_x,
+            pick_text_y,
+            btn_text_size,
             [1.0, 1.0, 1.0, 1.0],
             screen_width,
             screen_height,
         );
 
-        // "Leave It" button (right, red)
-        let no_button_x = yes_button_x + button_width + button_spacing;
-
+        // Render No button box and border
         self.render_box(
             no_button_x,
             button_y,
-            button_width,
+            no_button_width,
             button_height,
             [0.6, 0.2, 0.2, 1.0],
         );
         self.render_border(
             no_button_x,
             button_y,
-            button_width,
+            no_button_width,
             button_height,
             [1.0, 0.3, 0.3, 1.0],
         );
 
+        let no_text_x =
+            no_button_x + no_button_width / 2.0 - (no_label.len() as f32 * btn_text_size * 0.3);
+        let no_text_y = button_y + (button_height / 2.0) - (btn_text_size / 2.0);
         self.text_renderer.render_text(
-            "Leave It",
-            no_button_x + button_width / 2.0 - 40.0,
-            button_y + button_height / 2.0 + 5.0,
-            0.5,
+            no_label,
+            no_text_x,
+            no_text_y,
+            btn_text_size,
             [1.0, 1.0, 1.0, 1.0],
             screen_width,
             screen_height,
@@ -750,19 +903,23 @@ impl UiPanel {
         self.pickup_yes_button = Some(Button::new(
             yes_button_x,
             button_y,
-            button_width,
+            pick_button_width,
             button_height,
         ));
         self.pickup_no_button = Some(Button::new(
             no_button_x,
             button_y,
-            button_width,
+            no_button_width,
             button_height,
         ));
     }
 
     unsafe fn render_end_turn_button(&mut self, screen_width: f32, screen_height: f32) {
         // Render the end turn button at the bottom of the panel
+        // Ensure the UI shader and VAO are bound because other renderers (text) may have changed GL state
+        gl::UseProgram(self.shader_program);
+        gl::BindVertexArray(self.vao);
+
         let btn = &self.end_turn_button;
 
         // Button background (blue-ish)
@@ -786,6 +943,9 @@ impl UiPanel {
             screen_width,
             screen_height,
         );
+
+        // Restore VAO state (unbind) so we don't interfere with external callers
+        gl::BindVertexArray(0);
     }
 
     unsafe fn render_box(&self, x: f32, y: f32, width: f32, height: f32, color: [f32; 4]) {
