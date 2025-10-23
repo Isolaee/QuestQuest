@@ -563,6 +563,7 @@ impl GameWorld {
         let plans = ai::plan_for_team(&ws, &actions, &goals_per_agent, &agent_order, 500);
 
         // Execute plans per agent
+        // executed_actions_count removed — we end AI turn immediately after executing plans
         for (agent, plan) in plans {
             if plan.is_empty() {
                 continue;
@@ -607,6 +608,7 @@ impl GameWorld {
                                         // actually created.
                                         let _ = self.request_combat(uuid, target_uuid);
                                         if self.pending_combat.is_some() {
+                                            // execute_pending_combat may set state; count it as an executed action
                                             let _ = self.execute_pending_combat();
                                         } else {
                                             // Silent skip - nothing to do
@@ -1737,10 +1739,13 @@ impl GameWorld {
                                         }
                                     }
                                 }
+                                // Completed move handling
                             }
                         }
                     }
                 }
+
+                // After processing events and releasing the borrow, nothing else to do here
             }
         }
 
