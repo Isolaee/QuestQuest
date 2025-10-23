@@ -26,17 +26,27 @@
 //!
 //! ## Usage Example
 //!
-//! ```ignore
-//! use units::{BaseUnit, impl_unit_delegate};
+//! ```rust,no_run
+//! use units::{BaseUnit, Race, Terrain};
 //! use units::attack::Attack;
+//! use graphics::HexCoord;
+//! use combat::{CombatStats, RangeCategory, Resistances};
 //!
 //! pub struct DwarfWarrior {
 //!     base: BaseUnit,
 //!     attacks: Vec<Attack>,
 //! }
 //!
-//! // This single line implements all common Unit trait methods
-//! impl_unit_delegate!(DwarfWarrior);
+//! impl DwarfWarrior {
+//!     pub fn new(name: String, position: HexCoord) -> Self {
+//!         let stats = CombatStats::new(30, 5, 2, RangeCategory::Melee, Resistances::default());
+//!         let base = BaseUnit::new(name, position, Race::Human, "DwarfWarrior".to_string(), Terrain::Grasslands, stats);
+//!         Self { base, attacks: vec![] }
+//!     }
+//! }
+//!
+//! // Implement the Unit trait for the type using the macro (compile-only example)
+//! units::impl_unit_delegate!(DwarfWarrior);
 //! ```
 //!
 //! ## Implementation Details
@@ -138,32 +148,34 @@
 /// - A `base` field of type [`BaseUnit`](crate::base_unit::BaseUnit)
 /// - An `attacks` field of type `Vec<`[`Attack`](crate::attack::Attack)`>`
 ///
-/// # Usage
-///
-/// ```ignore
-/// use units::{BaseUnit, impl_unit_delegate};
+/// ```rust,no_run
+/// use units::{BaseUnit, Race, Terrain};
 /// use units::attack::Attack;
 /// use graphics::HexCoord;
+/// use combat::{CombatStats, RangeCategory, Resistances, DamageType};
 ///
-/// pub struct DwarfWarrior {
+/// pub struct ElvenArcher {
 ///     base: BaseUnit,
 ///     attacks: Vec<Attack>,
 /// }
 ///
-/// impl DwarfWarrior {
+/// impl ElvenArcher {
 ///     pub fn new(name: String, position: HexCoord) -> Self {
-///         Self {
-///             base: BaseUnit::new(/* ... */),
-///             attacks: vec![/* ... */],
-///         }
+///         let stats = CombatStats::new(25, 6, 3, RangeCategory::Melee, Resistances::default());
+///         let base = BaseUnit::new(name, position, Race::Elf, "Archer".to_string(), Terrain::Grasslands, stats);
+///
+///         let attacks = vec![
+///             Attack::ranged("Long Shot", 15, 1, DamageType::Pierce, 4),
+///             Attack::melee("Quick Strike", 8, 2, DamageType::Slash),
+///         ];
+///
+///         Self { base, attacks }
 ///     }
 /// }
 ///
-/// // Implement the entire Unit trait with one macro call
-/// impl_unit_delegate!(DwarfWarrior);
+/// // Compile-only example showing macro application
+/// units::impl_unit_delegate!(ElvenArcher);
 /// ```
-///
-/// # Stat Recalculation
 ///
 /// The macro automatically triggers stat recalculation in these scenarios:
 /// - When items are equipped or unequipped
@@ -185,11 +197,11 @@
 ///
 /// # Example: Creating a New Unit Type
 ///
-/// ```ignore
-/// use units::{BaseUnit, impl_unit_delegate, Race};
+/// ```rust,no_run
+/// use units::{BaseUnit, Race, Terrain};
 /// use units::attack::Attack;
-/// use combat::DamageType;
 /// use graphics::HexCoord;
+/// use combat::{CombatStats, RangeCategory, Resistances, DamageType};
 ///
 /// pub struct ElvenArcher {
 ///     base: BaseUnit,
@@ -198,19 +210,20 @@
 ///
 /// impl ElvenArcher {
 ///     pub fn new(name: String, position: HexCoord) -> Self {
-///         let mut base = BaseUnit::new(name, position, Race::Elf, "Archer".to_string());
-///         
+///         let stats = CombatStats::new(25, 6, 3, RangeCategory::Melee, Resistances::default());
+///         let base = BaseUnit::new(name, position, Race::Elf, "Archer".to_string(), Terrain::Grasslands, stats);
+///
 ///         let attacks = vec![
 ///             Attack::ranged("Long Shot", 15, 1, DamageType::Pierce, 4),
 ///             Attack::melee("Quick Strike", 8, 2, DamageType::Slash),
 ///         ];
-///         
+///
 ///         Self { base, attacks }
 ///     }
 /// }
 ///
-/// // All Unit trait methods are now available
-/// impl_unit_delegate!(ElvenArcher);
+/// // Compile-only example showing macro application
+/// units::impl_unit_delegate!(ElvenArcher);
 /// ```
 ///
 /// # See Also

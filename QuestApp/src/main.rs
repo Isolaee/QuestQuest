@@ -763,7 +763,7 @@ impl GameApp {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```text
     /// if self.is_within_attack_range(selected_unit, enemy_hex) {
     ///     // Can attack enemy at this position
     /// }
@@ -795,7 +795,7 @@ impl GameApp {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```text
     /// if self.has_enemy_unit(player_unit, hex_coord) {
     ///     // There's an enemy at this position
     /// }
@@ -1143,7 +1143,7 @@ impl GameApp {
     ///
     /// # Examples
     ///
-    /// ```ignore
+    /// ```text
     /// // Called automatically on CursorMoved event
     /// self.hower(position.x, position.y);
     /// ```

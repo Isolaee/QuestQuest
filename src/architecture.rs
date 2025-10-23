@@ -84,7 +84,7 @@
 //! ## Complete Combat Sequence
 //!
 //! ### 1. User Input (QuestApp)
-//! ```ignore
+//! ```text
 //! // Mouse click on unit
 //! if right_click {
 //!     let hex_coord = screen_to_hex(mouse_pos);
@@ -96,7 +96,7 @@
 //! ```
 //!
 //! ### 2. Movement Validation (Game Crate)
-//! ```ignore
+//! ```text
 //! pub fn move_unit(&mut self, unit_id: Uuid, new_position: HexCoord) -> Result<(), String> {
 //!     // Check for enemy at target position
 //!     let enemy_at_target = self.get_units_at_position(new_position)
@@ -115,7 +115,7 @@
 //! ```
 //!
 //! ### 3. Combat Resolution (Combat Crate)
-//! ```ignore
+//! ```text
 //! let result = resolve_combat(
 //!     &mut attacker_stats,
 //!     &mut defender_stats,
@@ -124,7 +124,7 @@
 //! ```
 //!
 //! ### 4. Visual Update (Graphics Crate)
-//! ```ignore
+//! ```text
 //! // Update hex grid with new positions
 //! for (id, unit) in world.units() {
 //!     let pos = unit.position();
@@ -137,7 +137,7 @@
 //! ## Between Crates
 //!
 //! ### Game ↔ Units
-//! ```ignore
+//! ```text
 //! pub struct GameUnit {
 //!     unit: Box<dyn Unit>,  // From Units crate
 //! }
@@ -152,7 +152,7 @@
 //! ```
 //!
 //! ### Game ↔ Combat
-//! ```ignore
+//! ```text
 //! impl GameWorld {
 //!     fn initiate_combat(&mut self, attacker_id: Uuid, defender_id: Uuid) {
 //!         let mut attacker_stats = /* get from unit */;
@@ -168,7 +168,7 @@
 //! ```
 //!
 //! ### Graphics ↔ Game
-//! ```ignore
+//! ```text
 //! use graphics::HexCoord;
 //!
 //! impl TerrainTile {
@@ -179,7 +179,7 @@
 //! ## Data Ownership Strategy
 //!
 //! ### Game Owns Core State
-//! ```ignore
+//! ```text
 //! pub struct GameWorld {
 //!     pub terrain: HashMap<HexCoord, TerrainTile>,
 //!     pub units: HashMap<Uuid, GameUnit>,
@@ -188,7 +188,7 @@
 //! ```
 //!
 //! ### Graphics Owns Rendering State
-//! ```ignore
+//! ```text
 //! pub struct HexGrid {
 //!     hexagons: HashMap<(i32, i32), Hexagon>,
 //!     vertex_buffer: VertexBuffer,
@@ -196,7 +196,7 @@
 //! ```
 //!
 //! ### QuestApp Coordinates
-//! ```ignore
+//! ```text
 //! pub struct QuestApp {
 //!     world: GameWorld,      // Game state
 //!     grid: HexGrid,         // Visual state
@@ -210,7 +210,7 @@
 //!
 //! Only process visible hexagons:
 //!
-//! ```ignore
+//! ```text
 //! pub fn is_in_view(&self, hex_coord: HexCoord) -> bool {
 //!     let center = self.screen_to_hex(self.position);
 //!     center.distance(hex_coord) <= self.view_distance
@@ -232,7 +232,7 @@
 //!
 //! O(1) entity lookup by ID and position:
 //!
-//! ```ignore
+//! ```text
 //! pub struct GameWorld {
 //!     units: HashMap<Uuid, GameUnit>,              // By ID
 //!     terrain: HashMap<HexCoord, TerrainTile>,     // By position
@@ -248,7 +248,7 @@
 //!
 //! Group similar draw calls:
 //!
-//! ```ignore
+//! ```text
 //! impl Renderer {
 //!     pub fn render_layer(&mut self, layer: Layer) {
 //!         self.use_shader(layer.shader());     // Once
@@ -271,7 +271,7 @@
 //!
 //! Cache stats until equipment changes:
 //!
-//! ```ignore
+//! ```text
 //! impl BaseUnit {
 //!     pub fn combat_stats(&self) -> &CombatStats {
 //!         if self.stats_dirty {
@@ -291,7 +291,7 @@
 //!
 //! ## Trait-Based Polymorphism
 //!
-//! ```ignore
+//! ```text
 //! pub trait Unit: Send + Sync {
 //!     fn combat_stats(&self) -> &CombatStats;
 //!     fn take_damage(&mut self, damage: u32);
@@ -314,7 +314,7 @@
 //!
 //! ## Factory Pattern
 //!
-//! ```ignore
+//! ```text
 //! impl UnitFactory {
 //!     pub fn create_unit(
 //!         race: Race,
@@ -338,7 +338,7 @@
 //!
 //! ## Separation of Concerns
 //!
-//! ```ignore
+//! ```text
 //! // Combat crate: Pure calculation
 //! pub fn resolve_combat(
 //!     attacker: &mut CombatStats,
@@ -363,7 +363,7 @@
 //!
 //! ## Type Safety
 //!
-//! ```ignore
+//! ```text
 //! #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 //! pub struct HexCoord {
 //!     pub q: i32,
@@ -383,7 +383,7 @@
 //! ## Adding New Unit Types
 //!
 //! 1. **Define the struct:**
-//! ```ignore
+//! ```text
 //! pub struct CustomRaceWarrior {
 //!     base_unit: BaseUnit,
 //!     special_ability: SpecialAbility,
@@ -391,7 +391,7 @@
 //! ```
 //!
 //! 2. **Implement Unit trait:**
-//! ```ignore
+//! ```text
 //! impl Unit for CustomRaceWarrior {
 //!     fn name(&self) -> &str { &self.base_unit.name }
 //!     fn combat_stats(&self) -> &CombatStats { &self.base_unit.combat_stats }
@@ -400,7 +400,7 @@
 //! ```
 //!
 //! 3. **Update factory:**
-//! ```ignore
+//! ```text
 //! impl UnitFactory {
 //!     pub fn create_unit(...) -> Box<dyn Unit> {
 //!         match (race, class) {
@@ -415,7 +415,7 @@
 //! ## Adding New Damage Types
 //!
 //! 1. **Extend enum:**
-//! ```ignore
+//! ```text
 //! pub enum DamageType {
 //!     // ... existing types
 //!     Lightning,
@@ -424,7 +424,7 @@
 //! ```
 //!
 //! 2. **Update Resistances:**
-//! ```ignore
+//! ```text
 //! pub struct Resistances {
 //!     // ... existing
 //!     pub lightning: u8,
@@ -433,7 +433,7 @@
 //! ```
 //!
 //! 3. **Update methods:**
-//! ```ignore
+//! ```text
 //! impl Resistances {
 //!     pub fn get_resistance(&self, damage_type: DamageType) -> u8 {
 //!         match damage_type {
@@ -448,7 +448,7 @@
 //! ## Adding New Terrain Types
 //!
 //! 1. **Extend SpriteType:**
-//! ```ignore
+//! ```text
 //! pub enum SpriteType {
 //!     // ... existing
 //!     Lava,
@@ -457,7 +457,7 @@
 //! ```
 //!
 //! 2. **Update movement costs:**
-//! ```ignore
+//! ```text
 //! impl TerrainTile {
 //!     pub fn new(position: HexCoord, sprite_type: SpriteType) -> Self {
 //!         let movement_cost = match sprite_type {

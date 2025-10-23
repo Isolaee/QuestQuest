@@ -55,13 +55,43 @@ pub struct AttackInfo {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// // After world.move_unit() detects enemy collision:
-/// if let Some(pending) = &world.pending_combat {
-///     println!("Attack with: {}", pending.attacker_name);
-///     println!("Defend: {}", pending.defender_name);
-///     // Player selects attack, then calls world.execute_pending_combat()
-/// }
+/// ```
+/// use game::GameWorld;
+/// use graphics::HexCoord;
+/// use units::unit_factory::UnitFactory;
+/// use game::{GameUnit, Team};
+///
+/// // Create world and start turn system so movement is allowed
+/// let mut world = GameWorld::new(4);
+/// world.start_turn_based_game();
+///
+/// // Create player unit at (0,0)
+/// let boxed_p = UnitFactory::create_goblin_grunt(
+///     "Player".to_string(),
+///     HexCoord::new(0, 0),
+///     units::unit_race::Terrain::Grasslands,
+/// );
+/// let mut pu = GameUnit::new(boxed_p);
+/// pu.set_team(Team::Player);
+/// let pid = world.add_unit(pu);
+///
+/// // Create enemy at (1,0)
+/// let boxed_e = UnitFactory::create_goblin_grunt(
+///     "Enemy".to_string(),
+///     HexCoord::new(1, 0),
+///     units::unit_race::Terrain::Grasslands,
+/// );
+/// let mut eu = GameUnit::new(boxed_e);
+/// eu.set_team(Team::Enemy);
+/// let _eid = world.add_unit(eu);
+///
+/// // Move player into enemy tile which should create a pending combat
+/// let _ = world.move_unit(pid, HexCoord::new(1, 0));
+/// assert!(world.pending_combat.is_some());
+/// let pending = world.pending_combat.as_ref().unwrap();
+/// assert_eq!(pending.attacker_name, "Player");
+/// assert_eq!(pending.defender_name, "Enemy");
+/// assert!(pending.attacker_attacks.len() > 0);
 /// ```
 #[derive(Clone, Debug)]
 pub struct PendingCombat {

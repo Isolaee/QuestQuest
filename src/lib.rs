@@ -104,12 +104,11 @@
 //!
 //! Units are stored as trait objects, enabling runtime flexibility:
 //!
-//! ```ignore
-//! # use game::GameUnit;
+//! ```rust,no_run
 //! # use units::Unit;
-//! // Any type implementing Unit can be stored
-//! pub struct GameUnit {
-//!     unit: Box<dyn Unit>,  // Polymorphic storage
+//! // Any type implementing `Unit` can be stored behind a trait object.
+//! pub struct MyGameUnit {
+//!     unit: Box<dyn Unit>, // Polymorphic storage
 //! }
 //! ```
 //!
@@ -117,15 +116,15 @@
 //!
 //! Centralized unit creation ensures consistency:
 //!
-//! ```ignore
-//! use units::{UnitFactory, Race, UnitClass};
+//! ```rust,no_run
+//! use units::UnitFactory;
 //! use graphics::HexCoord;
 //!
-//! let unit = UnitFactory::create_unit(
-//!     Race::Human,
-//!     UnitClass::Warrior,
+//! // Create a human warrior using the public factory helper
+//! let unit = UnitFactory::create_human_warrior(
 //!     "Thorin".to_string(),
-//!     HexCoord::new(0, 0)
+//!     HexCoord::new(0, 0),
+//!     units::unit_race::Terrain::Grasslands,
 //! );
 //! ```
 //!
@@ -159,14 +158,14 @@
 //! - Player clicks on valid hex → Move request
 //!
 //! ### 2. Movement Validation ([`game`])
-//! ```ignore
+//! ```text
 //! // GameWorld checks for enemies at target position
 //! let result = world.move_unit(unit_id, target_position);
 //! // If enemy detected, creates PendingCombat
 //! ```
 //!
 //! ### 3. Combat Confirmation ([`game`])
-//! ```ignore
+//! ```text
 //! // Player reviews stats and selects attack
 //! world.pending_combat = Some(PendingCombat {
 //!     attacker_id,
@@ -177,7 +176,7 @@
 //! ```
 //!
 //! ### 4. Combat Resolution ([`combat`])
-//! ```ignore
+//! ```text
 //! // Isolated combat calculation
 //! let result = resolve_combat(
 //!     &mut attacker_stats,
@@ -187,7 +186,7 @@
 //! ```
 //!
 //! ### 5. State Update & Rendering
-//! ```ignore
+//! ```text
 //! // Update world state
 //! if result.defender_casualties > 0 {
 //!     world.remove_unit(defender_id);
@@ -206,7 +205,7 @@
 //!
 //! ### HashMap Lookups
 //! O(1) entity queries by UUID and position:
-//! ```ignore
+//! ```text
 //! // Fast lookups
 //! world.units.get(&unit_id);           // By ID
 //! world.terrain.get(&hex_coord);       // By position
@@ -286,7 +285,7 @@
 //!
 //! ### Creating Units
 //!
-//! ```ignore
+//! ```text
 //! use units::{UnitFactory, Race, UnitClass};
 //! use graphics::HexCoord;
 //!
@@ -300,7 +299,7 @@
 //!
 //! ### Setting Up a Game World
 //!
-//! ```ignore
+//! ```text
 //! use game::{GameWorld, GameUnit};
 //!
 //! let mut world = GameWorld::new(10);  // radius 10
@@ -312,7 +311,7 @@
 //!
 //! ### Resolving Combat
 //!
-//! ```ignore
+//! ```text
 //! use combat::{resolve_combat, DamageType};
 //!
 //! let result = resolve_combat(
