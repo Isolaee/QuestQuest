@@ -1,5 +1,5 @@
 use crate::action::ActionInstance;
-use crate::world_state::{FactValue, WorldState};
+use crate::world_state::{FactValue, HexCoord, WorldState};
 
 #[derive(Clone, Debug)]
 pub struct AttackTemplate {
@@ -19,7 +19,27 @@ impl AttackTemplate {
 
         for (k, v) in state.facts.iter() {
             if k == "EnemyAt" || k.starts_with("EnemyAt:") {
-                if let FactValue::Str(loc) = v {
+                // Support both string locations (legacy) and Hex coords
+                let enemy_loc_opt: Option<HexCoord> = match v {
+                    FactValue::Hex(h) => Some(h.clone()),
+                    FactValue::Str(s) => {
+                        // Try parse "q,r" format for convenience, fall back to None
+                        if let Some((qstr, rstr)) = s.split_once(',') {
+                            if let (Ok(q), Ok(r)) =
+                                (qstr.trim().parse::<i32>(), rstr.trim().parse::<i32>())
+                            {
+                                Some(HexCoord { q, r })
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+
+                if let Some(loc) = enemy_loc_opt {
                     let enemy_id = if k == "EnemyAt" {
                         None
                     } else {
@@ -27,7 +47,7 @@ impl AttackTemplate {
                     };
 
                     let mut preconds: Vec<(String, FactValue)> = Vec::new();
-                    preconds.push(("At".to_string(), FactValue::Str(loc.clone())));
+                    preconds.push(("At".to_string(), FactValue::Hex(loc.clone())));
                     if let Some(eid) = &enemy_id {
                         let alive_key = format!("EnemyAlive:{}", eid);
                         if let Some(FactValue::Bool(true)) = state.get(&alive_key) {
@@ -65,9 +85,9 @@ impl AttackTemplate {
                     }
 
                     let name = if let Some(eid) = &enemy_id {
-                        format!("{}:{}@{}", self.name_base, eid, loc)
+                        format!("{}:{}@({},{} )", self.name_base, eid, loc.q, loc.r)
                     } else {
-                        format!("{}@{}", self.name_base, loc)
+                        format!("{}@({},{})", self.name_base, loc.q, loc.r)
                     };
 
                     let instance = ActionInstance {

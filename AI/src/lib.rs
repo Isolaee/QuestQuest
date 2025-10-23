@@ -18,6 +18,7 @@ pub use actions::AttackTemplate;
 pub use executor::{ActionExecutor, RuntimeAction};
 pub use planner::plan_for_team;
 pub use planner::{plan, plan_instances, Plan};
+pub use world_state::HexCoord;
 pub use world_state::{FactValue, WorldState};
 
 // The actual implementation has been split across modules. Unit tests live here
@@ -31,26 +32,17 @@ mod tests {
     fn poof_of_concept_simple_plan() {
         // Start: at A
         let mut start = WorldState::new();
-        start.insert("At".to_string(), FactValue::Str("A".to_string()));
+        use crate::world_state::HexCoord;
+        start.insert("At".to_string(), FactValue::Hex(HexCoord { q: 0, r: 0 }));
 
         // Actions: MoveAtoB, MoveBtoC
-        let a1 = ActionTemplate {
-            name: "MoveAtoB".to_string(),
-            preconditions: vec![("At".to_string(), FactValue::Str("A".to_string()))],
-            effects: vec![("At".to_string(), FactValue::Str("B".to_string()))],
-            cost: 1.0,
-        };
-        let a2 = ActionTemplate {
-            name: "MoveBtoC".to_string(),
-            preconditions: vec![("At".to_string(), FactValue::Str("B".to_string()))],
-            effects: vec![("At".to_string(), FactValue::Str("C".to_string()))],
-            cost: 1.0,
-        };
+        let a1 = move_template(HexCoord { q: 0, r: 0 }, HexCoord { q: 1, r: 0 }, 1.0);
+        let a2 = move_template(HexCoord { q: 1, r: 0 }, HexCoord { q: 2, r: 0 }, 1.0);
 
         let actions = vec![a1, a2];
         let goal = Goal {
             key: "At".to_string(),
-            value: FactValue::Str("C".to_string()),
+            value: FactValue::Hex(HexCoord { q: 2, r: 0 }),
         };
 
         let plan_res = plan(&start, &actions, &goal, 1000);
@@ -64,18 +56,17 @@ mod tests {
     fn plan_and_execute_move_then_attack() {
         // World: agent at A, enemy at B with health 5
         let mut start = WorldState::new();
-        start.insert("At".to_string(), FactValue::Str("A".to_string()));
-        start.insert("EnemyAt".to_string(), FactValue::Str("B".to_string()));
+        use crate::world_state::HexCoord;
+        start.insert("At".to_string(), FactValue::Hex(HexCoord { q: 0, r: 0 }));
+        start.insert(
+            "EnemyAt".to_string(),
+            FactValue::Hex(HexCoord { q: 1, r: 0 }),
+        );
         start.insert("EnemyHealth".to_string(), FactValue::Int(5));
         start.insert("EnemyAlive".to_string(), FactValue::Bool(true));
 
         // Templates: Move A->B, Attack at B (damage 5)
-        let move_ab = ActionTemplate {
-            name: "MoveAtoB".to_string(),
-            preconditions: vec![("At".to_string(), FactValue::Str("A".to_string()))],
-            effects: vec![("At".to_string(), FactValue::Str("B".to_string()))],
-            cost: 1.0,
-        };
+        let move_ab = move_template(HexCoord { q: 0, r: 0 }, HexCoord { q: 1, r: 0 }, 1.0);
 
         let attack_t = crate::actions::attack::AttackTemplate {
             name_base: "Attack".to_string(),
@@ -140,7 +131,10 @@ mod tests {
         if let Some(FactValue::Int(h)) = world.get("EnemyHealth") {
             assert_eq!(*h, 0);
         }
-        // Agent should be at B
-        assert_eq!(world.get("At"), Some(&FactValue::Str("B".to_string())));
+        // Agent should be at B (hex coord q=1,r=0)
+        assert_eq!(
+            world.get("At"),
+            Some(&FactValue::Hex(HexCoord { q: 1, r: 0 }))
+        );
     }
 }

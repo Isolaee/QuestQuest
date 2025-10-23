@@ -20,9 +20,9 @@ fn world_state_basics() {
 
 #[test]
 fn action_template_and_instance_applicability() {
-    let tmpl = move_template("A", "B", 1.0);
+    let tmpl = move_template(HexCoord { q: 0, r: 0 }, HexCoord { q: 1, r: 0 }, 1.0);
     let mut start = WorldState::new();
-    start.insert("At".to_string(), FactValue::Str("A".to_string()));
+    start.insert("At".to_string(), FactValue::Hex(HexCoord { q: 0, r: 0 }));
 
     assert!(tmpl.is_applicable(&start));
 
@@ -36,16 +36,16 @@ fn planner_basic_and_limit() {
     // A -> B (cost 2)
     // A -> C (cost 1), C -> B (cost 1) ; optimal A->C->B cost 2
     let mut start = WorldState::new();
-    start.insert("At".to_string(), FactValue::Str("A".to_string()));
+    start.insert("At".to_string(), FactValue::Hex(HexCoord { q: 0, r: 0 }));
 
-    let t1 = move_template("A", "B", 2.0);
-    let t2 = move_template("A", "C", 1.0);
-    let t3 = move_template("C", "B", 1.0);
+    let t1 = move_template(HexCoord { q: 0, r: 0 }, HexCoord { q: 2, r: 0 }, 2.0);
+    let t2 = move_template(HexCoord { q: 0, r: 0 }, HexCoord { q: 1, r: 0 }, 1.0);
+    let t3 = move_template(HexCoord { q: 1, r: 0 }, HexCoord { q: 2, r: 0 }, 1.0);
 
     let actions = vec![t1, t2, t3];
     let goal = Goal {
         key: "At".to_string(),
-        value: FactValue::Str("B".to_string()),
+        value: FactValue::Hex(HexCoord { q: 2, r: 0 }),
     };
 
     let plan_opt = plan(&start, &actions, &goal, 1000);
@@ -66,7 +66,7 @@ fn planner_basic_and_limit() {
         s2.apply_effects(&a.effects);
         total_cost += a.cost;
     }
-    assert_eq!(s2.get("At"), Some(&FactValue::Str("B".to_string())));
+    assert_eq!(s2.get("At"), Some(&FactValue::Hex(HexCoord { q: 2, r: 0 })));
     assert!(total_cost <= 2.0 + 1e-6);
 
     // Too small node budget -> no plan
@@ -78,15 +78,15 @@ fn planner_basic_and_limit() {
 fn plan_for_team_sequential_application() {
     // Two agents: a1 moves from X->Y and sets Flag, then a2 depends on Flag
     let mut start = WorldState::new();
-    start.insert("At".to_string(), FactValue::Str("X".to_string()));
+    start.insert("At".to_string(), FactValue::Hex(HexCoord { q: 0, r: 0 }));
     start.insert("Flag".to_string(), FactValue::Bool(false));
 
     // Action visible to a1: move X->Y and set Flag true
     let a1_move = ActionInstance {
         name: "MoveA".to_string(),
-        preconditions: vec![("At".to_string(), FactValue::Str("X".to_string()))],
+        preconditions: vec![("At".to_string(), FactValue::Hex(HexCoord { q: 0, r: 0 }))],
         effects: vec![
-            ("At".to_string(), FactValue::Str("Y".to_string())),
+            ("At".to_string(), FactValue::Hex(HexCoord { q: 1, r: 0 })),
             ("Flag".to_string(), FactValue::Bool(true)),
         ],
         cost: 1.0,
@@ -196,6 +196,51 @@ fn executor_instant_and_timed_and_abort() {
 }
 
 #[test]
+fn executor_callbacks_fire() {
+    let mut world = WorldState::new();
+    world.insert("At".to_string(), FactValue::Hex(HexCoord { q: 0, r: 0 }));
+
+    let inst = ActionInstance {
+        name: "InstantMove".to_string(),
+        preconditions: vec![],
+        effects: vec![("At".to_string(), FactValue::Hex(HexCoord { q: 1, r: 0 }))],
+        cost: 0.0,
+        agent: None,
+    };
+
+    let mut exec = ActionExecutor::new();
+
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let started = Rc::new(RefCell::new(0));
+    let completed = Rc::new(RefCell::new(0));
+
+    {
+        let s = started.clone();
+        exec.set_on_start(move |_ai| {
+            *s.borrow_mut() += 1;
+        });
+    }
+    {
+        let c = completed.clone();
+        exec.set_on_complete(move |_ai| {
+            *c.borrow_mut() += 1;
+        });
+    }
+
+    exec.start(RuntimeAction::Instant(inst));
+    assert_eq!(*started.borrow(), 1);
+    assert!(exec.update(0.0, &mut world));
+    assert_eq!(*completed.borrow(), 1);
+    // world At should have been updated
+    assert_eq!(
+        world.get("At"),
+        Some(&FactValue::Hex(HexCoord { q: 1, r: 0 }))
+    );
+}
+
+#[test]
 fn attack_template_various_cases() {
     let attack = AttackTemplate {
         name_base: "Atk".to_string(),
@@ -206,17 +251,20 @@ fn attack_template_various_cases() {
 
     // Case 1: global enemy keys
     let mut s1 = WorldState::new();
-    s1.insert("EnemyAt".to_string(), FactValue::Str("B".to_string()));
+    s1.insert(
+        "EnemyAt".to_string(),
+        FactValue::Hex(HexCoord { q: 1, r: 0 }),
+    );
     s1.insert("EnemyHealth".to_string(), FactValue::Int(6));
     s1.insert("EnemyAlive".to_string(), FactValue::Bool(true));
 
     let instances = attack.ground_for_state(&s1, Some("ag".to_string()));
     assert_eq!(instances.len(), 1);
     let ai = &instances[0];
-    // preconds require At==B and EnemyAlive==true
+    // preconds require At==B (hex) and EnemyAlive==true
     assert!(ai
         .preconditions
-        .contains(&("At".to_string(), FactValue::Str("B".to_string()))));
+        .contains(&("At".to_string(), FactValue::Hex(HexCoord { q: 1, r: 0 }))));
     assert!(ai
         .preconditions
         .contains(&("EnemyAlive".to_string(), FactValue::Bool(true))));
@@ -227,7 +275,10 @@ fn attack_template_various_cases() {
 
     // Case 2: per-id enemy keys without health but with alive flag
     let mut s2 = WorldState::new();
-    s2.insert("EnemyAt:orc".to_string(), FactValue::Str("D".to_string()));
+    s2.insert(
+        "EnemyAt:orc".to_string(),
+        FactValue::Hex(HexCoord { q: 3, r: -1 }),
+    );
     s2.insert("EnemyAlive:orc".to_string(), FactValue::Bool(true));
 
     let insts2 = attack.ground_for_state(&s2, None);

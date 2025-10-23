@@ -27,6 +27,7 @@ use ai::{
 };
 use graphics::{HexCoord, SpriteType};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 // Weight applied to expected damage when converting to a negative cost (higher -> more aggressive)
@@ -131,6 +132,19 @@ pub struct PendingCombat {
     pub selected_attack_index: usize,
 }
 
+/// Events emitted by the AI executor for the game to react to.
+#[derive(Clone, Debug)]
+pub enum GameEvent {
+    ActionStarted {
+        unit_id: Uuid,
+        action: ai::ActionInstance,
+    },
+    ActionCompleted {
+        unit_id: Uuid,
+        action: ai::ActionInstance,
+    },
+}
+
 /// The game world that manages all game entities and their interactions.
 ///
 /// `GameWorld` is the central state container for the game, managing terrain,
@@ -178,6 +192,9 @@ pub struct GameWorld {
 
     /// Pending combat awaiting player confirmation
     pub pending_combat: Option<PendingCombat>,
+    /// Queue of AI events emitted by executors (start/complete). Protected by mutex
+    /// so executor callbacks can push events from closures.
+    pub ai_event_queue: Arc<Mutex<Vec<GameEvent>>>,
 
     /// Turn-based gameplay system
     pub turn_system: crate::turn_system::TurnSystem,
@@ -218,6 +235,7 @@ impl GameWorld {
             world_radius,
             game_time: 0.0,
             pending_combat: None,
+            ai_event_queue: Arc::new(Mutex::new(Vec::new())),
             turn_system,
             last_known_team: None,
         };
@@ -1547,6 +1565,34 @@ impl GameWorld {
                         unit_mut.ai_executor = Some(ai::ActionExecutor::new());
                     }
 
+                    // Ensure callbacks are set on the executor to push events to the world's queue
+                    if let Some(ex) = &mut unit_mut.ai_executor {
+                        // Capture unit id and queue clone
+                        let q = self.ai_event_queue.clone();
+                        let uid_clone = uid;
+                        ex.set_on_start(move |ai_inst| {
+                            let ev = GameEvent::ActionStarted {
+                                unit_id: uid_clone,
+                                action: ai_inst.clone(),
+                            };
+                            if let Ok(mut vec) = q.lock() {
+                                vec.push(ev);
+                            }
+                        });
+
+                        let q2 = self.ai_event_queue.clone();
+                        let uid_clone2 = uid;
+                        ex.set_on_complete(move |ai_inst| {
+                            let ev = GameEvent::ActionCompleted {
+                                unit_id: uid_clone2,
+                                action: ai_inst.clone(),
+                            };
+                            if let Ok(mut vec) = q2.lock() {
+                                vec.push(ev);
+                            }
+                        });
+                    }
+
                     // Assign planned plan if present
                     if unit_mut.ai_plan.is_empty() {
                         if let Some(p) = planned_plans.remove(&uid) {
@@ -1623,6 +1669,77 @@ impl GameWorld {
                 if let Some(enemy_unit) = self.units.get_mut(&eid) {
                     let stats = enemy_unit.unit_mut().combat_stats_mut();
                     stats.health = h;
+                }
+            }
+
+            // Drain AI event queue and apply game-side reactions (animations, movement)
+            if let Ok(mut q) = self.ai_event_queue.lock() {
+                let events: Vec<GameEvent> = q.drain(..).collect();
+                drop(q);
+
+                for ev in events {
+                    match ev {
+                        GameEvent::ActionStarted { unit_id, action } => {
+                            if action.name.starts_with("Move") {
+                                if let Some(u) = self.units.get_mut(&unit_id) {
+                                    for (k, v) in &action.effects {
+                                        if k == "At" {
+                                            match v {
+                                                ai::FactValue::Hex(h) => {
+                                                    let _ = u
+                                                        .unit_mut()
+                                                        .move_to(graphics::HexCoord::new(h.q, h.r));
+                                                }
+                                                ai::FactValue::Str(s) => {
+                                                    if let Some((qstr, rstr)) = s.split_once(':') {
+                                                        if let (Ok(qv), Ok(rv)) = (
+                                                            qstr.parse::<i32>(),
+                                                            rstr.parse::<i32>(),
+                                                        ) {
+                                                            let _ = u.unit_mut().move_to(
+                                                                graphics::HexCoord::new(qv, rv),
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        GameEvent::ActionCompleted { unit_id, action } => {
+                            if action.name.starts_with("Move") {
+                                if let Some(u) = self.units.get_mut(&unit_id) {
+                                    for (k, v) in &action.effects {
+                                        if k == "At" {
+                                            match v {
+                                                ai::FactValue::Hex(h) => {
+                                                    u.set_position(graphics::HexCoord::new(
+                                                        h.q, h.r,
+                                                    ));
+                                                }
+                                                ai::FactValue::Str(s) => {
+                                                    if let Some((qstr, rstr)) = s.split_once(':') {
+                                                        if let (Ok(qv), Ok(rv)) = (
+                                                            qstr.parse::<i32>(),
+                                                            rstr.parse::<i32>(),
+                                                        ) {
+                                                            u.set_position(
+                                                                graphics::HexCoord::new(qv, rv),
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -1,12 +1,13 @@
 use crate::action::ActionTemplate;
-use crate::world_state::FactValue;
+use crate::world_state::{FactValue, HexCoord};
 
-/// Very small helper to build a Move action template for a concrete from->to.
-pub fn move_template(from: &str, to: &str, cost: f32) -> ActionTemplate {
+/// Very small helper to build a Move action template for a concrete from->to using axial hex coords.
+pub fn move_template(from: HexCoord, to: HexCoord, cost: f32) -> ActionTemplate {
+    let name = format!("Move:({},{})->({},{})", from.q, from.r, to.q, to.r);
     ActionTemplate {
-        name: format!("Move:{}->{}", from, to),
-        preconditions: vec![("At".to_string(), FactValue::Str(from.to_string()))],
-        effects: vec![("At".to_string(), FactValue::Str(to.to_string()))],
+        name,
+        preconditions: vec![("At".to_string(), FactValue::Hex(from))],
+        effects: vec![("At".to_string(), FactValue::Hex(to))],
         cost,
     }
 }
