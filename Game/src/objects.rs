@@ -703,6 +703,11 @@ impl InteractiveObject {
             true
         }
     }
+
+    /// Returns true if this interactive object contains an item to pick up.
+    pub fn has_item(&self) -> bool {
+        self.item.is_some()
+    }
 }
 
 impl GameObject for InteractiveObject {

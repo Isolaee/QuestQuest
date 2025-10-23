@@ -1401,7 +1401,18 @@ impl GameWorld {
                 self.units.get_mut(&unit_id),
                 self.interactive_objects.get_mut(&obj_id),
             ) {
-                // Try to interact
+                // If this interactive object is an item pickup (contains an item),
+                // do NOT auto-interact here. The intended UX is that items on the
+                // ground remain until the player explicitly picks them up via the
+                // UI (or a pickup action). Rendering already supports showing a
+                // smaller item icon next to a unit when both are on the same hex.
+                if object.has_item() {
+                    // Skip automatic pickup - leave the object in the world so the
+                    // UI can prompt the player to pick it up.
+                    continue;
+                }
+
+                // Try to interact for non-item interactive objects
                 let interacted = object.interact(unit);
                 if interacted && !object.can_interact() {
                     // Remove the object if it can no longer be interacted with
