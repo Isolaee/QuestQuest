@@ -772,18 +772,14 @@ To bypass hooks (not recommended): `git commit --no-verify`
 ## 📈 Future Expansion Ideas
 
 - **Pathfinding**: A* algorithm for hexagonal grids
-- **Game States**: Turn-based combat system implementation
 - **More Units**: Complete Orc race implementation
-- **Unique Abilities**: Special powers per race/class
 - **Status Effects**: Buffs, debuffs, and conditions
 - **More Damage Types**: Expand beyond 6 current types
-- **Networking**: Multiplayer support with unit synchronization
 - **Save/Load**: Game state persistence (serde already integrated)
-- **AI**: Computer-controlled unit behavior
+- **AI**: Fine tune computer-controlled unit behavior
 - **Advanced Graphics**: Textures for all units, animations, effects
 - **Audio**: Sound effects and music integration
 - **Enhanced UI**: Better unit info display, minimap, tooltips
-- **Scripting**: Lua or similar for moddable game logic
 - **Map Editor**: Tool for creating custom maps
 - **Campaign Mode**: Story-driven single-player experience
 
