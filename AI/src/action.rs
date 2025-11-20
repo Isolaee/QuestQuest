@@ -18,7 +18,7 @@ impl ActionTemplate {
 }
 
 /// Simple planning goal: a single fact key/value pair to be achieved.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Goal {
     pub key: String,
     pub value: FactValue,

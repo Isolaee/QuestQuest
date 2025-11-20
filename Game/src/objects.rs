@@ -321,6 +321,10 @@ pub struct GameUnit {
     pub ai_executor: Option<ai::ActionExecutor>,
     /// Planned AI actions (grounded ActionInstance sequence)
     pub ai_plan: Vec<ai::ActionInstance>,
+    /// Long-term strategic goal this unit is pursuing (serialized goal description)
+    pub ai_long_term_goal: Option<String>,
+    /// How many turns ahead to plan (0 = current turn only, higher = more strategic)
+    pub ai_plan_horizon: usize,
 }
 
 impl GameUnit {
@@ -358,6 +362,8 @@ impl GameUnit {
             moves_left: movement,
             ai_executor: None,
             ai_plan: Vec::new(),
+            ai_long_term_goal: None,
+            ai_plan_horizon: 1, // Default to single-turn planning
         }
     }
 
@@ -394,6 +400,8 @@ impl GameUnit {
             moves_left: movement,
             ai_executor: None,
             ai_plan: Vec::new(),
+            ai_long_term_goal: None,
+            ai_plan_horizon: 1, // Default to single-turn planning
         }
     }
 
@@ -506,6 +514,40 @@ impl GameUnit {
             stats.max_health,
             self.unit.experience()
         )
+    }
+
+    /// Sets a long-term goal for this unit.
+    ///
+    /// # Arguments
+    ///
+    /// * `goal` - Description of the strategic goal (e.g., "ReachPosition:5,3", "EliminateTarget:unit_id")
+    pub fn set_long_term_goal(&mut self, goal: Option<String>) {
+        self.ai_long_term_goal = goal;
+    }
+
+    /// Gets the current long-term goal for this unit.
+    pub fn long_term_goal(&self) -> Option<&String> {
+        self.ai_long_term_goal.as_ref()
+    }
+
+    /// Sets how many turns ahead this unit should plan.
+    ///
+    /// # Arguments
+    ///
+    /// * `horizon` - Number of turns to plan (1 = current turn only, higher = more strategic)
+    pub fn set_plan_horizon(&mut self, horizon: usize) {
+        self.ai_plan_horizon = horizon;
+    }
+
+    /// Gets the planning horizon for this unit.
+    pub fn plan_horizon(&self) -> usize {
+        self.ai_plan_horizon
+    }
+
+    /// Clears the long-term goal and resets to single-turn planning.
+    pub fn clear_long_term_goal(&mut self) {
+        self.ai_long_term_goal = None;
+        self.ai_plan_horizon = 1;
     }
 
     /// Returns the sprite type for rendering this unit.

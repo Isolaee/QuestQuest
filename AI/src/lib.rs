@@ -8,6 +8,7 @@
 pub mod action;
 pub mod actions;
 pub mod executor;
+pub mod long_term_goals;
 pub mod planner;
 pub mod world_state;
 
@@ -16,6 +17,7 @@ pub use action::{ActionInstance, ActionTemplate, Goal};
 pub use actions::move_template;
 pub use actions::AttackTemplate;
 pub use executor::{ActionExecutor, RuntimeAction};
+pub use long_term_goals::LongTermGoal;
 pub use planner::plan_for_team;
 pub use planner::{plan, plan_instances, Plan};
 pub use world_state::HexCoord;

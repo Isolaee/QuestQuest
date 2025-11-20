@@ -1,10 +1,20 @@
 use std::collections::HashMap;
 
 /// Small axial hex coordinate used for tile locations in the prototype.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct HexCoord {
     pub q: i32,
     pub r: i32,
+}
+
+impl HexCoord {
+    /// Calculate hex distance to another coordinate using axial coordinates.
+    pub fn distance(&self, other: HexCoord) -> i32 {
+        ((self.q - other.q).abs()
+            + (self.q + self.r - other.q - other.r).abs()
+            + (self.r - other.r).abs())
+            / 2
+    }
 }
 
 /// Simple fact value enum for small prototype.

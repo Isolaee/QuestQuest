@@ -21,7 +21,7 @@ impl AttackTemplate {
             if k == "EnemyAt" || k.starts_with("EnemyAt:") {
                 // Support both string locations (legacy) and Hex coords
                 let enemy_loc_opt: Option<HexCoord> = match v {
-                    FactValue::Hex(h) => Some(h.clone()),
+                    FactValue::Hex(h) => Some(*h),
                     FactValue::Str(s) => {
                         // Try parse "q,r" format for convenience, fall back to None
                         if let Some((qstr, rstr)) = s.split_once(',') {
@@ -47,7 +47,7 @@ impl AttackTemplate {
                     };
 
                     let mut preconds: Vec<(String, FactValue)> = Vec::new();
-                    preconds.push(("At".to_string(), FactValue::Hex(loc.clone())));
+                    preconds.push(("At".to_string(), FactValue::Hex(loc)));
                     if let Some(eid) = &enemy_id {
                         let alive_key = format!("EnemyAlive:{}", eid);
                         if let Some(FactValue::Bool(true)) = state.get(&alive_key) {
