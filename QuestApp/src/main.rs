@@ -122,6 +122,7 @@ struct GameApp {
 
     // Turn system tracking
     last_update_time: std::time::Instant, // Track time for delta calculations
+    last_ai_turn_team: Option<game::Team>, // Track which team last had AI execute
 
     // Movement animation
     active_animation: Option<UnitAnimation>, // Currently animating unit
@@ -204,6 +205,7 @@ impl GameApp {
 
             // Turn system tracking
             last_update_time: std::time::Instant::now(),
+            last_ai_turn_team: None,
 
             // Movement animation
             active_animation: None,
@@ -1629,16 +1631,25 @@ impl ApplicationHandler for GameApp {
                         // Update movement animation
                         self.update_animation(delta_time);
 
-                        // Update game state (turn system, AI, etc.)
-                        self.game_world.update(delta_time);
-
-                        // If it's an AI-controlled team's turn and the AI timer has elapsed,
-                        // let the GameWorld run its AI behavior for the current team.
-                        if !self.game_world.is_current_team_player_controlled()
-                            && self.game_world.ai_turn_time_remaining() <= 0.0
-                        {
-                            self.game_world.run_ai_for_current_team();
+                        // If it's an AI-controlled team's turn, run AI logic BEFORE updating
+                        // the turn system (which might auto-advance the turn after delay).
+                        // Only execute AI once per team's turn by tracking the team.
+                        let current_team = self.game_world.current_turn_team();
+                        if !self.game_world.is_current_team_player_controlled() {
+                            // Check if this is a new AI turn (team changed or first AI turn)
+                            if self.last_ai_turn_team != Some(current_team) {
+                                println!("🤖 AI executing for team {:?}", current_team);
+                                self.game_world.run_ai_for_current_team();
+                                self.last_ai_turn_team = Some(current_team);
+                            }
+                        } else {
+                            // Reset tracker when it's a player turn
+                            self.last_ai_turn_team = None;
                         }
+
+                        // Update game state (turn system, AI, etc.)
+                        // The turn system will auto-advance AI turns after the delay
+                        self.game_world.update(delta_time);
 
                         // Update unit positions on hex grid before rendering
                         self.update_hex_grid_units();

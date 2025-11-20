@@ -771,13 +771,33 @@ impl GameWorld {
     /// then end the turn.
     pub fn run_ai_for_current_team(&mut self) {
         let current_team = self.turn_system.current_team();
+        println!(
+            "🤖 [AI DEBUG] run_ai_for_current_team called for team {:?}",
+            current_team
+        );
+
         if self.turn_system.is_current_team_player_controlled() {
+            println!("🤖 [AI DEBUG] Team is player-controlled, skipping AI");
             return; // Player team handled by UI
+        }
+
+        // Count units on this team
+        let team_units: Vec<_> = self
+            .units
+            .iter()
+            .filter(|(_, u)| u.team() == current_team)
+            .collect();
+        println!("🤖 [AI DEBUG] Team has {} units", team_units.len());
+        for (_id, unit) in &team_units {
+            println!("🤖 [AI DEBUG]   - {} at {:?}", unit.name(), unit.position());
         }
 
         // Prepare AI world state and actions
         let ws = self.extract_world_state_for_team(current_team);
+        println!("🤖 [AI DEBUG] World state extracted");
+
         let actions = self.generate_team_actions(current_team);
+        println!("🤖 [AI DEBUG] Generated {} possible actions", actions.len());
 
         // Build goals: naive goal is to kill any enemy unit found (per agent we add goals later)
         use std::collections::HashMap as StdHashMap;
@@ -791,31 +811,65 @@ impl GameWorld {
             let aid = id.to_string();
             agent_order.push(aid.clone());
 
-            // Goals for agent: prefer to kill adjacent enemy if any; otherwise move (no explicit goal)
+            // Goals for agent: find closest enemy and set goal to kill them
             let mut goals: Vec<AiGoal> = Vec::new();
-            // find any adjacent enemies
-            for nb in unit.position().neighbors().iter() {
-                let units_here = self.get_units_at_position(*nb);
-                for u in units_here {
-                    if u.team() != current_team {
-                        // goal: that unit is not alive
-                        goals.push(AiGoal {
-                            key: format!("Unit:{}:Alive", u.id()),
-                            value: AiFactValue::Bool(false),
-                        });
-                    }
+
+            // Find all enemy units and their distances
+            let mut enemies_with_distance: Vec<(Uuid, &GameUnit, i32)> = Vec::new();
+            for (enemy_id, enemy_unit) in &self.units {
+                if enemy_unit.team() != current_team {
+                    let distance = unit.position().distance(enemy_unit.position());
+                    enemies_with_distance.push((*enemy_id, enemy_unit, distance));
                 }
             }
+
+            // Sort by distance (closest first)
+            enemies_with_distance.sort_by_key(|(_, _, dist)| *dist);
+
+            // Set goal to kill the closest enemy
+            if let Some((enemy_id, enemy_unit, distance)) = enemies_with_distance.first() {
+                goals.push(AiGoal {
+                    key: format!("Unit:{}:Alive", enemy_id),
+                    value: AiFactValue::Bool(false),
+                });
+                println!(
+                    "🤖 [AI DEBUG] Unit {} targeting closest enemy {} at distance {}",
+                    unit.name(),
+                    enemy_unit.name(),
+                    distance
+                );
+            }
+
+            println!(
+                "🤖 [AI DEBUG] Unit {} has {} goals",
+                unit.name(),
+                goals.len()
+            );
             goals_per_agent.insert(aid, goals);
         }
 
         // Call team planner (bounded search per agent)
+        println!(
+            "🤖 [AI DEBUG] Calling planner for {} agents...",
+            agent_order.len()
+        );
         let plans = ai::plan_for_team(&ws, &actions, &goals_per_agent, &agent_order, 500);
+        println!(
+            "🤖 [AI DEBUG] Planner returned plans for {} agents",
+            plans.len()
+        );
 
         // Execute plans per agent
         // executed_actions_count removed — we end AI turn immediately after executing plans
+        let mut total_actions_executed = 0;
         for (agent, plan) in plans {
+            println!(
+                "🤖 [AI DEBUG] Agent {} has plan with {} steps",
+                agent,
+                plan.len()
+            );
             if plan.is_empty() {
+                println!("🤖 [AI DEBUG] Agent {} has empty plan, skipping", agent);
                 continue;
             }
             // find unit uuid
@@ -826,8 +880,15 @@ impl GameWorld {
                     .filter(|a| a.agent.as_ref().map(|s| s == &agent).unwrap_or(false))
                     .cloned()
                     .collect();
+                println!(
+                    "🤖 [AI DEBUG] Agent {} has {} available actions",
+                    agent,
+                    agent_actions.len()
+                );
+
                 for &idx in &plan {
                     if let Some(a) = agent_actions.get(idx) {
+                        println!("🤖 [AI DEBUG] Executing action: {}", a.name);
                         // If action is Move (name starts with Move-), parse target and call move_unit
                         if a.name.starts_with("Move-") {
                             // effects contain Unit:{id}:At -> "q,r"
@@ -838,8 +899,15 @@ impl GameWorld {
                                         (parts[0].parse::<i32>(), parts[1].parse::<i32>())
                                     {
                                         let dest_coord = HexCoord::new(q, r);
+                                        println!("🤖 [AI DEBUG] Moving to ({}, {})", q, r);
                                         // Use move_unit; ignore errors for prototype
-                                        let _ = self.move_unit(uuid, dest_coord);
+                                        match self.move_unit(uuid, dest_coord) {
+                                            Ok(()) => {
+                                                println!("🤖 [AI DEBUG] Move successful!");
+                                                total_actions_executed += 1;
+                                            }
+                                            Err(e) => println!("🤖 [AI DEBUG] Move failed: {}", e),
+                                        }
                                     }
                                 }
                             }
@@ -849,6 +917,7 @@ impl GameWorld {
                                 if k.starts_with("Unit:") && k.ends_with(":Alive") {
                                     let mid = &k[5..k.len() - 6];
                                     if let Ok(target_uuid) = Uuid::parse_str(mid) {
+                                        println!("🤖 [AI DEBUG] Attacking target {}", target_uuid);
                                         // Request combat (this will set pending_combat). If the
                                         // request fails (e.g., attacker already attacked), skip
                                         // executing combat.
@@ -858,20 +927,28 @@ impl GameWorld {
                                         // actually created.
                                         let _ = self.request_combat(uuid, target_uuid);
                                         if self.pending_combat.is_some() {
+                                            println!("🤖 [AI DEBUG] Executing combat...");
                                             // execute_pending_combat may set state; count it as an executed action
                                             let _ = self.execute_pending_combat();
+                                            total_actions_executed += 1;
                                         } else {
-                                            // Silent skip - nothing to do
+                                            println!("🤖 [AI DEBUG] Combat request failed (unit may have already attacked)");
                                         }
                                     }
                                 }
                             }
                         }
+                    } else {
+                        println!("🤖 [AI DEBUG] Invalid action index {} in plan", idx);
                     }
                 }
             }
         }
 
+        println!(
+            "🤖 [AI DEBUG] AI executed {} total actions",
+            total_actions_executed
+        );
         // End AI turn after actions (use GameWorld API so unit moves are reset)
         self.end_current_turn();
     }
@@ -1701,303 +1778,12 @@ impl GameWorld {
             unit.update(delta_time);
         }
 
-        // Simple AI integration: if it's an AI-controlled team's turn, let each AI unit
-        // plan and execute a short plan. We'll take a snapshot of enemy info first to avoid
-        // borrow conflicts, then iterate units and use their executor/plan.
-        if !self.is_current_team_player_controlled() {
-            let current_team = self.turn_system.current_team();
+        // NOTE: AI logic has been moved to run_ai_for_current_team() which is called
+        // explicitly from the main game loop. This prevents duplicate/conflicting AI systems.
 
-            // Snapshot enemies: list of (id, pos, health, alive)
-            let enemies: Vec<(Uuid, graphics::HexCoord, u32, bool)> = self
-                .units
-                .iter()
-                .filter_map(|(eid, u)| {
-                    if u.team() != current_team {
-                        Some((
-                            *eid,
-                            u.position(),
-                            u.unit().combat_stats().health as u32,
-                            u.unit().is_alive(),
-                        ))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            let unit_ids: Vec<Uuid> = self.units.keys().cloned().collect();
-
-            use std::collections::HashMap as Map;
-            let mut planned_plans: Map<Uuid, Vec<ai::ActionInstance>> = Map::new();
-
-            // Planning pass (immutable borrows)
-            for uid in &unit_ids {
-                if let Some(unit_ref) = self.units.get(uid) {
-                    if unit_ref.team() != current_team {
-                        continue;
-                    }
-
-                    if unit_ref.ai_plan.is_empty() {
-                        if enemies.is_empty() {
-                            continue;
-                        }
-
-                        let mut state = ai::WorldState::new();
-                        let pos = unit_ref.position();
-                        state.insert(
-                            "At".to_string(),
-                            ai::FactValue::Str(format!("{}:{}", pos.q, pos.r)),
-                        );
-
-                        let (_enemy_id, opos, ohealth, oalive) = enemies[0];
-                        state.insert(
-                            "EnemyAt".to_string(),
-                            ai::FactValue::Str(format!("{}:{}", opos.q, opos.r)),
-                        );
-                        state.insert(
-                            "EnemyHealth".to_string(),
-                            ai::FactValue::Int(ohealth as i32),
-                        );
-                        state.insert("EnemyAlive".to_string(), ai::FactValue::Bool(oalive));
-
-                        let move_t = ai::ActionTemplate {
-                            name: "MoveToEnemy".to_string(),
-                            preconditions: vec![(
-                                "At".to_string(),
-                                ai::FactValue::Str(format!("{}:{}", pos.q, pos.r)),
-                            )],
-                            effects: vec![(
-                                "At".to_string(),
-                                ai::FactValue::Str(format!("{}:{}", opos.q, opos.r)),
-                            )],
-                            cost: 1.0,
-                        };
-
-                        let attack_template = ai::AttackTemplate {
-                            name_base: "Attack".to_string(),
-                            damage: 5,
-                            cost: 1.0,
-                            range: 1,
-                        };
-
-                        let mut instances: Vec<ai::ActionInstance> = Vec::new();
-                        instances.push(ai::ground_action_from_template(
-                            &move_t,
-                            Some(unit_ref.name()),
-                        ));
-                        let mut att =
-                            attack_template.ground_for_state(&state, Some(unit_ref.name()));
-                        instances.append(&mut att);
-
-                        let goal = ai::Goal {
-                            key: "EnemyAlive".to_string(),
-                            value: ai::FactValue::Bool(false),
-                        };
-                        if let Some(plan_idx) = ai::plan_instances(&state, &instances, &goal, 500) {
-                            let plan_vec: Vec<ai::ActionInstance> =
-                                plan_idx.iter().map(|&i| instances[i].clone()).collect();
-                            planned_plans.insert(*uid, plan_vec);
-                        }
-                    }
-                }
-            }
-
-            // Execution pass (mutable borrows). Collect pending updates to apply after loop.
-            let mut unit_pos_updates: Vec<(Uuid, graphics::HexCoord)> = Vec::new();
-            let mut enemy_health_updates: Vec<(Uuid, i32)> = Vec::new();
-
-            for uid in unit_ids {
-                // Mutable borrow per unit
-                if let Some(unit_mut) = self.units.get_mut(&uid) {
-                    if unit_mut.team() != current_team {
-                        continue;
-                    }
-
-                    if unit_mut.ai_executor.is_none() {
-                        unit_mut.ai_executor = Some(ai::ActionExecutor::new());
-                    }
-
-                    // Ensure callbacks are set on the executor to push events to the world's queue
-                    if let Some(ex) = &mut unit_mut.ai_executor {
-                        // Capture unit id and queue clone
-                        let q = self.ai_event_queue.clone();
-                        let uid_clone = uid;
-                        ex.set_on_start(move |ai_inst| {
-                            let ev = GameEvent::ActionStarted {
-                                unit_id: uid_clone,
-                                action: ai_inst.clone(),
-                            };
-                            if let Ok(mut vec) = q.lock() {
-                                vec.push(ev);
-                            }
-                        });
-
-                        let q2 = self.ai_event_queue.clone();
-                        let uid_clone2 = uid;
-                        ex.set_on_complete(move |ai_inst| {
-                            let ev = GameEvent::ActionCompleted {
-                                unit_id: uid_clone2,
-                                action: ai_inst.clone(),
-                            };
-                            if let Ok(mut vec) = q2.lock() {
-                                vec.push(ev);
-                            }
-                        });
-                    }
-
-                    // Assign planned plan if present
-                    if unit_mut.ai_plan.is_empty() {
-                        if let Some(p) = planned_plans.remove(&uid) {
-                            unit_mut.ai_plan = p;
-                        }
-                    }
-
-                    // Read position before taking a mutable borrow of the executor
-                    let p = unit_mut.position();
-                    let mut ws = ai::WorldState::new();
-                    ws.insert(
-                        "At".to_string(),
-                        ai::FactValue::Str(format!("{}:{}", p.q, p.r)),
-                    );
-                    if !enemies.is_empty() {
-                        let (_, op, oh, oa) = enemies[0];
-                        ws.insert(
-                            "EnemyAt".to_string(),
-                            ai::FactValue::Str(format!("{}:{}", op.q, op.r)),
-                        );
-                        ws.insert("EnemyHealth".to_string(), ai::FactValue::Int(oh as i32));
-                        ws.insert("EnemyAlive".to_string(), ai::FactValue::Bool(oa));
-                    }
-
-                    if let Some(ex) = &mut unit_mut.ai_executor {
-                        if ex.current.is_none() && !unit_mut.ai_plan.is_empty() {
-                            let next = unit_mut.ai_plan.remove(0);
-                            let runtime = if next.name.starts_with("Move") {
-                                ai::RuntimeAction::Timed {
-                                    instance: next,
-                                    duration: 1.0,
-                                    elapsed: 0.0,
-                                }
-                            } else {
-                                ai::RuntimeAction::Instant(next)
-                            };
-                            ex.start(runtime);
-                        }
-
-                        let mut applied_ws = ws.clone();
-                        let completed = ex.update(delta_time, &mut applied_ws);
-
-                        // Record position update if changed
-                        if let Some(ai::FactValue::Str(newpos)) = applied_ws.get("At") {
-                            if let Some((qstr, rstr)) = newpos.split_once(':') {
-                                if let (Ok(q), Ok(r)) = (qstr.parse::<i32>(), rstr.parse::<i32>()) {
-                                    unit_pos_updates.push((uid, graphics::HexCoord::new(q, r)));
-                                }
-                            }
-                        }
-
-                        // Record enemy health update for first enemy
-                        if !enemies.is_empty() {
-                            let (enemy_id, _, _, _) = enemies[0];
-                            if let Some(ai::FactValue::Int(h)) = applied_ws.get("EnemyHealth") {
-                                enemy_health_updates.push((enemy_id, *h));
-                            }
-                        }
-
-                        if completed {
-                            self.turn_system.mark_unit_acted(unit_mut.id());
-                        }
-                    }
-                }
-            }
-
-            // Apply recorded updates
-            for (uid, newpos) in unit_pos_updates {
-                if let Some(u) = self.units.get_mut(&uid) {
-                    u.set_position(newpos);
-                }
-            }
-            for (eid, h) in enemy_health_updates {
-                if let Some(enemy_unit) = self.units.get_mut(&eid) {
-                    let stats = enemy_unit.unit_mut().combat_stats_mut();
-                    stats.health = h;
-                }
-            }
-
-            // Drain AI event queue and apply game-side reactions (animations, movement)
-            if let Ok(mut q) = self.ai_event_queue.lock() {
-                let events: Vec<GameEvent> = q.drain(..).collect();
-                drop(q);
-
-                for ev in events {
-                    match ev {
-                        GameEvent::ActionStarted { unit_id, action } => {
-                            if action.name.starts_with("Move") {
-                                if let Some(u) = self.units.get_mut(&unit_id) {
-                                    for (k, v) in &action.effects {
-                                        if k == "At" {
-                                            match v {
-                                                ai::FactValue::Hex(h) => {
-                                                    let _ = u
-                                                        .unit_mut()
-                                                        .move_to(graphics::HexCoord::new(h.q, h.r));
-                                                }
-                                                ai::FactValue::Str(s) => {
-                                                    if let Some((qstr, rstr)) = s.split_once(':') {
-                                                        if let (Ok(qv), Ok(rv)) = (
-                                                            qstr.parse::<i32>(),
-                                                            rstr.parse::<i32>(),
-                                                        ) {
-                                                            let _ = u.unit_mut().move_to(
-                                                                graphics::HexCoord::new(qv, rv),
-                                                            );
-                                                        }
-                                                    }
-                                                }
-                                                _ => {}
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        GameEvent::ActionCompleted { unit_id, action } => {
-                            if action.name.starts_with("Move") {
-                                if let Some(u) = self.units.get_mut(&unit_id) {
-                                    for (k, v) in &action.effects {
-                                        if k == "At" {
-                                            match v {
-                                                ai::FactValue::Hex(h) => {
-                                                    u.set_position(graphics::HexCoord::new(
-                                                        h.q, h.r,
-                                                    ));
-                                                }
-                                                ai::FactValue::Str(s) => {
-                                                    if let Some((qstr, rstr)) = s.split_once(':') {
-                                                        if let (Ok(qv), Ok(rv)) = (
-                                                            qstr.parse::<i32>(),
-                                                            rstr.parse::<i32>(),
-                                                        ) {
-                                                            u.set_position(
-                                                                graphics::HexCoord::new(qv, rv),
-                                                            );
-                                                        }
-                                                    }
-                                                }
-                                                _ => {}
-                                            }
-                                        }
-                                    }
-                                }
-                                // Completed move handling
-                            }
-                        }
-                    }
-                }
-
-                // After processing events and releasing the borrow, nothing else to do here
-            }
-        }
+        // Old AI integration code REMOVED - now handled by run_ai_for_current_team()
+        // The main application (QuestApp/main.rs) calls run_ai_for_current_team() when
+        // appropriate based on turn timing.
 
         // Handle interactions between objects at the same position
         self.process_interactions();
