@@ -22,6 +22,7 @@
 //! The crate re-exports commonly-used types from submodules for convenience.
 pub mod core;
 pub mod math;
+pub mod movement_animation;
 pub mod rendering;
 pub mod ui;
 
@@ -30,6 +31,7 @@ pub use core::{
     Camera, HexCoord, HexGrid, Hexagon, HighlightType, SpriteType, WorldHexLookupTable,
 };
 pub use math::Vec2;
+pub use movement_animation::{find_path, UnitAnimation};
 pub use rendering::{
     setup_dynamic_hexagons, AttackOption, CombatConfirmation, GuideBuilder, GuideDisplay,
     GuideEntry, GuideLibrary, MenuAction, Renderer,

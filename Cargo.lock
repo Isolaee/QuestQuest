@@ -851,6 +851,7 @@ dependencies = [
  "raw-window-handle",
  "serde",
  "serde_json",
+ "uuid",
  "winit",
 ]
 

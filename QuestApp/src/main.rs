@@ -42,8 +42,8 @@ use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
 use graphics::math::Vec2;
 use graphics::{
-    setup_dynamic_hexagons, GuideLibrary, HexCoord, HexGrid, HighlightType, Renderer, UiPanel,
-    UnitDisplayInfo,
+    find_path, setup_dynamic_hexagons, GuideLibrary, HexCoord, HexGrid, HighlightType, Renderer,
+    UiPanel, UnitAnimation, UnitDisplayInfo,
 };
 use main_menu::MainMenuScene;
 use raw_window_handle::HasWindowHandle;
@@ -122,6 +122,9 @@ struct GameApp {
 
     // Turn system tracking
     last_update_time: std::time::Instant, // Track time for delta calculations
+
+    // Movement animation
+    active_animation: Option<UnitAnimation>, // Currently animating unit
 }
 
 /// Item pickup prompt state.
@@ -201,6 +204,9 @@ impl GameApp {
 
             // Turn system tracking
             last_update_time: std::time::Instant::now(),
+
+            // Movement animation
+            active_animation: None,
         }
     }
 
@@ -215,6 +221,48 @@ impl GameApp {
         self.game_world.start_turn_based_game();
 
         println!("✅ Game scene initialized!");
+    }
+
+    /// Start animating unit movement along a path
+    fn start_movement_animation(&mut self, unit_id: uuid::Uuid, path: Vec<HexCoord>) {
+        if path.len() < 2 {
+            return; // Nothing to animate
+        }
+
+        // Movement speed in hexes per second
+        const MOVEMENT_SPEED: f32 = 4.0; // Adjust this value to change animation speed
+
+        self.active_animation = Some(UnitAnimation::new(unit_id, path, MOVEMENT_SPEED));
+    }
+
+    /// Update animation state and move unit along path
+    fn update_animation(&mut self, delta_time: f32) {
+        if let Some(mut anim) = self.active_animation.take() {
+            // Update animation and get hexes that were stepped through
+            let stepped_hexes = anim.update(delta_time);
+
+            // Update visual position for each stepped hex
+            for hex in stepped_hexes {
+                if let Some(game_unit) = self.game_world.units.get_mut(&anim.unit_id()) {
+                    game_unit.set_position(hex);
+                }
+                self.update_hex_grid_units();
+            }
+
+            // Check if animation is complete
+            if anim.is_complete() {
+                // Animation finished - ensure final position is set
+                let final_pos = anim.destination();
+                if let Some(game_unit) = self.game_world.units.get_mut(&anim.unit_id()) {
+                    game_unit.set_position(final_pos);
+                }
+                self.update_hex_grid_units();
+                println!("✅ Unit movement animation complete");
+            } else {
+                // Continue animation
+                self.active_animation = Some(anim);
+            }
+        }
     }
 
     /// Handle keyboard input for the game scene
@@ -610,9 +658,30 @@ impl GameApp {
                         }
                     }
                 } else if self.movement_range.contains(&hex_coord) {
-                    // Valid move - execute movement (non-combat)
-                    if let Err(e) = self.game_world.move_unit(unit_id, hex_coord) {
-                        println!("Failed to move unit: {}", e);
+                    // Valid move - animate movement (non-combat)
+                    if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                        let start_pos = game_unit.position();
+
+                        // Find path from current position to target using graphics::find_path
+                        if let Some(path) = find_path(start_pos, hex_coord) {
+                            // Consume movement points
+                            let move_cost = start_pos.distance(hex_coord);
+                            if self
+                                .game_world
+                                .units
+                                .get_mut(&unit_id)
+                                .unwrap()
+                                .consume_moves(move_cost)
+                            {
+                                // Start animation
+                                self.start_movement_animation(unit_id, path);
+                                println!("🚶 Unit moving to {:?}", hex_coord);
+                            } else {
+                                println!("❌ Not enough movement points");
+                            }
+                        } else {
+                            println!("❌ No path found to target hex");
+                        }
                     }
 
                     // Check if there's an item at the destination
@@ -1557,6 +1626,9 @@ impl ApplicationHandler for GameApp {
                         }
                     }
                     SceneType::Game => {
+                        // Update movement animation
+                        self.update_animation(delta_time);
+
                         // Update game state (turn system, AI, etc.)
                         self.game_world.update(delta_time);
 
