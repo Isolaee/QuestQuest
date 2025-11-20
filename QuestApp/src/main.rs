@@ -1035,6 +1035,8 @@ impl GameApp {
                     terrain: format!("{:?}", unit.current_terrain()),
                     position_q: position.q,
                     position_r: position.r,
+                    moves_left: game_unit.moves_left() as u32,
+                    max_moves: stats.movement_speed as u32,
                 };
                 ui_panel.set_unit_info(display_info);
             }
@@ -1152,44 +1154,40 @@ impl GameApp {
         if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
             // Check if there's a unit at the hovered hex
             if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
-                // Unit found - update UI panel with unit details
-                if let Some(game_unit) = self.game_world.units.get(&unit_id) {
-                    let unit = game_unit.unit();
-                    let stats = unit.combat_stats();
-                    let position = unit.position();
+                // Unit found - only update UI if it's different from selected unit
+                // Priority: Show selected unit's data unless hovering over a different unit
+                if self.selected_unit.is_none() || self.selected_unit != Some(unit_id) {
+                    // No unit selected, or hovering over a different unit - show hovered unit
+                    if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                        let unit = game_unit.unit();
+                        let stats = unit.combat_stats();
+                        let position = unit.position();
 
-                    let display_info = UnitDisplayInfo {
-                        name: unit.name().to_string(),
-                        race: format!("{:?}", unit.race()),
-                        class: unit.unit_type().to_string(),
-                        level: unit.level(),
-                        experience: unit.experience(),
-                        health: stats.health as u32,
-                        max_health: stats.max_health as u32,
-                        terrain: format!("{:?}", unit.current_terrain()),
-                        position_q: position.q,
-                        position_r: position.r,
-                    };
+                        let display_info = UnitDisplayInfo {
+                            name: unit.name().to_string(),
+                            race: format!("{:?}", unit.race()),
+                            class: unit.unit_type().to_string(),
+                            level: unit.level(),
+                            experience: unit.experience(),
+                            health: stats.health as u32,
+                            max_health: stats.max_health as u32,
+                            terrain: format!("{:?}", unit.current_terrain()),
+                            position_q: position.q,
+                            position_r: position.r,
+                            moves_left: game_unit.moves_left() as u32,
+                            max_moves: stats.movement_speed as u32,
+                        };
 
-                    if let Some(ui_panel) = &mut self.ui_panel {
-                        ui_panel.set_unit_info(display_info);
+                        if let Some(ui_panel) = &mut self.ui_panel {
+                            ui_panel.set_unit_info(display_info);
+                        }
                     }
                 }
+                // If hovering over the selected unit, keep showing selected unit's data (do nothing)
             } else {
-                // No unit at this hex - clear UI panel if not showing selected unit info
-                // Only clear if we're not hovering over the selected unit
-                let should_clear = if let Some(selected_id) = self.selected_unit {
-                    // Check if selected unit is at this hex
-                    if let Some(selected_unit) = self.game_world.units.get(&selected_id) {
-                        selected_unit.position() != hex_coord
-                    } else {
-                        true
-                    }
-                } else {
-                    true
-                };
-
-                if should_clear {
+                // No unit at this hex - keep showing selected unit if one is selected
+                // Only clear if no unit is selected
+                if self.selected_unit.is_none() {
                     if let Some(ui_panel) = &mut self.ui_panel {
                         ui_panel.clear_unit_info();
                     }
@@ -1218,12 +1216,8 @@ impl GameApp {
                     hex.color = [1.0, 1.0, 0.0]; // Bright yellow for debugging
                 }
             }
-        } else {
-            // Mouse is not over any valid hex - clear UI panel
-            if let Some(ui_panel) = &mut self.ui_panel {
-                ui_panel.clear_unit_info();
-            }
         }
+        // If mouse is not over any valid hex, keep selected unit data (don't clear)
     }
 }
 

@@ -39,6 +39,8 @@ pub struct UnitDisplayInfo {
     pub terrain: String,
     pub position_q: i32,
     pub position_r: i32,
+    pub moves_left: u32,
+    pub max_moves: u32,
 }
 
 pub struct UiPanel {
@@ -538,6 +540,17 @@ impl UiPanel {
                 pos_text_y,
                 text_size - 1.0,
                 [0.7, 0.8, 0.9, 1.0],
+                screen_width,
+                screen_height,
+            );
+            // Render moves left (showing current/max)
+            let moves_text = format!("Moves: {}/{}", info.moves_left, info.max_moves);
+            self.text_renderer.render_text(
+                &moves_text,
+                text_x,
+                pos_text_y + line_height,
+                text_size - 1.0,
+                [0.9, 0.7, 0.7, 1.0],
                 screen_width,
                 screen_height,
             );
