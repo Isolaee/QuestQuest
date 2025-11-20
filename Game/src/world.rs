@@ -309,6 +309,256 @@ impl GameWorld {
         ws
     }
 
+    /// Extract detailed world state with comprehensive tactical information.
+    ///
+    /// This enhanced version includes health states, movement capabilities, attack ranges,
+    /// terrain information, team clustering metrics, and threat assessments. Enables
+    /// sophisticated AI decision-making and strategic planning.
+    ///
+    /// # Arguments
+    ///
+    /// * `team` - The team perspective for which to extract state (affects friendly/enemy categorization)
+    ///
+    /// # Returns
+    ///
+    /// AiWorldState containing detailed tactical information for all units and relevant terrain
+    pub fn extract_detailed_world_state(&self, team: Team) -> AiWorldState {
+        let mut ws = AiWorldState::new();
+
+        // === TEAM METADATA ===
+        ws.insert(
+            "CurrentTeam".to_string(),
+            AiFactValue::Str(format!("{:?}", team)),
+        );
+
+        let mut friendly_positions: Vec<(Uuid, HexCoord)> = Vec::new();
+        let mut enemy_positions: Vec<(Uuid, HexCoord)> = Vec::new();
+
+        // === UNIT INFORMATION ===
+        for (id, unit) in &self.units {
+            let id_str = id.to_string();
+            let pos = unit.position();
+            let stats = unit.unit().combat_stats();
+            let is_friendly = unit.team() == team;
+
+            // Basic position and status
+            ws.insert(
+                format!("Unit:{}:At", id_str),
+                AiFactValue::Str(format!("{},{}", pos.q, pos.r)),
+            );
+            ws.insert(
+                format!("Unit:{}:Alive", id_str),
+                AiFactValue::Bool(unit.unit().is_alive()),
+            );
+            ws.insert(
+                format!("Unit:{}:Team", id_str),
+                AiFactValue::Str(format!("{:?}", unit.team())),
+            );
+            ws.insert(
+                format!("Unit:{}:IsFriendly", id_str),
+                AiFactValue::Bool(is_friendly),
+            );
+
+            // Health information
+            ws.insert(
+                format!("Unit:{}:Health", id_str),
+                AiFactValue::Int(stats.health),
+            );
+            ws.insert(
+                format!("Unit:{}:MaxHealth", id_str),
+                AiFactValue::Int(stats.max_health),
+            );
+            let health_pct = (stats.health * 100) / stats.max_health.max(1);
+            ws.insert(
+                format!("Unit:{}:HealthPercent", id_str),
+                AiFactValue::Int(health_pct),
+            );
+            ws.insert(
+                format!("Unit:{}:IsWounded", id_str),
+                AiFactValue::Bool(health_pct < 50),
+            );
+
+            // Movement information
+            ws.insert(
+                format!("Unit:{}:MovesLeft", id_str),
+                AiFactValue::Int(unit.moves_left()),
+            );
+            ws.insert(
+                format!("Unit:{}:MovementSpeed", id_str),
+                AiFactValue::Int(stats.movement_speed),
+            );
+
+            // Combat information
+            ws.insert(
+                format!("Unit:{}:AttackPower", id_str),
+                AiFactValue::Int(stats.base_attack as i32),
+            );
+            ws.insert(
+                format!("Unit:{}:AttackedThisTurn", id_str),
+                AiFactValue::Bool(stats.attacked_this_turn),
+            );
+
+            // Attack range
+            let attacks = unit.unit().get_attacks();
+            let max_range = attacks.iter().map(|a| a.range).max().unwrap_or(1);
+            ws.insert(
+                format!("Unit:{}:AttackRange", id_str),
+                AiFactValue::Int(max_range),
+            );
+
+            // Threat level calculation
+            let threat = self.calculate_threat_level(unit);
+            ws.insert(
+                format!("Unit:{}:ThreatLevel", id_str),
+                AiFactValue::Int(threat),
+            );
+
+            // Terrain defense
+            let defense = unit.unit().get_defense();
+            ws.insert(
+                format!("Unit:{}:Defense", id_str),
+                AiFactValue::Int(defense as i32),
+            );
+
+            // Store positions for clustering calculations
+            if is_friendly {
+                friendly_positions.push((*id, pos));
+            } else {
+                enemy_positions.push((*id, pos));
+            }
+        }
+
+        // === TERRAIN INFORMATION ===
+        // Include terrain for all unit positions
+        for (_, pos) in friendly_positions.iter().chain(enemy_positions.iter()) {
+            if let Some(terrain_tile) = self.get_terrain(*pos) {
+                let pos_key = format!("{},{}", pos.q, pos.r);
+                let terrain_type = terrain_tile.sprite_type();
+
+                ws.insert(
+                    format!("Terrain:{}:Type", pos_key),
+                    AiFactValue::Str(format!("{:?}", terrain_type)),
+                );
+                ws.insert(
+                    format!("Terrain:{}:MoveCost", pos_key),
+                    AiFactValue::Int(terrain_tile.movement_cost()),
+                );
+            }
+        }
+
+        // === CLUSTERING & DISTANCES ===
+        for (id, pos) in &friendly_positions {
+            let id_str = id.to_string();
+
+            // Count nearby allies
+            let nearby_allies = friendly_positions
+                .iter()
+                .filter(|(other_id, other_pos)| other_id != id && pos.distance(*other_pos) <= 2)
+                .count();
+
+            ws.insert(
+                format!("Unit:{}:NearbyAllies", id_str),
+                AiFactValue::Int(nearby_allies as i32),
+            );
+            ws.insert(
+                format!("Unit:{}:IsIsolated", id_str),
+                AiFactValue::Bool(nearby_allies == 0),
+            );
+
+            // Find nearest enemy
+            if let Some(nearest_dist) = enemy_positions
+                .iter()
+                .map(|(_, epos)| pos.distance(*epos))
+                .min()
+            {
+                ws.insert(
+                    format!("Unit:{}:NearestEnemyDist", id_str),
+                    AiFactValue::Int(nearest_dist),
+                );
+            }
+
+            // Count enemies in attack range
+            if let Some(unit) = self.units.get(id) {
+                let attacks = unit.unit().get_attacks();
+                let max_range = attacks.iter().map(|a| a.range).max().unwrap_or(1);
+
+                let enemies_in_range = enemy_positions
+                    .iter()
+                    .filter(|(_, epos)| pos.distance(*epos) <= max_range)
+                    .count();
+
+                ws.insert(
+                    format!("Unit:{}:EnemiesInRange", id_str),
+                    AiFactValue::Int(enemies_in_range as i32),
+                );
+            }
+        }
+
+        // === TEAM-LEVEL METRICS ===
+        ws.insert(
+            "Team:AllyCount".to_string(),
+            AiFactValue::Int(friendly_positions.len() as i32),
+        );
+        ws.insert(
+            "Team:EnemyCount".to_string(),
+            AiFactValue::Int(enemy_positions.len() as i32),
+        );
+
+        // Calculate average team health
+        let total_health: i32 = self
+            .units
+            .iter()
+            .filter(|(_, u)| u.team() == team)
+            .map(|(_, u)| u.unit().combat_stats().health)
+            .sum();
+        let avg_health = if !friendly_positions.is_empty() {
+            total_health / friendly_positions.len() as i32
+        } else {
+            0
+        };
+        ws.insert(
+            "Team:AverageHealth".to_string(),
+            AiFactValue::Int(avg_health),
+        );
+
+        ws
+    }
+
+    /// Calculate threat level of a unit based on combat capabilities and health.
+    ///
+    /// Threat level combines attack power, number of attacks, range, and current health
+    /// to provide a single metric for prioritizing targets or assessing danger.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit` - The unit to assess
+    ///
+    /// # Returns
+    ///
+    /// Integer threat level (higher = more dangerous)
+    fn calculate_threat_level(&self, unit: &GameUnit) -> i32 {
+        let stats = unit.unit().combat_stats();
+        let attacks = unit.unit().get_attacks();
+
+        // Base threat = attack power
+        let mut threat = stats.base_attack as i32;
+
+        // Factor in number of attacks
+        threat *= stats.attacks_per_round as i32;
+
+        // Factor in attack range (ranged units more threatening)
+        let max_range = attacks.iter().map(|a| a.range).max().unwrap_or(1);
+        if max_range > 1 {
+            threat = (threat as f32 * 1.5) as i32;
+        }
+
+        // Factor in remaining health (wounded units less threatening)
+        let health_factor = stats.health as f32 / stats.max_health.max(1) as f32;
+        threat = (threat as f32 * health_factor) as i32;
+
+        threat
+    }
+
     /// Generate simple grounded actions for all units of `team`.
     ///
     /// Prototype actions:
