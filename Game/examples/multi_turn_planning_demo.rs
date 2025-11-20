@@ -44,13 +44,13 @@ fn main() {
     );
     let mut ge2 = GameUnit::new_with_team(enemy2, Team::Enemy);
 
-    // Set long-term goal: reach defensive high ground position
+    // Set long-term goal: reach defensive area
     let target_pos = HexCoord::new(2, 2);
-    let goal = ai::LongTermGoal::ReachPosition {
-        target: ai::HexCoord {
+    let goal = ai::goals::LongTermGoal::ReachArea {
+        area_centers: vec![ai::HexCoord {
             q: target_pos.q,
             r: target_pos.r,
-        },
+        }],
         reason: "defensive_position".to_string(),
     };
     ge2.set_long_term_goal(Some(goal.to_string()));
@@ -65,10 +65,10 @@ fn main() {
     );
     let mut ge3 = GameUnit::new_with_team(enemy3, Team::Enemy);
 
-    let eliminate_goal = ai::LongTermGoal::EliminateTarget {
-        target_id: player_id.to_string(),
+    let kill_goal = ai::goals::LongTermGoal::KillAllEnemies {
+        search_radius: None, // Unlimited range
     };
-    ge3.set_long_term_goal(Some(eliminate_goal.to_string()));
+    ge3.set_long_term_goal(Some(kill_goal.to_string()));
     ge3.set_plan_horizon(4); // Plan 4 turns ahead
     let e3_id = world.add_unit(ge3);
 
@@ -106,7 +106,7 @@ fn main() {
     );
     println!("   Planning: Multi-turn tactical");
     println!("   Horizon: {} turns", world.units[&e3_id].plan_horizon());
-    println!("   Goal: Eliminate PlayerHero");
+    println!("   Goal: Kill all enemies");
     if let Some(goal_str) = world.units[&e3_id].long_term_goal() {
         println!("   Goal String: {}", goal_str);
     }
@@ -115,19 +115,19 @@ fn main() {
     println!("\n=== Goal Serialization/Deserialization Test ===");
 
     let test_goals = vec![
-        ai::LongTermGoal::ReachPosition {
-            target: ai::HexCoord { q: 5, r: 3 },
+        ai::goals::LongTermGoal::ReachArea {
+            area_centers: vec![ai::HexCoord { q: 5, r: 3 }],
             reason: "high_ground".to_string(),
         },
-        ai::LongTermGoal::EliminateTarget {
-            target_id: "enemy_abc123".to_string(),
+        ai::goals::LongTermGoal::KillAllEnemies {
+            search_radius: Some(10),
         },
-        ai::LongTermGoal::StayInFormation {
-            max_distance_from_allies: 3,
+        ai::goals::LongTermGoal::Protect {
+            targets: vec![ai::HexCoord { q: 0, r: 0 }, ai::HexCoord { q: 1, r: 0 }],
+            reason: "formation".to_string(),
         },
-        ai::LongTermGoal::ProtectAlly {
-            ally_id: "ally_xyz".to_string(),
-            max_distance: 2,
+        ai::goals::LongTermGoal::SiegeCastle {
+            castle_id: "castle_1".to_string(),
         },
     ];
 
@@ -136,7 +136,7 @@ fn main() {
         println!("\nOriginal: {:?}", goal);
         println!("Serialized: {}", serialized);
 
-        if let Some(deserialized) = ai::LongTermGoal::from_string(&serialized) {
+        if let Some(deserialized) = ai::goals::LongTermGoal::from_string(&serialized) {
             println!("Deserialized: {:?}", deserialized);
             println!("✓ Round-trip successful");
         } else {
@@ -150,7 +150,7 @@ fn main() {
     let ws = world.extract_detailed_world_state(Team::Enemy);
 
     if let Some(goal_str) = world.units[&e2_id].long_term_goal() {
-        if let Some(long_term_goal) = ai::LongTermGoal::from_string(goal_str) {
+        if let Some(long_term_goal) = ai::goals::LongTermGoal::from_string(goal_str) {
             println!("\nDecomposing: {:?}", long_term_goal);
 
             if let Some(short_term) = long_term_goal.decompose(&ws, &e2_id.to_string()) {
