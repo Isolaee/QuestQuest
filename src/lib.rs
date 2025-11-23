@@ -402,4 +402,4 @@ pub use units;
 pub use combat::{CombatStats, DamageType, Resistances};
 pub use game::{GameUnit, GameWorld, Team};
 pub use graphics::HexCoord;
-pub use units::{Race, Unit, UnitClass, UnitFactory};
+pub use units::{Race, Unit, UnitFactory};
