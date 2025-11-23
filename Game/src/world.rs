@@ -853,7 +853,61 @@ impl GameWorld {
             "🤖 [AI DEBUG] Calling planner for {} agents...",
             agent_order.len()
         );
-        let plans = ai::plan_for_team(&ws, &actions, &goals_per_agent, &agent_order, 500);
+
+        // Debug: Count action types
+        let move_count = actions
+            .iter()
+            .filter(|a| a.name.starts_with("Move-"))
+            .count();
+        let attack_count = actions
+            .iter()
+            .filter(|a| a.name.starts_with("Attack-"))
+            .count();
+        println!(
+            "🤖 [AI DEBUG] Action breakdown: {} moves, {} attacks",
+            move_count, attack_count
+        );
+
+        // Debug: Print first few actions to see what's available
+        println!("🤖 [AI DEBUG] Sample actions (first 10):");
+        for (i, action) in actions.iter().take(10).enumerate() {
+            println!(
+                "🤖 [AI DEBUG]   {}. {} (cost: {})",
+                i, action.name, action.cost
+            );
+        }
+
+        // Debug: Show any attack actions if they exist
+        let sample_attacks: Vec<_> = actions
+            .iter()
+            .filter(|a| a.name.starts_with("Attack-"))
+            .take(3)
+            .collect();
+        if !sample_attacks.is_empty() {
+            println!("🤖 [AI DEBUG] Sample attack actions:");
+            for action in sample_attacks {
+                println!("🤖 [AI DEBUG]   - {} (cost: {})", action.name, action.cost);
+                println!(
+                    "🤖 [AI DEBUG]      Preconditions: {:?}",
+                    action.preconditions
+                );
+                println!("🤖 [AI DEBUG]      Effects: {:?}", action.effects);
+            }
+        } else {
+            println!("🤖 [AI DEBUG] ⚠️ NO ATTACK ACTIONS GENERATED! Units may be out of range.");
+        }
+
+        // Debug: Print goals
+        println!("🤖 [AI DEBUG] Goals per agent:");
+        for (agent, goals) in &goals_per_agent {
+            println!("🤖 [AI DEBUG]   Agent {}: {} goals", agent, goals.len());
+            for goal in goals {
+                println!("🤖 [AI DEBUG]      {} = {:?}", goal.key, goal.value);
+            }
+        }
+
+        // Increase planner depth limit significantly
+        let plans = ai::plan_for_team(&ws, &actions, &goals_per_agent, &agent_order, 5000);
         println!(
             "🤖 [AI DEBUG] Planner returned plans for {} agents",
             plans.len()
@@ -868,12 +922,100 @@ impl GameWorld {
                 agent,
                 plan.len()
             );
-            if plan.is_empty() {
-                println!("🤖 [AI DEBUG] Agent {} has empty plan, skipping", agent);
-                continue;
-            }
+
             // find unit uuid
             if let Ok(uuid) = Uuid::parse_str(&agent) {
+                if plan.is_empty() {
+                    println!("🤖 [AI DEBUG] Agent {} has empty plan, using fallback: move toward nearest enemy", agent);
+
+                    // FALLBACK: Move toward nearest enemy
+                    if let Some(unit) = self.units.get(&uuid) {
+                        let unit_pos = unit.position();
+                        let unit_team = unit.team();
+
+                        // Find nearest enemy
+                        let mut nearest_enemy: Option<(Uuid, &GameUnit, i32)> = None;
+                        for (enemy_id, enemy_unit) in &self.units {
+                            if enemy_unit.team() != unit_team {
+                                let distance = unit_pos.distance(enemy_unit.position());
+                                if nearest_enemy.is_none() || distance < nearest_enemy.unwrap().2 {
+                                    nearest_enemy = Some((*enemy_id, enemy_unit, distance));
+                                }
+                            }
+                        }
+
+                        if let Some((_, enemy, distance)) = nearest_enemy {
+                            println!(
+                                "🤖 [AI DEBUG] Fallback: Moving toward enemy at distance {}",
+                                distance
+                            );
+                            let enemy_pos = enemy.position();
+
+                            // Find the best move action that gets us closer
+                            let agent_actions: Vec<AiActionInstance> = actions
+                                .iter()
+                                .filter(|a| a.agent.as_ref().map(|s| s == &agent).unwrap_or(false))
+                                .cloned()
+                                .collect();
+
+                            let mut best_move: Option<(usize, i32)> = None; // (action_index, new_distance)
+                            for (idx, action) in agent_actions.iter().enumerate() {
+                                if action.name.starts_with("Move-") {
+                                    // Extract destination from effects
+                                    if let Some((_, AiFactValue::Str(dest))) =
+                                        action.effects.first()
+                                    {
+                                        let parts: Vec<&str> = dest.split(',').collect();
+                                        if parts.len() == 2 {
+                                            if let (Ok(q), Ok(r)) =
+                                                (parts[0].parse::<i32>(), parts[1].parse::<i32>())
+                                            {
+                                                let dest_coord = HexCoord::new(q, r);
+                                                let new_distance = dest_coord.distance(enemy_pos);
+
+                                                if best_move.is_none()
+                                                    || new_distance < best_move.unwrap().1
+                                                {
+                                                    best_move = Some((idx, new_distance));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Execute best move
+                            if let Some((idx, new_dist)) = best_move {
+                                if let Some(action) = agent_actions.get(idx) {
+                                    println!("🤖 [AI DEBUG] Executing fallback move: {} (new distance: {})", action.name, new_dist);
+                                    if let Some((_, AiFactValue::Str(dest))) =
+                                        action.effects.first()
+                                    {
+                                        let parts: Vec<&str> = dest.split(',').collect();
+                                        if parts.len() == 2 {
+                                            if let (Ok(q), Ok(r)) =
+                                                (parts[0].parse::<i32>(), parts[1].parse::<i32>())
+                                            {
+                                                let dest_coord = HexCoord::new(q, r);
+                                                match self.move_unit(uuid, dest_coord) {
+                                                    Ok(()) => {
+                                                        println!("🤖 [AI DEBUG] Fallback move successful!");
+                                                        total_actions_executed += 1;
+                                                    }
+                                                    Err(e) => println!(
+                                                        "🤖 [AI DEBUG] Fallback move failed: {}",
+                                                        e
+                                                    ),
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    continue;
+                }
                 // For simplicity, perform actions in plan for this agent
                 let agent_actions: Vec<AiActionInstance> = actions
                     .iter()

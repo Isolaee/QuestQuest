@@ -157,23 +157,64 @@ impl GameApp {
         let mut game_world = GameWorld::new(8); // World radius of 8
 
         // ========================================
-        // DEMO UNITS (2 units for simplicity)
+        // DEMO UNITS - Dwarf Evolution Chain vs Orc Evolution Chain
         // ========================================
-        // Player unit
-        let hero = units::UnitFactory::create_human_warrior(
-            "Thorin".to_string(),
-            HexCoord::new(0, 0),
-            units::Terrain::Grasslands,
-        );
-        game_world.add_unit(GameUnit::new_with_team(hero, game::Team::Player));
 
-        // Enemy unit
-        let orc_grunt = units::UnitFactory::create_goblin_grunt(
-            "Orc Grunt".to_string(),
-            HexCoord::new(4, 2),
-            units::Terrain::Grasslands,
-        );
-        game_world.add_unit(GameUnit::new_with_team(orc_grunt, game::Team::Enemy));
+        // Player Team - Dwarf Warriors (all 3 evolution stages)
+        let dwarf_young = units::UnitFactory::create(
+            "Dwarf Young Warrior",
+            Some("Fili".to_string()),
+            Some(HexCoord::new(-2, 0)),
+            Some(units::Terrain::Mountain),
+        )
+        .expect("Failed to create Dwarf Young Warrior");
+        game_world.add_unit(GameUnit::new_with_team(dwarf_young, game::Team::Player));
+
+        let dwarf_warrior = units::UnitFactory::create(
+            "Dwarf Warrior",
+            Some("Thorin".to_string()),
+            Some(HexCoord::new(0, 0)),
+            Some(units::Terrain::Mountain),
+        )
+        .expect("Failed to create Dwarf Warrior");
+        game_world.add_unit(GameUnit::new_with_team(dwarf_warrior, game::Team::Player));
+
+        let dwarf_veteran = units::UnitFactory::create(
+            "Dwarf Veteran Warrior",
+            Some("Dwalin".to_string()),
+            Some(HexCoord::new(2, 0)),
+            Some(units::Terrain::Mountain),
+        )
+        .expect("Failed to create Dwarf Veteran Warrior");
+        game_world.add_unit(GameUnit::new_with_team(dwarf_veteran, game::Team::Player));
+
+        // Enemy Team - Orc Swordsmen (all 3 evolution stages)
+        let orc_young = units::UnitFactory::create(
+            "Orc Young Swordsman",
+            Some("Grishnakh".to_string()),
+            Some(HexCoord::new(-2, 4)),
+            Some(units::Terrain::Grasslands),
+        )
+        .expect("Failed to create Orc Young Swordsman");
+        game_world.add_unit(GameUnit::new_with_team(orc_young, game::Team::Enemy));
+
+        let orc_swordsman = units::UnitFactory::create(
+            "Orc Swordsman",
+            Some("Ugluk".to_string()),
+            Some(HexCoord::new(0, 4)),
+            Some(units::Terrain::Grasslands),
+        )
+        .expect("Failed to create Orc Swordsman");
+        game_world.add_unit(GameUnit::new_with_team(orc_swordsman, game::Team::Enemy));
+
+        let orc_elite = units::UnitFactory::create(
+            "Orc Elite Swordsman",
+            Some("Azog".to_string()),
+            Some(HexCoord::new(2, 4)),
+            Some(units::Terrain::Grasslands),
+        )
+        .expect("Failed to create Orc Elite Swordsman");
+        game_world.add_unit(GameUnit::new_with_team(orc_elite, game::Team::Enemy));
 
         // Add a test item on the ground for pickup testing
         let test_sword = items::item_definitions::create_iron_sword();
