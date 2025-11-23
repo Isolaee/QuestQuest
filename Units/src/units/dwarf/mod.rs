@@ -1,7 +1,11 @@
-pub mod archer;
-pub mod mage;
-pub mod warrior;
+// Dwarf units module
+// Dwarves are resilient defenders with high resistances
 
-pub use archer::DwarfArcher;
-pub use mage::DwarfMage;
-pub use warrior::DwarfWarrior;
+pub mod dwarf_warrior;
+
+pub use dwarf_warrior::{DwarfVeteranWarrior, DwarfWarrior, DwarfYoungWarrior};
+
+// TODO: Add more dwarf unit implementations
+// pub mod guardian;
+// pub mod runepriest;
+// pub mod engineer;

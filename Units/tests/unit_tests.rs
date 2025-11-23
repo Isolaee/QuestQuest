@@ -66,6 +66,7 @@ fn test_create_dwarf_warrior() {
 
     assert_eq!(unit.unit_type(), "Dwarf Warrior");
     assert_eq!(unit.race(), Race::Dwarf);
+    assert_eq!(unit.level(), 2); // Level 2 warrior
 
     let stats = unit.combat_stats();
     assert_eq!(stats.health, 140); // Dwarf Warrior has 140 HP (very tough)
@@ -295,20 +296,40 @@ fn test_all_elf_units() {
 
 #[test]
 fn test_all_dwarf_units() {
+    let young = UnitFactory::create_dwarf_young_warrior(
+        "Y".to_string(),
+        HexCoord::new(0, 0),
+        Terrain::Mountain,
+    );
     let warrior =
         UnitFactory::create_dwarf_warrior("W".to_string(), HexCoord::new(0, 0), Terrain::Mountain);
-    let archer =
-        UnitFactory::create_dwarf_archer("A".to_string(), HexCoord::new(0, 0), Terrain::Mountain);
-    let mage =
-        UnitFactory::create_dwarf_mage("M".to_string(), HexCoord::new(0, 0), Terrain::Mountain);
+    let veteran = UnitFactory::create_dwarf_veteran_warrior(
+        "V".to_string(),
+        HexCoord::new(0, 0),
+        Terrain::Mountain,
+    );
 
+    assert_eq!(young.race(), Race::Dwarf);
     assert_eq!(warrior.race(), Race::Dwarf);
-    assert_eq!(archer.race(), Race::Dwarf);
-    assert_eq!(mage.race(), Race::Dwarf);
+    assert_eq!(veteran.race(), Race::Dwarf);
 
+    assert_eq!(young.unit_type(), "Dwarf Young Warrior");
     assert_eq!(warrior.unit_type(), "Dwarf Warrior");
-    assert_eq!(archer.unit_type(), "Dwarf Archer");
-    assert_eq!(mage.unit_type(), "Dwarf Mage");
+    assert_eq!(veteran.unit_type(), "Dwarf Veteran Warrior");
+
+    // Check evolution progression
+    assert_eq!(young.level(), 1);
+    assert_eq!(warrior.level(), 2);
+    assert_eq!(veteran.level(), 3);
+
+    // Check health progression
+    assert_eq!(young.combat_stats().max_health, 110);
+    assert_eq!(warrior.combat_stats().max_health, 140);
+    assert_eq!(veteran.combat_stats().max_health, 175);
+
+    // Veteran should be strongest
+    assert!(veteran.combat_stats().max_health > warrior.combat_stats().max_health);
+    assert!(warrior.combat_stats().max_health > young.combat_stats().max_health);
 }
 
 #[test]

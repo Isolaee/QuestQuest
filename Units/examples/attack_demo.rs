@@ -3,14 +3,15 @@ use graphics::HexCoord;
 /// Example of how to use the attack system with units
 ///
 /// This demonstrates:
-/// 1. Creating a warrior with default attacks
+/// 1. Creating a veteran warrior with default attacks
 /// 2. Accessing the unit's attacks
-/// 3. Adding custom attacks to units
-use units::{Attack, DwarfWarrior, Terrain, Unit};
+/// 3. Adding custom attacks to veteran units
+use units::{Attack, DwarfVeteranWarrior, Terrain, Unit};
 
 fn main() {
-    // Create a dwarf warrior at position (0, 0)
-    let mut warrior = DwarfWarrior::new(
+    // Create a dwarf veteran warrior (Level 3) at position (0, 0)
+    // Note: Only veteran warriors (max level) can add custom attacks
+    let mut warrior = DwarfVeteranWarrior::new(
         "Thorin".to_string(),
         HexCoord { q: 0, r: 0 },
         Terrain::Grasslands,

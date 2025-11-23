@@ -54,6 +54,6 @@ pub use unit_trait::Unit;
 
 // Export concrete unit types
 pub use units::{
-    DwarfArcher, DwarfMage, DwarfWarrior, ElfArcher, ElfMage, ElfWarrior, HumanArcher, HumanMage,
-    HumanWarrior,
+    DwarfVeteranWarrior, DwarfWarrior, DwarfYoungWarrior, ElfArcher, ElfMage, ElfWarrior,
+    HumanArcher, HumanMage, HumanWarrior, OrcEliteSwordsman, OrcSwordsman, OrcYoungSwordsman,
 };

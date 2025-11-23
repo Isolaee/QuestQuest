@@ -99,9 +99,20 @@ impl UnitFactory {
         Box::new(ElfMage::new(name, position, terrain))
     }
 
-    /// Creates a dwarf warrior unit.
+    /// Creates a dwarf young warrior unit (Level 1).
     ///
-    /// Dwarf warriors are heavily armored with exceptional mountain and hill bonuses.
+    /// Young Warriors are entry-level dwarven fighters with good defensive capabilities.
+    pub fn create_dwarf_young_warrior(
+        name: String,
+        position: HexCoord,
+        terrain: Terrain,
+    ) -> Box<dyn Unit> {
+        Box::new(DwarfYoungWarrior::new(name, position, terrain))
+    }
+
+    /// Creates a dwarf warrior unit (Level 2).
+    ///
+    /// Warriors are experienced dwarven fighters with improved combat abilities and formidable defenses.
     pub fn create_dwarf_warrior(
         name: String,
         position: HexCoord,
@@ -110,22 +121,15 @@ impl UnitFactory {
         Box::new(DwarfWarrior::new(name, position, terrain))
     }
 
-    /// Creates a dwarf archer unit.
+    /// Creates a dwarf veteran warrior unit (Level 3).
     ///
-    /// Dwarf archers use crossbows and have high durability despite their smaller range.
-    pub fn create_dwarf_archer(
+    /// Veteran Warriors are legendary dwarven champions with peak combat abilities.
+    pub fn create_dwarf_veteran_warrior(
         name: String,
         position: HexCoord,
         terrain: Terrain,
     ) -> Box<dyn Unit> {
-        Box::new(DwarfArcher::new(name, position, terrain))
-    }
-
-    /// Creates a dwarf mage unit.
-    ///
-    /// Dwarf mages specialize in earth and fire magic with dwarven resilience.
-    pub fn create_dwarf_mage(name: String, position: HexCoord, terrain: Terrain) -> Box<dyn Unit> {
-        Box::new(DwarfMage::new(name, position, terrain))
+        Box::new(DwarfVeteranWarrior::new(name, position, terrain))
     }
 
     /// Creates a goblin grunt unit.

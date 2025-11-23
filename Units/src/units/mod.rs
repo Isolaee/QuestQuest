@@ -26,7 +26,7 @@ pub mod undead;
 pub mod zombie;
 
 // Re-export all concrete unit types
-pub use dwarf::{DwarfArcher, DwarfMage, DwarfWarrior};
+pub use dwarf::{DwarfVeteranWarrior, DwarfWarrior, DwarfYoungWarrior};
 pub use elf::{ElfArcher, ElfMage, ElfWarrior};
 pub use goblin::{GoblinChief, GoblinGrunt};
 pub use human::{HumanArcher, HumanMage, HumanWarrior};
