@@ -1686,13 +1686,69 @@ impl GameWorld {
 
         if !defender_still_alive {
             println!("\n💀 {} has been defeated!", defender_name);
+
+            // Calculate and distribute experience
+            let defender_level = self
+                .units
+                .get(&defender_id)
+                .map(|u| u.unit().level())
+                .unwrap_or(1);
+
+            let killer_xp = defender_level * defender_level;
+            let ally_xp = 2 * defender_level;
+
+            println!("\n✨ Experience Distribution:");
+
+            // Award XP to killer
+            if let Some(attacker) = self.units.get_mut(&attacker_id) {
+                let leveled_up = attacker.unit_mut().add_experience(killer_xp);
+                println!("  {} gains {} XP (killer bonus)", attacker_name, killer_xp);
+                if leveled_up {
+                    println!("    🎉 {} can level up!", attacker_name);
+                }
+            }
+
+            // Award XP to adjacent allies
+            let attacker_team = self
+                .units
+                .get(&attacker_id)
+                .map(|u| u.team())
+                .unwrap_or(Team::Player);
+
+            for neighbor_coord in attacker_pos.neighbors().iter() {
+                // Get all units at this adjacent position
+                let units_at_neighbor: Vec<Uuid> = self
+                    .units
+                    .iter()
+                    .filter(|(id, unit)| {
+                        **id != attacker_id
+                            && unit.position() == *neighbor_coord
+                            && unit.team() == attacker_team
+                    })
+                    .map(|(id, _)| *id)
+                    .collect();
+
+                // Award XP to each ally
+                for ally_id in units_at_neighbor {
+                    if let Some(ally) = self.units.get_mut(&ally_id) {
+                        let ally_name = ally.unit().name().to_string();
+                        let leveled_up = ally.unit_mut().add_experience(ally_xp);
+                        println!("  {} gains {} XP (adjacent ally)", ally_name, ally_xp);
+                        if leveled_up {
+                            println!("    🎉 {} can level up!", ally_name);
+                        }
+                    }
+                }
+            }
+
+            // Remove defeated unit
             self.units.remove(&defender_id);
 
             // Move attacker to defender's position
             if let Some(attacker) = self.units.get_mut(&attacker_id) {
                 attacker.set_position(defender_pos);
                 println!(
-                    "📍 {} moves to ({}, {})",
+                    "\n📍 {} moves to ({}, {})",
                     attacker_name, defender_pos.q, defender_pos.r
                 );
             }
@@ -1713,7 +1769,63 @@ impl GameWorld {
             .unwrap_or(false);
 
         if !attacker_alive {
-            println!("💀 {} has been defeated!", attacker_name);
+            println!("\n💀 {} has been defeated!", attacker_name);
+
+            // Calculate and distribute experience (defender killed attacker)
+            let attacker_level = self
+                .units
+                .get(&attacker_id)
+                .map(|u| u.unit().level())
+                .unwrap_or(1);
+
+            let killer_xp = attacker_level * attacker_level;
+            let ally_xp = 2 * attacker_level;
+
+            println!("\n✨ Experience Distribution:");
+
+            // Award XP to defender (killer)
+            if let Some(defender) = self.units.get_mut(&defender_id) {
+                let leveled_up = defender.unit_mut().add_experience(killer_xp);
+                println!("  {} gains {} XP (killer bonus)", defender_name, killer_xp);
+                if leveled_up {
+                    println!("    🎉 {} can level up!", defender_name);
+                }
+            }
+
+            // Award XP to adjacent allies of defender
+            let defender_team = self
+                .units
+                .get(&defender_id)
+                .map(|u| u.team())
+                .unwrap_or(Team::Enemy);
+
+            for neighbor_coord in defender_pos.neighbors().iter() {
+                // Get all units at this adjacent position
+                let units_at_neighbor: Vec<Uuid> = self
+                    .units
+                    .iter()
+                    .filter(|(id, unit)| {
+                        **id != defender_id
+                            && unit.position() == *neighbor_coord
+                            && unit.team() == defender_team
+                    })
+                    .map(|(id, _)| *id)
+                    .collect();
+
+                // Award XP to each ally
+                for ally_id in units_at_neighbor {
+                    if let Some(ally) = self.units.get_mut(&ally_id) {
+                        let ally_name = ally.unit().name().to_string();
+                        let leveled_up = ally.unit_mut().add_experience(ally_xp);
+                        println!("  {} gains {} XP (adjacent ally)", ally_name, ally_xp);
+                        if leveled_up {
+                            println!("    🎉 {} can level up!", ally_name);
+                        }
+                    }
+                }
+            }
+
+            // Remove defeated unit
             self.units.remove(&attacker_id);
         } else {
             // Show remaining HP
