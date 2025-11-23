@@ -34,6 +34,8 @@
 pub mod attack;
 pub mod base_unit;
 pub mod combat;
+pub mod structures; // Structure system (walls, towers, buildings, etc.)
+pub mod team; // Team affiliation for units and structures
 pub mod unit_factory;
 pub mod unit_macros; // Macro to reduce boilerplate
 pub mod unit_race;
@@ -46,6 +48,7 @@ pub use attack::Attack;
 pub use base_unit::BaseUnit;
 pub use combat::{CombatAction, CombatResult, CombatStats};
 pub use items::{ConsumableEffect, Equipment, Item, ItemProperties, ItemType, RangeType};
+pub use team::Team;
 pub use unit_factory::UnitFactory;
 pub use unit_race::{Race, Terrain};
 pub use unit_registry::{UnitRegistry, UnitTypeInfo};
@@ -58,4 +61,10 @@ pub use unit_trait::Unit;
 pub use units::{
     DwarfVeteranWarrior, DwarfWarrior, DwarfYoungWarrior, ElfArcher, ElfMage, ElfWarrior,
     HumanArcher, HumanMage, HumanWarrior, OrcEliteSwordsman, OrcSwordsman, OrcYoungSwordsman,
+};
+
+// Export structure types and factory
+pub use structures::{
+    StoneWall, Structure, StructureCategory, StructureFactory, StructureId, StructureStats,
+    StructureType,
 };
