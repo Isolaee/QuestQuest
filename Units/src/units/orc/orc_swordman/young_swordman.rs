@@ -190,3 +190,12 @@ impl OrcYoungSwordsman {
 
 // Use the macro to implement all standard Unit trait methods
 crate::impl_unit_delegate!(OrcYoungSwordsman);
+
+crate::submit_unit!(
+    OrcYoungSwordsman,
+    "Orc Young Swordsman",
+    "A young orc swordsman, level 1",
+    Terrain::Grasslands,
+    "Orc",
+    "Swordsman"
+);

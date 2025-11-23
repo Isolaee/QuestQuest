@@ -49,3 +49,12 @@ impl ElfArcher {
 }
 
 crate::impl_unit_delegate!(ElfArcher);
+
+crate::submit_unit!(
+    ElfArcher,
+    "Elf Archer",
+    "A precise elf archer",
+    Terrain::Forest0,
+    "Elf",
+    "Archer"
+);

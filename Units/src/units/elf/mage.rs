@@ -49,3 +49,12 @@ impl ElfMage {
 }
 
 crate::impl_unit_delegate!(ElfMage);
+
+crate::submit_unit!(
+    ElfMage,
+    "Elf Mage",
+    "A mystical elf mage",
+    Terrain::Forest0,
+    "Elf",
+    "Mage"
+);

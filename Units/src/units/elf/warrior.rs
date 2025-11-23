@@ -48,3 +48,12 @@ impl ElfWarrior {
 }
 
 crate::impl_unit_delegate!(ElfWarrior);
+
+crate::submit_unit!(
+    ElfWarrior,
+    "Elf Warrior",
+    "An agile elf warrior",
+    Terrain::Forest0,
+    "Elf",
+    "Warrior"
+);

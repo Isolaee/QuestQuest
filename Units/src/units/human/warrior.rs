@@ -56,3 +56,13 @@ impl HumanWarrior {
 
 // Use the macro to implement all standard Unit trait methods
 crate::impl_unit_delegate!(HumanWarrior);
+
+// Register this unit type with the global registry
+crate::submit_unit!(
+    HumanWarrior,
+    "Human Warrior",
+    "A versatile human warrior",
+    Terrain::Grasslands,
+    "Human",
+    "Warrior"
+);

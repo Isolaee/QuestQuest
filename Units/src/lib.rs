@@ -37,6 +37,7 @@ pub mod combat;
 pub mod unit_factory;
 pub mod unit_macros; // Macro to reduce boilerplate
 pub mod unit_race;
+pub mod unit_registry; // Dynamic unit registry
 pub mod unit_trait;
 pub mod units; // Concrete unit implementations
 
@@ -47,6 +48,7 @@ pub use combat::{CombatAction, CombatResult, CombatStats};
 pub use items::{ConsumableEffect, Equipment, Item, ItemProperties, ItemType, RangeType};
 pub use unit_factory::UnitFactory;
 pub use unit_race::{Race, Terrain};
+pub use unit_registry::{UnitRegistry, UnitTypeInfo};
 pub use unit_trait::UnitId;
 
 // Export the trait-based Unit interface

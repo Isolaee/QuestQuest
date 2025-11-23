@@ -203,3 +203,12 @@ impl DwarfWarrior {
 
 // Use the macro to implement all standard Unit trait methods
 crate::impl_unit_delegate!(DwarfWarrior);
+
+crate::submit_unit!(
+    DwarfWarrior,
+    "Dwarf Warrior",
+    "An experienced dwarf warrior, level 2",
+    Terrain::Mountain,
+    "Dwarf",
+    "Warrior"
+);

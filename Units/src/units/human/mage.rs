@@ -49,3 +49,12 @@ impl HumanMage {
 }
 
 crate::impl_unit_delegate!(HumanMage);
+
+crate::submit_unit!(
+    HumanMage,
+    "Human Mage",
+    "A powerful human mage",
+    Terrain::Grasslands,
+    "Human",
+    "Mage"
+);

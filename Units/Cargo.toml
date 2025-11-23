@@ -10,6 +10,8 @@ combat = { path = "../Combat" }
 serde = { version = "1.0", features = ["derive"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 rand = "0.8"
+inventory = "0.3"
+lazy_static = "1.4"
 
 [dev-dependencies]
 criterion = "0.5"

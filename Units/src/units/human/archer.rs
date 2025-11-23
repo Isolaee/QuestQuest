@@ -63,3 +63,12 @@ impl HumanArcher {
 }
 
 crate::impl_unit_delegate!(HumanArcher);
+
+crate::submit_unit!(
+    HumanArcher,
+    "Human Archer",
+    "A skilled human archer",
+    Terrain::Forest0,
+    "Human",
+    "Archer"
+);
