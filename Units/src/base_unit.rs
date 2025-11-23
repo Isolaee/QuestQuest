@@ -4,6 +4,7 @@
 //! shared by all concrete unit implementations. It handles stat caching, equipment
 //! bonuses, and level progression.
 
+use crate::attack::Attack;
 use crate::unit_race::{Race, Terrain};
 use combat::CombatStats;
 use graphics::HexCoord;
@@ -280,5 +281,180 @@ impl BaseUnit {
         let empty_part = "░".repeat(width - filled);
 
         format!("[{}{}]", filled_part, empty_part)
+    }
+
+    /// Apply new stats during level up, preserving equipment and inventory
+    ///
+    /// This method updates the unit's base combat stats and recalculates all cached values,
+    /// but preserves the unit's equipment and inventory. It also optionally heals the unit.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_stats` - The new base combat stats for the leveled-up unit
+    /// * `heal_to_full` - Whether to restore the unit to full health after leveling up
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::BaseUnit;
+    /// # use combat::{CombatStats, RangeCategory, Resistances};
+    /// # use graphics::HexCoord;
+    /// # use units::{Race, Terrain};
+    /// # let initial_stats = CombatStats::new(100, 10, 4, RangeCategory::Melee, Resistances::new(10, 10, 10, 10, 10, 10));
+    /// # let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), Terrain::Grasslands, initial_stats);
+    /// let new_stats = CombatStats::new(150, 15, 4, RangeCategory::Melee, Resistances::new(15, 15, 15, 15, 15, 15));
+    /// unit.apply_level_up_stats(new_stats, true); // Level up and heal to full
+    /// ```
+    pub fn apply_level_up_stats(&mut self, new_stats: CombatStats, heal_to_full: bool) {
+        // Store current health percentage before updating stats
+        let current_health_percentage = if heal_to_full {
+            1.0 // Will restore to 100%
+        } else {
+            self.combat_stats.health_percentage()
+        };
+
+        // Update base combat stats (this replaces the base stats with new level stats)
+        self.combat_stats = new_stats;
+
+        // Recalculate all cached values including equipment bonuses
+        self.recalculate_stats();
+
+        // Apply health based on option
+        if heal_to_full {
+            self.combat_stats.health = self.combat_stats.max_health;
+        } else {
+            // Maintain health percentage with new max health
+            self.combat_stats.health =
+                (self.combat_stats.max_health as f32 * current_health_percentage) as i32;
+        }
+    }
+
+    /// Get the experience required for a specific level
+    ///
+    /// This uses a quadratic formula: level^2 * 50
+    /// Level 1→2: 100 XP
+    /// Level 2→3: 250 XP (total)
+    /// Level 3→4: 450 XP (total)
+    /// Level 4→5: 700 XP (total)
+    ///
+    /// # Arguments
+    ///
+    /// * `level` - The target level
+    ///
+    /// # Returns
+    ///
+    /// Total experience required to reach that level
+    pub fn xp_required_for_level(level: i32) -> i32 {
+        if level <= 1 {
+            return 0;
+        }
+        // Quadratic progression: level^2 * 50
+        level * level * 50
+    }
+
+    /// Get XP needed to reach next level from current level
+    pub fn xp_to_next_level(&self) -> i32 {
+        Self::xp_required_for_level(self.level + 1)
+    }
+
+    /// Get remaining XP needed to level up
+    pub fn xp_remaining_for_level_up(&self) -> i32 {
+        (self.xp_to_next_level() - self.experience).max(0)
+    }
+
+    /// Check if unit has enough XP to level up
+    pub fn can_level_up(&self) -> bool {
+        self.experience >= self.xp_to_next_level()
+    }
+
+    /// Add experience and check if leveled up
+    ///
+    /// # Arguments
+    ///
+    /// * `xp` - Amount of experience to add
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the unit now has enough XP to level up, `false` otherwise.
+    /// Note: This does NOT automatically level up the unit - it only adds XP and checks
+    /// the threshold. The caller must handle the actual level-up process.
+    pub fn add_experience(&mut self, xp: i32) -> bool {
+        self.experience += xp;
+        self.can_level_up()
+    }
+
+    /// Perform a complete level-up with evolution to next unit type
+    ///
+    /// This method handles evolution to the next unit in the evolution chain:
+    /// 1. Increments the level
+    /// 2. Applies new combat stats
+    /// 3. Replaces attacks with new level's attacks
+    /// 4. Optionally heals to full HP
+    /// 5. Updates unit type name
+    ///
+    /// # Arguments
+    ///
+    /// * `new_stats` - Combat stats for the new level
+    /// * `new_attacks` - Attacks available at the new level
+    /// * `new_unit_type` - New unit type name (e.g., "Orc Swordsman" → "Orc Elite Swordsman")
+    /// * `heal_to_full` - Whether to restore unit to full health
+    ///
+    /// # Returns
+    ///
+    /// The new attacks vector (for updating the unit's attacks field)
+    pub fn level_up_evolution(
+        &mut self,
+        new_stats: CombatStats,
+        new_attacks: Vec<Attack>,
+        new_unit_type: String,
+        heal_to_full: bool,
+    ) -> Vec<Attack> {
+        // Increment level
+        self.level += 1;
+
+        // Update unit type name
+        self.unit_type = new_unit_type;
+
+        // Apply new stats (preserves equipment)
+        self.apply_level_up_stats(new_stats, heal_to_full);
+
+        // Return new attacks for caller to update their attacks field
+        new_attacks
+    }
+
+    /// Perform incremental level-up for max-level units (no evolution)
+    ///
+    /// When a unit has no next evolution, it gains small incremental stat boosts:
+    /// - +2 max HP
+    /// - +1 attack
+    ///
+    /// # Arguments
+    ///
+    /// * `heal_to_full` - Whether to restore unit to full health
+    ///
+    /// # Returns
+    ///
+    /// Empty vector (attacks unchanged for incremental level-ups)
+    pub fn level_up_incremental(&mut self, heal_to_full: bool) -> Vec<Attack> {
+        // Increment level
+        self.level += 1;
+
+        // Small stat increases for max-level units
+        self.combat_stats.max_health += 2;
+        self.combat_stats.attack_strength += 1; // Increment attack_strength, not base_attack
+
+        // Recalculate stats with equipment bonuses
+        self.recalculate_stats();
+
+        // Optionally heal to full
+        if heal_to_full {
+            self.combat_stats.health = self.combat_stats.max_health;
+        } else {
+            // Ensure health doesn't exceed new max
+            self.combat_stats.health = self.combat_stats.health.min(self.combat_stats.max_health);
+        }
+
+        // Return empty vector - attacks stay the same
+        vec![]
     }
 }

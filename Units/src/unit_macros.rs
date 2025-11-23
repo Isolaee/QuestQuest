@@ -369,27 +369,16 @@ macro_rules! impl_unit_delegate {
             }
 
             fn add_experience(&mut self, exp: i32) -> bool {
-                self.base.experience += exp.max(0);
-                let required_exp = self.base.level * self.base.level * 100;
-
-                if self.base.experience >= required_exp {
-                    self.base.level += 1;
-                    self.recalculate_stats();
-                    self.base.combat_stats.health = self.base.combat_stats.max_health;
-                    true
-                } else {
-                    false
-                }
+                self.base.add_experience(exp)
             }
 
             fn experience_for_next_level(&self) -> i32 {
-                let required = self.base.level * self.base.level * 100;
-                (required - self.base.experience).max(0)
+                self.base.xp_remaining_for_level_up()
             }
 
             fn level_progress(&self) -> f32 {
-                let current_level_exp = (self.base.level - 1) * (self.base.level - 1) * 100;
-                let next_level_exp = self.base.level * self.base.level * 100;
+                let current_level_exp = BaseUnit::xp_required_for_level(self.base.level);
+                let next_level_exp = BaseUnit::xp_required_for_level(self.base.level + 1);
                 let progress_exp = self.base.experience - current_level_exp;
                 let level_exp_range = next_level_exp - current_level_exp;
 
@@ -398,6 +387,33 @@ macro_rules! impl_unit_delegate {
                 } else {
                     0.0
                 }
+            }
+
+            fn can_level_up(&self) -> bool {
+                self.base.can_level_up()
+            }
+
+            fn perform_level_up_evolution(
+                &mut self,
+                new_stats: combat::CombatStats,
+                new_attacks: Vec<$crate::attack::Attack>,
+                new_unit_type: String,
+                heal_to_full: bool,
+            ) {
+                self.attacks = self.base.level_up_evolution(
+                    new_stats,
+                    new_attacks,
+                    new_unit_type,
+                    heal_to_full,
+                );
+            }
+
+            fn perform_level_up_incremental(&mut self, heal_to_full: bool) {
+                let new_attacks = self.base.level_up_incremental(heal_to_full);
+                if !new_attacks.is_empty() {
+                    self.attacks = new_attacks;
+                }
+                // If empty, keep existing attacks
             }
 
             // ===== Terrain Methods =====

@@ -208,6 +208,33 @@ pub trait Unit {
     /// A value between 0.0 and 1.0, where 0.0 is no progress and 1.0 is ready to level up.
     fn level_progress(&self) -> f32;
 
+    /// Checks if the unit has enough XP to level up.
+    fn can_level_up(&self) -> bool;
+
+    /// Performs a level-up with evolution to next unit type.
+    ///
+    /// # Arguments
+    ///
+    /// * `new_stats` - Combat stats for the new level
+    /// * `new_attacks` - Attacks available at the new level  
+    /// * `new_unit_type` - New unit type name
+    /// * `heal_to_full` - Whether to restore unit to full health
+    fn perform_level_up_evolution(
+        &mut self,
+        new_stats: CombatStats,
+        new_attacks: Vec<crate::attack::Attack>,
+        new_unit_type: String,
+        heal_to_full: bool,
+    );
+
+    /// Performs incremental level-up for max-level units (no evolution).
+    /// Grants +2 max HP and +1 attack.
+    ///
+    /// # Arguments
+    ///
+    /// * `heal_to_full` - Whether to restore unit to full health
+    fn perform_level_up_incremental(&mut self, heal_to_full: bool);
+
     // ===== Terrain =====
 
     /// Returns the terrain type the unit is currently standing on.

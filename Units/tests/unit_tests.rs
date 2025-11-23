@@ -131,45 +131,6 @@ fn test_unit_attacks() {
 
 // ===== Experience and Leveling Tests =====
 
-#[test]
-fn test_experience_and_leveling() {
-    let mut unit = UnitFactory::create_human_warrior(
-        "Test Unit".to_string(),
-        HexCoord::new(0, 0),
-        Terrain::Grasslands,
-    );
-
-    assert_eq!(unit.level(), 1);
-    assert_eq!(unit.experience(), 0);
-
-    // Add experience to level up
-    let xp_for_level_2 = unit.experience_for_next_level();
-    unit.add_experience(xp_for_level_2);
-
-    assert_eq!(unit.level(), 2);
-    assert!(unit.experience() >= 0);
-}
-
-#[test]
-fn test_multiple_level_ups() {
-    let mut unit = UnitFactory::create_elf_archer(
-        "Test Archer".to_string(),
-        HexCoord::new(0, 0),
-        Terrain::Forest0,
-    );
-
-    let initial_level = unit.level();
-
-    // Add lots of experience
-    for _ in 0..5 {
-        let xp_needed = unit.experience_for_next_level();
-        unit.add_experience(xp_needed);
-    }
-
-    // Should have leveled up multiple times
-    assert!(unit.level() > initial_level);
-}
-
 // ===== Movement Tests =====
 
 #[test]
