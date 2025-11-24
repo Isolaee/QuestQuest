@@ -59,6 +59,11 @@ impl DwarfWarrior {
     // Unit type identifier
     const UNIT_TYPE: &'static str = "Dwarf Warrior";
 
+    /// Returns the sprite for this unit type
+    pub fn sprite(&self) -> graphics::SpriteType {
+        graphics::SpriteType::DwarfWarrior
+    }
+
     // ===== ATTACK DEFINITIONS =====
 
     /// Powerful axe swing

@@ -1225,7 +1225,8 @@ impl GameApp {
         // Add current unit positions as unit sprites on top of terrain
         for unit in self.game_world.units.values() {
             let pos = unit.position();
-            self.hex_grid.set_unit_at(pos, SpriteType::Unit);
+            let sprite = unit.unit().sprite();
+            self.hex_grid.set_unit_at(pos, sprite);
         }
 
         // Add items on the ground
@@ -1366,7 +1367,7 @@ impl ApplicationHandler for GameApp {
                 SCREEN_HEIGHT as u32,
             ));
 
-        let template = glutin::config::ConfigTemplateBuilder::new();
+        let template = glutin::config::ConfigTemplateBuilder::new().with_depth_size(24); // Request 24-bit depth buffer for proper layering
         let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
 
         let (window, gl_config) = display_builder
@@ -1467,7 +1468,7 @@ impl ApplicationHandler for GameApp {
                         let coord = HexCoord::new(q, r);
                         self.hex_grid.hexagons.entry(coord).or_insert_with(|| {
                             let mut hex = graphics::Hexagon::new(coord, 50.0);
-                            hex.set_sprite(SpriteType::Unit);
+                            hex.set_sprite(SpriteType::Grasslands);
                             hex
                         });
                     }

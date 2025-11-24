@@ -8,6 +8,7 @@ use crate::attack::Attack;
 use crate::unit_race::{Race, Terrain};
 use combat::CombatStats;
 use graphics::HexCoord;
+use graphics::SpriteType;
 use items::{Equipment, Item, ItemId};
 use uuid::Uuid;
 
@@ -290,6 +291,32 @@ pub trait Unit {
         // Default: use terrain hit chance from combat stats
         // This is calculated from race + terrain in recalculate_stats()
         self.combat_stats().terrain_hit_chance
+    }
+
+    // ===== Visual Representation =====
+
+    /// Returns the sprite type for rendering this unit.
+    ///
+    /// Each unit type has its own sprite for visual representation.
+    /// This enables proper encapsulation where units know their own appearance.
+    ///
+    /// # Returns
+    ///
+    /// The `SpriteType` that should be used to render this unit on the hex grid.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::{Unit, UnitFactory, Terrain};
+    /// # use graphics::{HexCoord, SpriteType};
+    /// # let dwarf = UnitFactory::create("Dwarf Warrior", Some("Thorin".to_string()), Some(HexCoord::new(0, 0)), Some(Terrain::Mountain)).unwrap();
+    /// let sprite = dwarf.sprite();
+    /// assert_eq!(sprite, SpriteType::DwarfWarrior);
+    /// ```
+    fn sprite(&self) -> SpriteType {
+        // Default implementation returns generic Unit sprite
+        // Override this in specific unit implementations for custom sprites
+        SpriteType::Unit
     }
 
     // ===== Display Methods =====

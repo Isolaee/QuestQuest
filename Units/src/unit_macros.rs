@@ -463,6 +463,15 @@ macro_rules! impl_unit_delegate {
                 self.base.race.get_display_color()
             }
 
+            fn sprite(&self) -> graphics::SpriteType {
+                // Map race to sprite type
+                match self.base.race {
+                    $crate::unit_race::Race::Dwarf => graphics::SpriteType::DwarfWarrior,
+                    $crate::unit_race::Race::Orc => graphics::SpriteType::OrcWarrior,
+                    _ => graphics::SpriteType::Unit, // Fallback for other races
+                }
+            }
+
             fn get_info(&self) -> String {
                 format!(
                     "{} (Lv.{} {:?} {})\nHP: {}/{}\nATK: {}\nExp: {}/{}",

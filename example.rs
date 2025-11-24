@@ -216,56 +216,6 @@ fn main() {
         let distance = warrior.position().distance(coord);
         println!("  {:?} -> distance: {}", coord, distance);
     }
-
-    // Demonstrate terrain system
-    println!("\n🗺️ TERRAIN SYSTEM DEMONSTRATION:");
-    demonstrate_terrain_sprites();
-}
-
-fn demonstrate_terrain_sprites() {
-    use graphics::{Hexagon, SpriteType};
-
-    println!("Available terrain sprites:");
-    let all_terrain = SpriteType::all_terrain();
-
-    for (i, terrain_type) in all_terrain.iter().enumerate() {
-        let tint = terrain_type.get_color_tint();
-        println!(
-            "  {}. {:?} - RGB({:.1}, {:.1}, {:.1})",
-            i + 1,
-            terrain_type,
-            tint[0],
-            tint[1],
-            tint[2]
-        );
-    }
-
-    println!("\nSample terrain distribution around origin:");
-    for r in -2..=2 {
-        for q in -2..=2 {
-            let coord = graphics::HexCoord::new(q, r);
-            let hex = Hexagon::new(coord, 0.2);
-            let sprite_char = match hex.sprite {
-                SpriteType::None => "⬡",
-                SpriteType::Forest => "🌲",
-                SpriteType::Forest2 => "🌳",
-                SpriteType::Grasslands => "🌱",
-                SpriteType::HauntedWoods => "🌚",
-                SpriteType::Hills => "⛰️",
-                SpriteType::Mountain => "🗻",
-                SpriteType::Swamp => "🌿",
-                SpriteType::Unit => "🔴", // Red circle for units
-                SpriteType::Item => "📦", // Box for items
-            };
-            print!("{} ", sprite_char);
-        }
-        println!();
-    }
-
-    println!("\nLegend:");
-    println!("  ⬡ = Empty   🌲 = Forest     🌳 = Forest2");
-    println!("  🌱 = Grasslands   🌚 = Haunted Woods   ⛰️ = Hills");
-    println!("  🗻 = Mountain     🌿 = Swamp");
 }
 
 fn print_unit_status(unit: &dyn Unit) {

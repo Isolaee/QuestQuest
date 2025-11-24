@@ -96,8 +96,13 @@ pub enum SpriteType {
     Hills,        // hills.png
     Mountain,     // mountain.png
     Swamp,        // swamp.png
-    Unit,         // Red circle for units
+    Unit,         // Generic unit (fallback, red circle)
     Item,         // Gold/yellow circle for items
+    // Specific unit types with textures
+    DwarfWarrior, // unit_sprites/dwarf_warrior.png
+    OrcWarrior,   // unit_sprites/orc_warrior.png
+    House,        // unit_sprites/house.png
+    Wall,         // unit_sprites/wall.png
 }
 
 impl SpriteType {
@@ -115,6 +120,10 @@ impl SpriteType {
             SpriteType::Swamp => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
             SpriteType::Unit => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // No texture --- IGNORE ---
             SpriteType::Item => [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // No texture --- IGNORE ---
+            SpriteType::DwarfWarrior => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::OrcWarrior => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::House => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
+            SpriteType::Wall => [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0],
         }
     }
 
@@ -129,8 +138,12 @@ impl SpriteType {
             SpriteType::Hills => Some("terrain_sprites/hills.png"),
             SpriteType::Mountain => Some("terrain_sprites/mountain.png"),
             SpriteType::Swamp => Some("terrain_sprites/swamp.png"),
-            SpriteType::Unit => None, // We'll render this as a colored circle
-            SpriteType::Item => Some("item_sprites/sword.png"), // Sword sprite for items
+            SpriteType::Unit => None, // Generic unit - colored circle fallback
+            SpriteType::Item => Some("item_sprites/sword.png"),
+            SpriteType::DwarfWarrior => Some("unit_sprites/dwarf_warrior.png"),
+            SpriteType::OrcWarrior => Some("unit_sprites/orc_warrior.png"),
+            SpriteType::House => None, // Not yet implemented
+            SpriteType::Wall => None,  // Not yet implemented
         }
     }
 
@@ -145,8 +158,12 @@ impl SpriteType {
             SpriteType::Hills => [0.7, 0.6, 0.4],        // Brown
             SpriteType::Mountain => [0.6, 0.6, 0.7],     // Gray-blue
             SpriteType::Swamp => [0.3, 0.5, 0.2],        // Dark green-brown
-            SpriteType::Unit => [0.9, 0.2, 0.2],         // Bright red for units
+            SpriteType::Unit => [0.9, 0.2, 0.2],         // Bright red for generic units
             SpriteType::Item => [1.0, 0.84, 0.0],        // Gold/yellow for items
+            SpriteType::DwarfWarrior => [1.0, 1.0, 1.0], // White tint (show texture as-is)
+            SpriteType::OrcWarrior => [1.0, 1.0, 1.0],   // White tint
+            SpriteType::House => [1.0, 1.0, 1.0],        // White tint
+            SpriteType::Wall => [1.0, 1.0, 1.0],         // White tint
         }
     }
 
@@ -163,10 +180,41 @@ impl SpriteType {
         ]
     }
 
+    /// Get all unit sprite types (with textures).
+    pub fn all_units() -> [SpriteType; 2] {
+        [SpriteType::DwarfWarrior, SpriteType::OrcWarrior]
+    }
+
     /// Get a deterministic pseudo-random terrain sprite given a seed.
     pub fn random_terrain(seed: i32) -> SpriteType {
         let all = Self::all_terrain();
         all[(seed.abs() % 7) as usize]
+    }
+
+    /// Check if this sprite type is a unit (any unit type including generic)
+    pub fn is_unit(&self) -> bool {
+        matches!(
+            self,
+            SpriteType::Unit
+                | SpriteType::DwarfWarrior
+                | SpriteType::OrcWarrior
+                | SpriteType::House
+                | SpriteType::Wall
+        )
+    }
+
+    /// Check if this sprite type is a terrain type
+    pub fn is_terrain(&self) -> bool {
+        matches!(
+            self,
+            SpriteType::Forest
+                | SpriteType::Forest2
+                | SpriteType::Grasslands
+                | SpriteType::HauntedWoods
+                | SpriteType::Hills
+                | SpriteType::Mountain
+                | SpriteType::Swamp
+        )
     }
 
     /// Get texture array index for OpenGL shader.
@@ -180,8 +228,13 @@ impl SpriteType {
             SpriteType::Hills => 4.0,
             SpriteType::Mountain => 5.0,
             SpriteType::Swamp => 6.0,
-            SpriteType::Unit => -1.0, // Use color rendering, not texture
-            SpriteType::Item => 7.0,  // Item texture at unit 7
+            SpriteType::Item => 7.0, // Item texture at unit 7
+            // Unit sprite textures (slots 8-11)
+            SpriteType::DwarfWarrior => 8.0,
+            SpriteType::OrcWarrior => 9.0,
+            SpriteType::House => 10.0,
+            SpriteType::Wall => 11.0,
+            SpriteType::Unit => -1.0, // Generic unit - use color rendering fallback
         }
     }
 
@@ -201,6 +254,10 @@ impl SpriteType {
             // Non-terrain types — default to 1 so they don't block movement cost logic
             SpriteType::Unit => 1,
             SpriteType::Item => 1,
+            SpriteType::DwarfWarrior => 1,
+            SpriteType::OrcWarrior => 1,
+            SpriteType::House => 1,
+            SpriteType::Wall => 1,
         }
     }
 }

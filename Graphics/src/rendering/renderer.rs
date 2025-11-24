@@ -534,11 +534,16 @@ impl Renderer {
                 .load_item_sprites()
                 .map_err(|e| format!("Failed to load item sprites: {}", e))?;
 
+            // Load all unit textures
+            texture_manager
+                .load_unit_sprites()
+                .map_err(|e| format!("Failed to load unit sprites: {}", e))?;
+
             // Set up texture uniforms
             gl::UseProgram(shader_program);
 
-            // Bind texture units to shader uniforms (0-6 for terrain, 7 for items)
-            for i in 0..8 {
+            // Bind texture units to shader uniforms (0-6 for terrain, 7 for items, 8-11 for units)
+            for i in 0..12 {
                 let uniform_name = format!("textures[{}]", i);
                 let uniform_name_c = CString::new(uniform_name).unwrap();
                 let uniform_location =
@@ -677,8 +682,8 @@ impl Renderer {
 
         for hex in visible_hexagons {
             if let Some(unit_sprite) = hex.unit_sprite {
-                // Only render units, skip items
-                if unit_sprite == crate::core::hexagon::SpriteType::Unit {
+                // Render any unit sprite (but skip items)
+                if unit_sprite != crate::core::hexagon::SpriteType::Item {
                     let center_x = hex.world_pos.x - hex_grid.camera.position.x;
                     let center_y = hex.world_pos.y - hex_grid.camera.position.y;
                     let texture_id = unit_sprite.get_texture_id();

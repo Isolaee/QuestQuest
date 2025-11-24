@@ -223,7 +223,7 @@ fn main() {
         .with_title("AI Visual Demo: animated moves")
         .with_inner_size(winit::dpi::LogicalSize::new(1200, 800));
 
-    let template = glutin::config::ConfigTemplateBuilder::new();
+    let template = glutin::config::ConfigTemplateBuilder::new().with_depth_size(24); // Request 24-bit depth buffer for proper layering
     let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
 
     let (window, gl_config) = display_builder

@@ -25,7 +25,7 @@ impl ApplicationHandler for App {
             .with_title("Hexagon Grid - Modular")
             .with_inner_size(winit::dpi::LogicalSize::new(1200, 800));
 
-        let template = glutin::config::ConfigTemplateBuilder::new();
+        let template = glutin::config::ConfigTemplateBuilder::new().with_depth_size(24); // Request 24-bit depth buffer for proper layering
         let display_builder = DisplayBuilder::new().with_window_attributes(Some(window_attributes));
 
         let (window, gl_config) = display_builder
@@ -85,6 +85,19 @@ impl ApplicationHandler for App {
         let (vao, shader_program, dynamic_vbo) = unsafe { setup_dynamic_hexagons() };
         let renderer = Renderer::new(vao, shader_program, dynamic_vbo, 1200.0, 800.0)
             .expect("Failed to create renderer with texture support");
+
+        // Add some unit sprites to demonstrate layering with actual textures
+        use graphics::{HexCoord, SpriteType};
+        self.hex_grid
+            .set_unit_at(HexCoord::new(0, 0), SpriteType::DwarfWarrior);
+        self.hex_grid
+            .set_unit_at(HexCoord::new(2, 1), SpriteType::OrcWarrior);
+        self.hex_grid
+            .set_unit_at(HexCoord::new(-1, 2), SpriteType::DwarfWarrior);
+        self.hex_grid
+            .set_unit_at(HexCoord::new(-2, -1), SpriteType::Unit); // Generic unit (colored circle)
+        self.hex_grid
+            .set_item_at(HexCoord::new(1, -1), SpriteType::Item);
 
         self.window = Some(window);
         self.gl_context = Some(gl_context);

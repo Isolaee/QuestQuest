@@ -100,16 +100,16 @@ pub unsafe fn setup_dynamic_hexagons() -> (GLuint, GLuint, GLuint) {
         in vec3 Color;
         out vec4 FragColor;
         
-        uniform sampler2D textures[8];
+        uniform sampler2D textures[12];
         
         void main() {
             int texId = int(TextureId);
-            if (texId >= 0 && texId < 8) {
+            if (texId >= 0 && texId < 12) {
                 // Apply color tint to texture
                 vec4 texColor = texture(textures[texId], TexCoord);
                 FragColor = vec4(texColor.rgb * Color, texColor.a);
             } else if (texId == -1) {
-                // Special case for units: render as colored circle
+                // Special case for generic units: render as colored circle
                 vec2 center = vec2(0.5, 0.5);
                 float dist = distance(TexCoord, center);
                 if (dist < 0.4) {

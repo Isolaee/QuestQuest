@@ -103,6 +103,50 @@ impl TextureManager {
         Ok(())
     }
 
+    /// Load all unit sprites
+    ///
+    /// # Safety
+    /// Must be called with a valid OpenGL context. All OpenGL texture operations
+    /// are unsafe and require proper context management.
+    pub unsafe fn load_unit_sprites(&mut self) -> Result<(), String> {
+        // Load unit sprites from unit_sprites folder
+        for sprite_type in SpriteType::all_units() {
+            if let Some(path) = sprite_type.get_texture_path() {
+                // Try multiple possible paths
+                let paths_to_try = [
+                    path.to_string(),
+                    format!("Graphics/{}", path),
+                    format!("C:/Users/eero/Documents/QuestQuest/Graphics/{}", path),
+                ];
+
+                let mut last_error = String::new();
+                let mut texture_id = None;
+
+                for attempt_path in &paths_to_try {
+                    match self.load_texture_from_file(attempt_path) {
+                        Ok(id) => {
+                            texture_id = Some(id);
+                            break;
+                        }
+                        Err(e) => {
+                            last_error = e;
+                        }
+                    }
+                }
+
+                let texture_id = texture_id.ok_or_else(|| {
+                    format!(
+                        "Failed to load {} from any path. Last error: {}",
+                        path, last_error
+                    )
+                })?;
+
+                self.textures.insert(sprite_type, texture_id);
+            }
+        }
+        Ok(())
+    }
+
     /// Load a single texture from file
     unsafe fn load_texture_from_file(&self, path: &str) -> Result<GLuint, String> {
         // Load image using the image crate
@@ -165,8 +209,8 @@ impl TextureManager {
         }
     }
 
-    /// Binds all terrain textures to their respective texture units (0-6)
-    /// and item textures to texture unit 7
+    /// Binds all terrain textures to their respective texture units (0-6),
+    /// item textures to texture unit 7, and unit sprites to texture units 8-11
     ///
     /// # Safety
     /// Must be called with a valid OpenGL context. All textures must be loaded first.
@@ -192,6 +236,19 @@ impl TextureManager {
         if let Some(&texture_id) = self.textures.get(&SpriteType::Item) {
             gl::ActiveTexture(gl::TEXTURE7);
             gl::BindTexture(gl::TEXTURE_2D, texture_id);
+        }
+
+        // Bind unit sprites to texture units 8-9
+        let unit_types = [
+            SpriteType::DwarfWarrior, // unit 8
+            SpriteType::OrcWarrior,   // unit 9
+        ];
+
+        for (i, sprite_type) in unit_types.iter().enumerate() {
+            if let Some(&texture_id) = self.textures.get(sprite_type) {
+                gl::ActiveTexture(gl::TEXTURE8 + i as u32);
+                gl::BindTexture(gl::TEXTURE_2D, texture_id);
+            }
         }
     }
 
