@@ -5,6 +5,7 @@
 //! on the right side of the screen using OpenGL.
 
 use super::text_renderer::TextRenderer;
+use crate::core::hexagon::SpriteType;
 use gl::types::*;
 use std::ffi::CString;
 
@@ -89,6 +90,8 @@ pub struct UnitDisplayInfo {
     pub moves_left: u32,
     /// Maximum movement points per turn.
     pub max_moves: u32,
+    /// Sprite type for visual representation of the unit.
+    pub sprite_type: SpriteType,
 }
 
 /// Main UI panel that displays game information and interactive elements.
@@ -477,12 +480,18 @@ impl UiPanel {
     ///
     /// * `screen_width` - Current screen width in pixels
     /// * `screen_height` - Current screen height in pixels
+    /// * `texture_manager` - Reference to the texture manager for rendering sprites
     ///
     /// # Safety
     ///
     /// This method contains unsafe OpenGL calls and should be called within
     /// a valid OpenGL rendering context.
-    pub fn render(&mut self, screen_width: f32, screen_height: f32) {
+    pub fn render(
+        &mut self,
+        screen_width: f32,
+        screen_height: f32,
+        renderer: &crate::rendering::renderer::Renderer,
+    ) {
         unsafe {
             // Disable depth testing for UI rendering
             gl::Disable(gl::DEPTH_TEST);
@@ -509,7 +518,7 @@ impl UiPanel {
             self.render_terrain_sprite_placeholder(screen_width, screen_height);
 
             // Render unit sprite placeholder
-            self.render_unit_sprite_placeholder(screen_width, screen_height);
+            self.render_unit_sprite_placeholder(screen_width, screen_height, renderer);
 
             // Render equipment slots placeholders
             self.render_equipment_slots(screen_width, screen_height);
@@ -956,12 +965,18 @@ impl UiPanel {
     /// Renders a placeholder box for the unit sprite.
     ///
     /// Renders a square box on the right side of the top section where
-    /// the unit's portrait/sprite will be displayed.
+    /// the unit's portrait/sprite will be displayed. If unit info is available,
+    /// the texture should be rendered by the renderer.
     ///
     /// # Safety
     ///
     /// Must be called within a valid OpenGL context with VAO bound.
-    unsafe fn render_unit_sprite_placeholder(&self, _screen_width: f32, _screen_height: f32) {
+    unsafe fn render_unit_sprite_placeholder(
+        &self,
+        screen_width: f32,
+        screen_height: f32,
+        renderer: &crate::rendering::renderer::Renderer,
+    ) {
         let margin = 10.0;
         let top_y = self.y + margin;
         let left_box_width = 60.0;
@@ -970,6 +985,7 @@ impl UiPanel {
         // Character sprite box - square, takes remaining width
         let sprite_size = self.width - left_box_width - margin * 3.0;
 
+        // Render background box
         self.render_box(
             left_column_end,
             top_y,
@@ -977,6 +993,21 @@ impl UiPanel {
             sprite_size,
             [0.15, 0.15, 0.2, 1.0],
         );
+
+        // If we have unit info, render the actual sprite texture
+        if let Some(info) = &self.unit_info {
+            renderer.render_sprite_at_screen_pos(
+                info.sprite_type,
+                left_column_end,
+                top_y,
+                sprite_size,
+                sprite_size,
+                (screen_width, screen_height),
+            );
+            // Note: render_sprite_at_screen_pos now properly saves/restores OpenGL state
+        }
+
+        // Render border on top
         self.render_border(
             left_column_end,
             top_y,

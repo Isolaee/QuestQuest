@@ -97,6 +97,10 @@ const SCREEN_HEIGHT: f32 = 1080.0;
 /// # Ok(())
 /// # }
 /// ```
+/// Maps a unit's race to the appropriate sprite type for UI display.
+///
+/// # Arguments
+///
 struct GameApp {
     window: Option<Window>,
     gl_context: Option<glutin::context::PossiblyCurrentContext>,
@@ -1149,6 +1153,7 @@ impl GameApp {
                     position_r: position.r,
                     moves_left: game_unit.moves_left() as u32,
                     max_moves: stats.movement_speed as u32,
+                    sprite_type: unit.sprite(),
                 };
                 ui_panel.set_unit_info(display_info);
             }
@@ -1289,6 +1294,7 @@ impl GameApp {
                             position_r: position.r,
                             moves_left: game_unit.moves_left() as u32,
                             max_moves: stats.movement_speed as u32,
+                            sprite_type: unit.sprite(),
                         };
 
                         if let Some(ui_panel) = &mut self.ui_panel {
@@ -1702,12 +1708,11 @@ impl ApplicationHandler for GameApp {
 
                             // Render UI panel
                             if let Some(ui_panel) = &mut self.ui_panel {
-                                ui_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT);
+                                ui_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT, renderer);
                             }
 
                             // Render UI overlay
                             self.render_ui();
-
                             if let (Some(gl_context), Some(gl_surface)) =
                                 (&self.gl_context, &self.gl_surface)
                             {

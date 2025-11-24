@@ -618,6 +618,109 @@ impl Renderer {
         }
     }
 
+    /// Renders a sprite at screen coordinates for UI purposes.
+    ///
+    /// # Arguments
+    ///
+    /// Renders a sprite at a specific screen position.
+    ///
+    /// # Arguments
+    ///
+    /// * `sprite_type` - The type of sprite to render
+    /// * `x` - X coordinate in screen space (pixels)
+    /// * `y` - Y coordinate in screen space (pixels)  
+    /// * `width` - Width in screen space (pixels)
+    /// * `height` - Height in screen space (pixels)
+    /// * `screen_dims` - Tuple of (screen_width, screen_height)
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because it makes raw OpenGL calls that:
+    /// - Modify global OpenGL state (blend mode, depth testing, shaders)
+    /// - Access GPU memory through buffer operations
+    /// - Must be called from a thread with an active OpenGL context
+    pub unsafe fn render_sprite_at_screen_pos(
+        &self,
+        sprite_type: crate::core::hexagon::SpriteType,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        screen_dims: (f32, f32),
+    ) {
+        let (screen_width, screen_height) = screen_dims;
+        // Save current OpenGL state
+        let mut prev_program: GLint = 0;
+        let mut prev_vao: GLint = 0;
+        let mut prev_vbo: GLint = 0;
+
+        gl::GetIntegerv(gl::CURRENT_PROGRAM, &mut prev_program);
+        gl::GetIntegerv(gl::VERTEX_ARRAY_BINDING, &mut prev_vao);
+        gl::GetIntegerv(gl::ARRAY_BUFFER_BINDING, &mut prev_vbo);
+        let prev_blend_enabled = gl::IsEnabled(gl::BLEND);
+        let prev_depth_enabled = gl::IsEnabled(gl::DEPTH_TEST);
+
+        // Set up our rendering state
+        gl::Disable(gl::DEPTH_TEST);
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+
+        gl::UseProgram(self.shader_program);
+        gl::BindVertexArray(self.vao);
+
+        // Bind texture
+        self.texture_manager.bind_texture(sprite_type);
+
+        // Convert screen coordinates to NDC
+        let x1 = (x / screen_width) * 2.0 - 1.0;
+        let y1 = 1.0 - (y / screen_height) * 2.0;
+        let x2 = ((x + width) / screen_width) * 2.0 - 1.0;
+        let y2 = 1.0 - ((y + height) / screen_height) * 2.0;
+
+        let texture_id = sprite_type.get_texture_id();
+        let depth = -0.95; // On top of everything
+
+        // Create a quad (two triangles)
+        #[rustfmt::skip]
+        let vertices: Vec<f32> = vec![
+            // Triangle 1
+            x1, y1, depth, 0.0, 0.0, texture_id, 1.0, 1.0, 1.0, // Top-left
+            x2, y1, depth, 1.0, 0.0, texture_id, 1.0, 1.0, 1.0, // Top-right
+            x1, y2, depth, 0.0, 1.0, texture_id, 1.0, 1.0, 1.0, // Bottom-left
+            // Triangle 2
+            x2, y1, depth, 1.0, 0.0, texture_id, 1.0, 1.0, 1.0, // Top-right
+            x2, y2, depth, 1.0, 1.0, texture_id, 1.0, 1.0, 1.0, // Bottom-right
+            x1, y2, depth, 0.0, 1.0, texture_id, 1.0, 1.0, 1.0, // Bottom-left
+        ];
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (vertices.len() * std::mem::size_of::<f32>()) as isize,
+            vertices.as_ptr() as *const _,
+            gl::DYNAMIC_DRAW,
+        );
+
+        gl::DrawArrays(gl::TRIANGLES, 0, 6);
+
+        // Restore previous OpenGL state
+        gl::UseProgram(prev_program as GLuint);
+        gl::BindVertexArray(prev_vao as GLuint);
+        gl::BindBuffer(gl::ARRAY_BUFFER, prev_vbo as GLuint);
+
+        if prev_blend_enabled == gl::TRUE {
+            gl::Enable(gl::BLEND);
+        } else {
+            gl::Disable(gl::BLEND);
+        }
+
+        if prev_depth_enabled == gl::TRUE {
+            gl::Enable(gl::DEPTH_TEST);
+        } else {
+            gl::Disable(gl::DEPTH_TEST);
+        }
+    }
+
     unsafe fn render_terrain_layer(&self, visible_hexagons: &[&Hexagon], hex_grid: &HexGrid) {
         // Build vertices for terrain only
         let mut vertices = Vec::new();
