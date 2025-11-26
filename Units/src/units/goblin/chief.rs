@@ -36,6 +36,7 @@ impl GoblinChief {
             position,
             Race::Goblin,
             "Goblin Chief".to_string(),
+            "A goblin leader with enhanced combat prowess. Chiefs command respect through strength and cunning, wielding better equipment than their underlings. Still maintains the goblin's characteristic agility.".to_string(),
             terrain,
             combat_stats,
         );

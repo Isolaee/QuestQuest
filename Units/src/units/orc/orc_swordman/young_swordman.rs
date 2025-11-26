@@ -116,6 +116,7 @@ impl OrcYoungSwordsman {
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
+            "An inexperienced orc fighter beginning their warrior training. Young Swordsmen are aggressive but lack refinement in combat. They favor direct assault and evolve into proper Orc Swordsmen with battle experience.".to_string(),
             terrain,
             combat_stats,
         );

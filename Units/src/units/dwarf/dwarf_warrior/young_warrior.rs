@@ -117,6 +117,7 @@ impl DwarfYoungWarrior {
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
+            "An inexperienced but sturdy dwarven fighter beginning their martial training. Young Warriors excel in mountainous terrain and possess natural dwarven resilience. With experience, they evolve into seasoned Dwarf Warriors.".to_string(),
             terrain,
             combat_stats,
         );

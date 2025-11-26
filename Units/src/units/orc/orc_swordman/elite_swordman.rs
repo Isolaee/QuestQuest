@@ -129,12 +129,13 @@ impl OrcEliteSwordsman {
             Self::ATTACKS_PER_ROUND,
         );
 
-        // Create base unit with level 3
+        // Create base unit
         let mut base = BaseUnit::new(
             name,
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
+            "A battle-hardened orc warrior of exceptional prowess. Elite Swordsmen are veterans of countless conflicts, wielding their blades with deadly precision. Their ferocity in combat is matched only by their tactical cunning.".to_string(),
             terrain,
             combat_stats,
         );

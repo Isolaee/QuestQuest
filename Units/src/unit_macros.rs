@@ -40,7 +40,7 @@
 //! impl DwarfWarrior {
 //!     pub fn new(name: String, position: HexCoord) -> Self {
 //!         let stats = CombatStats::new(30, 5, 2, RangeCategory::Melee, Resistances::default());
-//!         let base = BaseUnit::new(name, position, Race::Human, "DwarfWarrior".to_string(), Terrain::Grasslands, stats);
+//!         let base = BaseUnit::new(name, position, Race::Human, "DwarfWarrior".to_string(), "A sturdy dwarf warrior".to_string(), Terrain::Grasslands, stats);
 //!         Self { base, attacks: vec![] }
 //!     }
 //! }
@@ -162,7 +162,7 @@
 /// impl ElvenArcher {
 ///     pub fn new(name: String, position: HexCoord) -> Self {
 ///         let stats = CombatStats::new(25, 6, 3, RangeCategory::Melee, Resistances::default());
-///         let base = BaseUnit::new(name, position, Race::Elf, "Archer".to_string(), Terrain::Grasslands, stats);
+///         let base = BaseUnit::new(name, position, Race::Elf, "Archer".to_string(), "A skilled elven archer".to_string(), Terrain::Grasslands, stats);
 ///
 ///         let attacks = vec![
 ///             Attack::ranged("Long Shot", 15, 1, DamageType::Pierce, 4),
@@ -211,7 +211,7 @@
 /// impl ElvenArcher {
 ///     pub fn new(name: String, position: HexCoord) -> Self {
 ///         let stats = CombatStats::new(25, 6, 3, RangeCategory::Melee, Resistances::default());
-///         let base = BaseUnit::new(name, position, Race::Elf, "Archer".to_string(), Terrain::Grasslands, stats);
+///         let base = BaseUnit::new(name, position, Race::Elf, "Archer".to_string(), "A skilled elven archer".to_string(), Terrain::Grasslands, stats);
 ///
 ///         let attacks = vec![
 ///             Attack::ranged("Long Shot", 15, 1, DamageType::Pierce, 4),
@@ -259,6 +259,10 @@ macro_rules! impl_unit_delegate {
 
             fn unit_type(&self) -> &str {
                 &self.base.unit_type
+            }
+
+            fn description(&self) -> &str {
+                &self.base.description
             }
 
             // ===== Movement Methods =====

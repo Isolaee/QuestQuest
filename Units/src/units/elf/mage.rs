@@ -34,6 +34,7 @@ impl ElfMage {
             position,
             Race::Elf,
             "Elf Mage".to_string(),
+            "An elf mage attuned to nature's magical energies. Ancient and wise, elf mages channel powerful arcane forces with finesse. Their connection to the natural world makes them particularly potent in forest environments.".to_string(),
             terrain,
             combat_stats,
         );

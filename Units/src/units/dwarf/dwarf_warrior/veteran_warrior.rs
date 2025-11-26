@@ -130,12 +130,13 @@ impl DwarfVeteranWarrior {
             Self::ATTACKS_PER_ROUND,
         );
 
-        // Create base unit with level 3
+        // Create base unit
         let mut base = BaseUnit::new(
             name,
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
+            "An elite dwarven warrior who has survived countless battles. Veterans are the pinnacle of dwarven martial prowess, nearly impervious in mountain terrain. Their legendary resilience and devastating attacks make them feared opponents.".to_string(),
             terrain,
             combat_stats,
         );

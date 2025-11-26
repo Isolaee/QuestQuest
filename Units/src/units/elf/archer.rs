@@ -34,6 +34,7 @@ impl ElfArcher {
             position,
             Race::Elf,
             "Elf Archer".to_string(),
+            "A legendary elf archer with unmatched precision. Elven archers are the finest marksmen in the realm, capable of picking off enemies from great distances while remaining nearly invisible in forests.".to_string(),
             terrain,
             combat_stats,
         );

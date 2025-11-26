@@ -88,6 +88,22 @@ pub trait Unit {
     /// that identifies the specific unit template.
     fn unit_type(&self) -> &str;
 
+    /// Returns the unit's description for wiki/gameplay purposes.
+    ///
+    /// This description provides lore, tactical information, and gameplay context
+    /// about the unit that will be displayed in game wikis and tooltips.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::{Unit, UnitFactory, Terrain};
+    /// # use graphics::HexCoord;
+    /// # let unit = UnitFactory::create_human_warrior("Knight".to_string(), HexCoord::new(0, 0), Terrain::Grasslands);
+    /// let description = unit.description();
+    /// println!("Unit description: {}", description);
+    /// ```
+    fn description(&self) -> &str;
+
     // ===== Movement =====
 
     /// Moves the unit to a new position.

@@ -34,6 +34,7 @@ impl ElfWarrior {
             position,
             Race::Elf,
             "Elf Warrior".to_string(),
+            "An agile elf warrior with enhanced speed and grace. Elves are natural forest dwellers, gaining significant bonuses in woodland terrain. Swift and deadly with blade and shield.".to_string(),
             terrain,
             combat_stats,
         );

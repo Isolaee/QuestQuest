@@ -34,6 +34,7 @@ impl HumanMage {
             position,
             Race::Human,
             "Human Mage".to_string(),
+            "A human mage wielding arcane powers. Masters of elemental magic, they can devastate enemies from afar. Frail in close combat but deadly at range with fire and dark magic.".to_string(),
             terrain,
             combat_stats,
         );

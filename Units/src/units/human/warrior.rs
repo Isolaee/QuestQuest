@@ -35,6 +35,7 @@ impl HumanWarrior {
             position,
             Race::Human,
             "Human Warrior".to_string(),
+            "A versatile human warrior with balanced stats. Humans excel at adaptation and can thrive in various terrains. Armed with sword and bow, they form the backbone of most armies.".to_string(),
             terrain,
             combat_stats,
         );

@@ -34,6 +34,7 @@ impl HumanArcher {
             position,
             Race::Human,
             "Human Archer".to_string(),
+            "A skilled human archer specializing in ranged combat. With keen eyes and steady hands, archers provide crucial long-range support. They excel in forests and open terrain where their mobility shines.".to_string(),
             terrain,
             combat_stats,
         );

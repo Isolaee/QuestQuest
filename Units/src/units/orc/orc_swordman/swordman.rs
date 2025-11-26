@@ -118,12 +118,13 @@ impl OrcSwordsman {
             Self::ATTACKS_PER_ROUND,
         );
 
-        // Create base unit with level 2
+        // Create base unit
         let mut base = BaseUnit::new(
             name,
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
+            "A capable orc warrior with proven combat skills. Swordsmen are the backbone of orc warbands, combining raw strength with battle-tested tactics. Can evolve into Elite Swordsmen through further victories.".to_string(),
             terrain,
             combat_stats,
         );

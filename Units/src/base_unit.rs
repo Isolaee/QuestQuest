@@ -49,6 +49,7 @@ use std::collections::HashMap;
 ///     HexCoord::new(0, 0),
 ///     Race::Human,
 ///     "Human Warrior".to_string(),
+///     "A versatile warrior".to_string(),
 ///     Terrain::Grasslands,
 ///     stats,
 /// );
@@ -60,7 +61,8 @@ pub struct BaseUnit {
     pub name: String,
     pub position: HexCoord,
     pub race: Race,
-    pub unit_type: String, // e.g., "Human Warrior", "Orc Grunt", etc.
+    pub unit_type: String,   // e.g., "Human Warrior", "Orc Grunt", etc.
+    pub description: String, // Lore and gameplay description for wiki
 
     // Progression
     pub experience: i32,
@@ -96,6 +98,7 @@ impl BaseUnit {
     /// * `position` - Starting position on the hex grid
     /// * `race` - The unit's race
     /// * `unit_type` - Type identifier (e.g., "Human Warrior")
+    /// * `description` - Lore and gameplay description
     /// * `terrain` - The terrain at the starting position
     /// * `combat_stats` - Base combat statistics
     ///
@@ -107,6 +110,7 @@ impl BaseUnit {
         position: HexCoord,
         race: Race,
         unit_type: String,
+        description: String,
         terrain: Terrain,
         combat_stats: CombatStats,
     ) -> Self {
@@ -120,6 +124,7 @@ impl BaseUnit {
             position,
             race,
             unit_type,
+            description,
             level: 1,
             experience: 0,
             combat_stats,
@@ -146,6 +151,7 @@ impl BaseUnit {
     /// * `unit_type` - Type identifier (e.g., "Human Warrior")
     /// * `level` - Initial level (minimum 1)
     /// * `experience` - Initial experience points (minimum 0)
+    /// * `description` - Lore and gameplay description
     /// * `terrain` - The terrain at the starting position
     /// * `combat_stats` - Base combat statistics
     ///
@@ -158,12 +164,21 @@ impl BaseUnit {
         position: HexCoord,
         race: Race,
         unit_type: String,
+        description: String,
         level: i32,
         experience: i32,
         terrain: Terrain,
         combat_stats: CombatStats,
     ) -> Self {
-        let mut base = Self::new(name, position, race, unit_type, terrain, combat_stats);
+        let mut base = Self::new(
+            name,
+            position,
+            race,
+            unit_type,
+            description,
+            terrain,
+            combat_stats,
+        );
         base.level = level.max(1);
         base.experience = experience.max(0);
         base
@@ -301,7 +316,7 @@ impl BaseUnit {
     /// # use graphics::HexCoord;
     /// # use units::{Race, Terrain};
     /// # let initial_stats = CombatStats::new(100, 10, 4, RangeCategory::Melee, Resistances::new(10, 10, 10, 10, 10, 10));
-    /// # let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), Terrain::Grasslands, initial_stats);
+    /// # let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), "Test warrior".into(), Terrain::Grasslands, initial_stats);
     /// let new_stats = CombatStats::new(150, 15, 4, RangeCategory::Melee, Resistances::new(15, 15, 15, 15, 15, 15));
     /// unit.apply_level_up_stats(new_stats, true); // Level up and heal to full
     /// ```

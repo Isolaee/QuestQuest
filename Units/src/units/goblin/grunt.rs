@@ -36,6 +36,7 @@ impl GoblinGrunt {
             position,
             Race::Goblin,
             "Goblin Grunt".to_string(),
+            "A weak but evasive goblin warrior. Goblins are cunning and fast, making up for their lack of strength with speed and numbers. They excel in swamps and dark places where they can ambush unwary foes.".to_string(),
             terrain,
             combat_stats,
         );

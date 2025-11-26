@@ -123,12 +123,13 @@ impl DwarfWarrior {
             Self::ATTACKS_PER_ROUND,
         );
 
-        // Create base unit with level 2
+        // Create base unit
         let mut base = BaseUnit::new(
             name,
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
+            "A battle-tested dwarven warrior with formidable defensive capabilities. Masters of mountain warfare, they wield axe and shield with deadly efficiency. Can evolve into elite Veteran Warriors with further experience.".to_string(),
             terrain,
             combat_stats,
         );
