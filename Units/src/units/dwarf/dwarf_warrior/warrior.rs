@@ -22,7 +22,6 @@ use graphics::HexCoord;
 /// - **XP to Next Level**: 200 (level² × 50)
 pub struct DwarfWarrior {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl DwarfWarrior {
@@ -131,6 +130,9 @@ impl DwarfWarrior {
             Self::UNIT_TYPE.to_string(),
             "A battle-tested dwarven warrior with formidable defensive capabilities. Masters of mountain warfare, they wield axe and shield with deadly efficiency. Can evolve into elite Veteran Warriors with further experience.".to_string(),
             terrain,
+            graphics::SpriteType::DwarfWarrior,
+            Some("Dwarf Young Warrior".to_string()),
+            Some("Dwarf Veteran Warrior".to_string()),
             combat_stats,
         );
 
@@ -139,20 +141,20 @@ impl DwarfWarrior {
         base.experience = 50; // Carried over from level 1
 
         // Define available attacks for level 2
-        let attacks = vec![
+        base.attacks = vec![
             Self::heavy_axe(),
             Self::shield_bash(),
             Self::hammer_strike(),
         ];
 
-        Self { base, attacks }
+        Self { base }
     }
 
     // ===== LEVEL PROGRESSION DATA =====
 
     /// Returns the previous unit type in evolution chain.
     ///
-    /// Returns `Some("Dwarf Young Warrior")` as the previous evolution stage.
+    /// Returns `Some("Dwarf Young Warrior")` as the previous stage.
     pub fn get_previous_unit_type() -> Option<String> {
         Some(Self::PREVIOUS_UNIT_TYPE.to_string())
     }
@@ -162,6 +164,16 @@ impl DwarfWarrior {
     /// Returns `Some("Dwarf Veteran Warrior")` as the next evolution stage.
     pub fn get_next_unit_type() -> Option<String> {
         Some(Self::NEXT_UNIT_TYPE.to_string())
+    }
+
+    /// Returns the previous unit type in evolution chain (trait method).
+    pub fn evolution_previous(&self) -> Option<String> {
+        Self::get_previous_unit_type()
+    }
+
+    /// Returns the next unit type in evolution chain (trait method).
+    pub fn evolution_next(&self) -> Option<String> {
+        Self::get_next_unit_type()
     }
 
     /// Check if this unit has a next evolution.
@@ -207,8 +219,20 @@ impl DwarfWarrior {
     }
 }
 
-// Use the macro to implement all standard Unit trait methods
-crate::impl_unit_delegate!(DwarfWarrior);
+// Implement the Unit trait with minimal boilerplate
+impl crate::unit_trait::Unit for DwarfWarrior {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+}
 
 crate::submit_unit!(
     DwarfWarrior,

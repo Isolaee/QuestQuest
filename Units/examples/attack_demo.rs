@@ -10,8 +10,7 @@ use units::{Attack, DwarfVeteranWarrior, Terrain, Unit};
 
 fn main() {
     // Create a dwarf veteran warrior (Level 3) at position (0, 0)
-    // Note: Only veteran warriors (max level) can add custom attacks
-    let mut warrior = DwarfVeteranWarrior::new(
+    let warrior = DwarfVeteranWarrior::new(
         "Thorin".to_string(),
         HexCoord { q: 0, r: 0 },
         Terrain::Grasslands,
@@ -28,6 +27,8 @@ fn main() {
     }
 
     // Add a custom attack
+    // Note: With the new architecture, add_attack would need to be implemented on the unit
+    // or use BaseUnit's static methods. For now, this example just shows the default attacks.
     let power_attack = Attack::new(
         "Devastating Swing",
         25,
@@ -36,15 +37,14 @@ fn main() {
         "A powerful overhead strike that deals heavy damage",
     );
 
-    warrior.add_attack(power_attack);
-
-    println!("\n=== After Adding Custom Attack ===");
-    for attack in warrior.get_attacks() {
-        println!(
-            "  {} - Damage: {}, Type: {:?}, Range: {}",
-            attack.name, attack.damage, attack.damage_type, attack.range
-        );
-    }
+    // To add attacks with new architecture, the unit would expose a method like:
+    // warrior.add_custom_attack(power_attack);
+    // For this demo, we'll just print what would be added:
+    println!("\n=== Would Add Custom Attack ===");
+    println!(
+        "  {} - Damage: {}, Type: {:?}",
+        power_attack.name, power_attack.damage, power_attack.damage_type
+    );
 
     // Check if an attack can reach a target
     if let Some(attack) = warrior.get_attacks().first() {

@@ -24,7 +24,6 @@ use graphics::HexCoord;
 /// - **XP per Level**: 450, 800, 1250... (level² × 50)
 pub struct DwarfVeteranWarrior {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl DwarfVeteranWarrior {
@@ -32,10 +31,6 @@ impl DwarfVeteranWarrior {
 
     /// Level 3 - Veteran Warrior (Max evolution)
     const LEVEL: i32 = 3;
-
-    // Evolution chain
-    const PREVIOUS_UNIT_TYPE: &'static str = "Dwarf Warrior"; // Evolved from Warrior
-    const NEXT_UNIT_TYPE: Option<&'static str> = None; // Max evolution - no next form
 
     // Base Stats
     const BASE_HEALTH: i32 = 175;
@@ -138,6 +133,9 @@ impl DwarfVeteranWarrior {
             Self::UNIT_TYPE.to_string(),
             "An elite dwarven warrior who has survived countless battles. Veterans are the pinnacle of dwarven martial prowess, nearly impervious in mountain terrain. Their legendary resilience and devastating attacks make them feared opponents.".to_string(),
             terrain,
+            graphics::SpriteType::DwarfWarrior,
+            Some("Dwarf Warrior".to_string()),
+            None,
             combat_stats,
         );
 
@@ -146,69 +144,42 @@ impl DwarfVeteranWarrior {
         base.experience = 250; // Carried over from level 2
 
         // Define available attacks for level 3
-        let attacks = vec![
+        base.attacks = vec![
             Self::mighty_axe(),
             Self::shield_slam(),
             Self::war_hammer(),
             Self::cleaving_strike(),
         ];
 
-        Self { base, attacks }
+        Self { base }
     }
 
-    // ===== LEVEL PROGRESSION DATA =====
-
-    /// Returns the previous unit type in evolution chain
-    pub fn get_previous_unit_type() -> Option<String> {
-        Some(Self::PREVIOUS_UNIT_TYPE.to_string())
-    }
-
-    /// Veteran Warrior is max evolution - no next unit type
-    pub fn get_next_unit_type() -> Option<String> {
-        Self::NEXT_UNIT_TYPE.map(|s| s.to_string())
-    }
-
-    /// Check if this unit has a next evolution
-    pub fn has_next_evolution() -> bool {
-        false
-    }
-
-    /// Veteran Warrior is max level - no next level stats yet
-    /// Implement this if you add a level 4 (e.g., Champion)
-    pub fn get_next_level_stats() -> Option<CombatStats> {
-        None // Max level reached
-    }
-
-    /// Veteran Warrior is max level - no next level attacks yet
-    pub fn get_next_level_attacks() -> Vec<Attack> {
-        vec![] // Max level reached
-    }
-
-    // ===== CUSTOM METHODS =====
-
-    /// Add a new attack to this unit's repertoire
-    pub fn add_attack(&mut self, attack: Attack) {
-        self.attacks.push(attack);
-    }
-
-    /// Remove an attack by name
-    pub fn remove_attack(&mut self, name: &str) -> bool {
-        if let Some(pos) = self.attacks.iter().position(|a| a.name == name) {
-            self.attacks.remove(pos);
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Get all attack names
-    pub fn get_attack_names(&self) -> Vec<&str> {
-        self.attacks.iter().map(|a| a.name.as_str()).collect()
-    }
+    // ===== ATTACK MANAGEMENT =====
+    // Note: Attack management methods (add_attack, remove_attack, get_attack_names)
+    // are now static methods on BaseUnit and can be called directly on any unit's
+    // attacks vector using BaseUnit::add_attack_to_vec(&mut self.attacks, attack).
+    // Evolution chain is stored in BaseUnit and accessed via trait methods.
 }
 
-// Use the macro to implement all standard Unit trait methods
-crate::impl_unit_delegate!(DwarfVeteranWarrior);
+// Implement the Unit trait with minimal boilerplate
+// Evolution chain is automatically handled by BaseUnit (stores evolution_previous and evolution_next)
+// Attack management methods are now static on BaseUnit
+impl crate::unit_trait::Unit for DwarfVeteranWarrior {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+
+    // Evolution methods work automatically - no overrides needed
+    // BaseUnit handles attack updates directly
+}
 
 crate::submit_unit!(
     DwarfVeteranWarrior,

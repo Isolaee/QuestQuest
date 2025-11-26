@@ -6,7 +6,6 @@ use graphics::HexCoord;
 
 pub struct ElfWarrior {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl ElfWarrior {
@@ -29,26 +28,42 @@ impl ElfWarrior {
             1,  // attacks_per_round
         );
 
-        let base = BaseUnit::new(
+        let mut base = BaseUnit::new(
             name,
             position,
             Race::Elf,
             "Elf Warrior".to_string(),
             "An agile elf warrior with enhanced speed and grace. Elves are natural forest dwellers, gaining significant bonuses in woodland terrain. Swift and deadly with blade and shield.".to_string(),
             terrain,
+            graphics::SpriteType::Unit,
+            None,
+            None,
             combat_stats,
         );
 
-        let attacks = vec![
+        base.attacks = vec![
             Attack::melee("Elven Blade", 14, 1, DamageType::Slash),
             Attack::melee("Shield Bash", 8, 1, DamageType::Blunt),
         ];
 
-        Self { base, attacks }
+        Self { base }
     }
 }
 
-crate::impl_unit_delegate!(ElfWarrior);
+// Implement the Unit trait with minimal boilerplate
+impl crate::unit_trait::Unit for ElfWarrior {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+}
 
 crate::submit_unit!(
     ElfWarrior,

@@ -21,7 +21,6 @@ use graphics::HexCoord;
 /// - **XP to Next Level**: 200 (level² × 50)
 pub struct OrcYoungSwordsman {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl OrcYoungSwordsman {
@@ -118,6 +117,9 @@ impl OrcYoungSwordsman {
             Self::UNIT_TYPE.to_string(),
             "An inexperienced orc fighter beginning their warrior training. Young Swordsmen are aggressive but lack refinement in combat. They favor direct assault and evolve into proper Orc Swordsmen with battle experience.".to_string(),
             terrain,
+            graphics::SpriteType::OrcWarrior,
+            None,
+            Some("Orc Swordsman".to_string()),
             combat_stats,
         );
 
@@ -126,9 +128,9 @@ impl OrcYoungSwordsman {
         base.experience = Self::STARTING_EXPERIENCE;
 
         // Define available attacks for level 1
-        let attacks = vec![Self::sword_slash(), Self::awkward_thrust()];
+        base.attacks = vec![Self::sword_slash(), Self::awkward_thrust()];
 
-        Self { base, attacks }
+        Self { base }
     }
 
     // ===== LEVEL PROGRESSION DATA =====
@@ -189,8 +191,20 @@ impl OrcYoungSwordsman {
     }
 }
 
-// Use the macro to implement all standard Unit trait methods
-crate::impl_unit_delegate!(OrcYoungSwordsman);
+// Implement the Unit trait with minimal boilerplate
+impl crate::unit_trait::Unit for OrcYoungSwordsman {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+}
 
 crate::submit_unit!(
     OrcYoungSwordsman,

@@ -6,8 +6,8 @@
 
 use crate::attack::Attack;
 use crate::unit_race::{Race, Terrain};
-use combat::CombatStats;
-use graphics::HexCoord;
+use combat::{CombatStats, DamageType};
+use graphics::{HexCoord, SpriteType};
 use items::{Equipment, Item};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -41,7 +41,7 @@ use std::collections::HashMap;
 /// ```rust,no_run
 /// use units::{BaseUnit, Race, Terrain};
 /// use combat::{CombatStats, RangeCategory, Resistances};
-/// use graphics::HexCoord;
+/// use graphics::{HexCoord, SpriteType};
 ///
 /// let stats = CombatStats::new(100, 10, 5, RangeCategory::Melee, Resistances::default());
 /// let unit = BaseUnit::new(
@@ -51,6 +51,9 @@ use std::collections::HashMap;
 ///     "Human Warrior".to_string(),
 ///     "A versatile warrior".to_string(),
 ///     Terrain::Grasslands,
+///     SpriteType::Unit,
+///     None,
+///     None,
 ///     stats,
 /// );
 /// ```
@@ -84,6 +87,16 @@ pub struct BaseUnit {
 
     // Environment
     pub current_terrain: Terrain,
+
+    // Visual representation
+    pub sprite_type: SpriteType,
+
+    // Evolution chain
+    pub evolution_previous: Option<String>,
+    pub evolution_next: Option<String>,
+
+    // Attacks (stored here so level-up methods can update them automatically)
+    pub attacks: Vec<Attack>,
 }
 
 impl BaseUnit {
@@ -105,6 +118,17 @@ impl BaseUnit {
     /// # Returns
     ///
     /// A new `BaseUnit` instance at level 1 with 0 experience.
+    ///
+    /// # TODO: Refactor for Production
+    ///
+    /// This constructor has too many arguments (10/7 allowed by Clippy).
+    /// For production, consider one of these improvements:
+    /// - **Builder Pattern**: Create `BaseUnitBuilder` for fluent construction
+    /// - **Config Struct**: Group related params (unit_type, description, sprite_type, evolutions)
+    ///   into a `UnitDefinition` or `UnitTemplate` struct
+    /// - **Factory Method**: Move construction logic to a factory that loads unit definitions
+    ///   from configuration/data files
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         name: String,
         position: HexCoord,
@@ -112,6 +136,9 @@ impl BaseUnit {
         unit_type: String,
         description: String,
         terrain: Terrain,
+        sprite_type: SpriteType,
+        evolution_previous: Option<String>,
+        evolution_next: Option<String>,
         combat_stats: CombatStats,
     ) -> Self {
         let max_health = combat_stats.health;
@@ -136,6 +163,10 @@ impl BaseUnit {
             cached_max_health: max_health,
             current_terrain: terrain,
             terrain_defenses: None,
+            sprite_type,
+            evolution_previous,
+            evolution_next,
+            attacks: Vec::new(), // Will be set by unit constructor
         }
     }
 
@@ -168,6 +199,9 @@ impl BaseUnit {
         level: i32,
         experience: i32,
         terrain: Terrain,
+        sprite_type: SpriteType,
+        evolution_previous: Option<String>,
+        evolution_next: Option<String>,
         combat_stats: CombatStats,
     ) -> Self {
         let mut base = Self::new(
@@ -177,6 +211,9 @@ impl BaseUnit {
             unit_type,
             description,
             terrain,
+            sprite_type,
+            evolution_previous,
+            evolution_next,
             combat_stats,
         );
         base.level = level.max(1);
@@ -316,7 +353,7 @@ impl BaseUnit {
     /// # use graphics::HexCoord;
     /// # use units::{Race, Terrain};
     /// # let initial_stats = CombatStats::new(100, 10, 4, RangeCategory::Melee, Resistances::new(10, 10, 10, 10, 10, 10));
-    /// # let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), "Test warrior".into(), Terrain::Grasslands, initial_stats);
+    /// let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), "Test warrior".into(), Terrain::Grasslands, graphics::SpriteType::Unit, None, None, initial_stats);
     /// let new_stats = CombatStats::new(150, 15, 4, RangeCategory::Melee, Resistances::new(15, 15, 15, 15, 15, 15));
     /// unit.apply_level_up_stats(new_stats, true); // Level up and heal to full
     /// ```
@@ -423,18 +460,18 @@ impl BaseUnit {
         new_attacks: Vec<Attack>,
         new_unit_type: String,
         heal_to_full: bool,
-    ) -> Vec<Attack> {
+    ) {
         // Increment level
         self.level += 1;
 
         // Update unit type name
         self.unit_type = new_unit_type;
 
+        // Update attacks
+        self.attacks = new_attacks;
+
         // Apply new stats (preserves equipment)
         self.apply_level_up_stats(new_stats, heal_to_full);
-
-        // Return new attacks for caller to update their attacks field
-        new_attacks
     }
 
     /// Perform incremental level-up for max-level units (no evolution)
@@ -447,10 +484,7 @@ impl BaseUnit {
     ///
     /// * `heal_to_full` - Whether to restore unit to full health
     ///
-    /// # Returns
-    ///
-    /// Empty vector (attacks unchanged for incremental level-ups)
-    pub fn level_up_incremental(&mut self, heal_to_full: bool) -> Vec<Attack> {
+    pub fn level_up_incremental(&mut self, heal_to_full: bool) {
         // Increment level
         self.level += 1;
 
@@ -469,7 +503,121 @@ impl BaseUnit {
             self.combat_stats.health = self.combat_stats.health.min(self.combat_stats.max_health);
         }
 
-        // Return empty vector - attacks stay the same
-        vec![]
+        // Attacks stay the same for incremental level-up
+    }
+
+    // ===== Attack Creation Helpers =====
+
+    /// Creates a melee attack with the specified parameters.
+    ///
+    /// This is a convenience method that units can use in their attack definitions
+    /// to maintain consistency with the attack creation pattern from the old macro system.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Display name of the attack (e.g., "Sword Slash")
+    /// * `damage` - Base damage dealt by this attack
+    /// * `attack_times` - Number of strikes (currently unused but kept for compatibility)
+    /// * `damage_type` - Type of damage dealt (affects enemy resistances)
+    ///
+    /// # Returns
+    ///
+    /// A new melee `Attack` with range 1
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::BaseUnit;
+    /// # use combat::DamageType;
+    /// # let base = BaseUnit::new(
+    /// #     "Test".to_string(),
+    /// #     graphics::HexCoord::new(0, 0),
+    /// #     units::Race::Human,
+    /// #     "Warrior".to_string(),
+    /// #     "Test".to_string(),
+    /// #     units::Terrain::Grasslands,
+    /// #     graphics::SpriteType::Unit,
+    /// #     None,
+    /// #     None,
+    /// #     combat::CombatStats::new(100, 10, 3, combat::RangeCategory::Melee, combat::Resistances::default()),
+    /// # );
+    /// let sword_attack = BaseUnit::create_melee_attack(
+    ///     "Sword Slash",
+    ///     15,
+    ///     1,
+    ///     DamageType::Slash
+    /// );
+    /// ```
+    pub fn create_melee_attack(
+        name: impl Into<String>,
+        damage: u32,
+        attack_times: u32,
+        damage_type: DamageType,
+    ) -> Attack {
+        Attack::melee(name, damage, attack_times, damage_type)
+    }
+
+    /// Creates a ranged attack with the specified parameters.
+    ///
+    /// This is a convenience method that units can use in their attack definitions
+    /// to maintain consistency with the attack creation pattern from the old macro system.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Display name of the attack (e.g., "Bow Shot")
+    /// * `damage` - Base damage dealt by this attack
+    /// * `attack_times` - Number of shots (currently unused but kept for compatibility)
+    /// * `damage_type` - Type of damage dealt (affects enemy resistances)
+    /// * `range` - Maximum range in hexes (minimum 1)
+    ///
+    /// # Returns
+    ///
+    /// A new ranged `Attack` with the specified range
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::BaseUnit;
+    /// # use combat::DamageType;
+    /// let bow_attack = BaseUnit::create_ranged_attack(
+    ///     "Bow Shot",
+    ///     12,
+    ///     1,
+    ///     DamageType::Pierce,
+    ///     5
+    /// );
+    /// ```
+    pub fn create_ranged_attack(
+        name: impl Into<String>,
+        damage: u32,
+        attack_times: u32,
+        damage_type: DamageType,
+        range: i32,
+    ) -> Attack {
+        Attack::ranged(name, damage, attack_times, damage_type, range)
+    }
+
+    // ===== Universal Attack Management Methods =====
+
+    /// Add a new attack to the attacks vector.
+    /// This is a helper for units that store their own attacks.
+    pub fn add_attack_to_vec(attacks: &mut Vec<Attack>, attack: Attack) {
+        attacks.push(attack);
+    }
+
+    /// Remove an attack by name from the attacks vector.
+    /// Returns true if an attack was removed.
+    pub fn remove_attack_from_vec(attacks: &mut Vec<Attack>, name: &str) -> bool {
+        if let Some(pos) = attacks.iter().position(|a| a.name == name) {
+            attacks.remove(pos);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get all attack names from the attacks vector.
+    pub fn get_attack_names_from_vec(attacks: &[Attack]) -> Vec<&str> {
+        attacks.iter().map(|a| a.name.as_str()).collect()
     }
 }

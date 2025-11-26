@@ -28,6 +28,15 @@ pub type UnitId = Uuid;
 /// - **Progression**: Level and experience tracking
 /// - **Movement**: Position and terrain management
 ///
+/// # Implementation Requirements
+///
+/// Units must implement only these required methods:
+/// - `base()` - Returns a reference to the BaseUnit
+/// - `base_mut()` - Returns a mutable reference to the BaseUnit
+/// - `attacks()` - Returns the unit's attack list
+///
+/// All other methods have default implementations that delegate to the BaseUnit.
+///
 /// # Examples
 ///
 /// ```rust,no_run
@@ -54,13 +63,35 @@ pub type UnitId = Uuid;
 /// }
 /// ```
 pub trait Unit {
-    // ===== Identity =====
+    // ===== Core Required Methods =====
+    // These MUST be implemented by each unit type
+
+    /// Returns a reference to the underlying BaseUnit.
+    ///
+    /// This is the only required method for basic unit implementation.
+    /// All default implementations use this to access shared data.
+    fn base(&self) -> &crate::base_unit::BaseUnit;
+
+    /// Returns a mutable reference to the underlying BaseUnit.
+    ///
+    /// This allows default implementations to modify shared state.
+    fn base_mut(&mut self) -> &mut crate::base_unit::BaseUnit;
+
+    /// Returns the unit's innate attacks (before equipment bonuses).
+    ///
+    /// Units must implement this to define their natural attacks.
+    /// Equipment attacks are automatically added by `get_attacks()`.
+    fn attacks(&self) -> &[Attack];
+
+    // ===== Identity Methods (Default Implementations) =====
 
     /// Returns the unit's unique identifier.
     ///
     /// This UUID persists for the lifetime of the unit and can be used
     /// to track the unit across saves and network synchronization.
-    fn id(&self) -> UnitId;
+    fn id(&self) -> UnitId {
+        self.base().id
+    }
 
     /// Returns the unit's display name.
     ///
@@ -72,21 +103,29 @@ pub trait Unit {
     /// # let unit = UnitFactory::create_human_warrior("Aragorn".to_string(), HexCoord::new(0, 0), Terrain::Grasslands);
     /// assert_eq!(unit.name(), "Aragorn");
     /// ```
-    fn name(&self) -> &str;
+    fn name(&self) -> &str {
+        &self.base().name
+    }
 
     /// Returns the unit's current position on the hex grid.
-    fn position(&self) -> HexCoord;
+    fn position(&self) -> HexCoord {
+        self.base().position
+    }
 
     /// Returns the unit's race.
     ///
     /// Race affects terrain bonuses, base stats, and visual appearance.
-    fn race(&self) -> Race;
+    fn race(&self) -> Race {
+        self.base().race
+    }
 
     /// Returns the unit's type identifier.
     ///
     /// This is a string like "Human Warrior", "Elf Archer", or "Goblin Grunt"
     /// that identifies the specific unit template.
-    fn unit_type(&self) -> &str;
+    fn unit_type(&self) -> &str {
+        &self.base().unit_type
+    }
 
     /// Returns the unit's description for wiki/gameplay purposes.
     ///
@@ -102,9 +141,11 @@ pub trait Unit {
     /// let description = unit.description();
     /// println!("Unit description: {}", description);
     /// ```
-    fn description(&self) -> &str;
+    fn description(&self) -> &str {
+        &self.base().description
+    }
 
-    // ===== Movement =====
+    // ===== Movement Methods (Default Implementations) =====
 
     /// Moves the unit to a new position.
     ///
@@ -116,39 +157,58 @@ pub trait Unit {
     ///
     /// Returns `true` if the move was successful, `false` otherwise.
     /// Movement may fail due to obstacles, lack of movement points, or other game rules.
-    fn move_to(&mut self, position: HexCoord) -> bool;
+    fn move_to(&mut self, position: HexCoord) -> bool {
+        if self.can_move_to(position) {
+            self.base_mut().position = position;
+            true
+        } else {
+            false
+        }
+    }
 
-    // ===== Stats Access =====
+    // ===== Stats Access Methods (Default Implementations) =====
 
     /// Returns a reference to the unit's combat statistics.
     ///
     /// Combat stats include health, attack power, defense, movement speed,
     /// resistances, and other combat-relevant values.
-    fn combat_stats(&self) -> &CombatStats;
+    fn combat_stats(&self) -> &CombatStats {
+        &self.base().combat_stats
+    }
 
     /// Returns a mutable reference to the unit's combat statistics.
     ///
     /// Use this to modify health, apply buffs/debuffs, or update other combat values.
-    fn combat_stats_mut(&mut self) -> &mut CombatStats;
+    fn combat_stats_mut(&mut self) -> &mut CombatStats {
+        &mut self.base_mut().combat_stats
+    }
 
-    // ===== Equipment & Inventory =====
+    // ===== Equipment & Inventory Methods (Default Implementations) =====
 
     /// Returns a reference to the unit's equipped items.
     ///
     /// Equipment includes weapons, armor, accessories, and other worn items
     /// that provide stat bonuses.
-    fn equipment(&self) -> &Equipment;
+    fn equipment(&self) -> &Equipment {
+        &self.base().equipment
+    }
 
     /// Returns a mutable reference to the unit's equipped items.
-    fn equipment_mut(&mut self) -> &mut Equipment;
+    fn equipment_mut(&mut self) -> &mut Equipment {
+        &mut self.base_mut().equipment
+    }
 
     /// Returns a reference to the unit's inventory.
     ///
     /// The inventory contains all items the unit is carrying but not currently equipped.
-    fn inventory(&self) -> &[Item];
+    fn inventory(&self) -> &[Item] {
+        &self.base().inventory
+    }
 
     /// Returns a mutable reference to the unit's inventory.
-    fn inventory_mut(&mut self) -> &mut Vec<Item>;
+    fn inventory_mut(&mut self) -> &mut Vec<Item> {
+        &mut self.base_mut().inventory
+    }
 
     /// Equips an item from the inventory.
     ///
@@ -162,7 +222,19 @@ pub trait Unit {
     /// - The item is not in the inventory
     /// - The item cannot be equipped by this unit
     /// - The equipment slot is incompatible
-    fn equip_item(&mut self, item_id: ItemId) -> Result<(), String>;
+    fn equip_item(&mut self, item_id: ItemId) -> Result<(), String> {
+        let base = self.base_mut();
+        if let Some(pos) = base.inventory.iter().position(|item| item.id == item_id) {
+            let item = base.inventory.remove(pos);
+            if let Some(old_item) = base.equipment.equip_item(item) {
+                base.inventory.push(old_item);
+            }
+            base.recalculate_stats();
+            Ok(())
+        } else {
+            Err("Item not found in inventory".to_string())
+        }
+    }
 
     /// Unequips an item and moves it to the inventory.
     ///
@@ -173,14 +245,25 @@ pub trait Unit {
     /// # Errors
     ///
     /// Returns an error if the item is not currently equipped.
-    fn unequip_item(&mut self, item_id: ItemId) -> Result<(), String>;
+    fn unequip_item(&mut self, item_id: ItemId) -> Result<(), String> {
+        let base = self.base_mut();
+        if let Some(item) = base.equipment.unequip_item(item_id) {
+            base.inventory.push(item);
+            base.recalculate_stats();
+            Ok(())
+        } else {
+            Err("Item not equipped".to_string())
+        }
+    }
 
     /// Adds an item to the unit's inventory.
     ///
     /// # Arguments
     ///
     /// * `item` - The item to add
-    fn add_item_to_inventory(&mut self, item: Item);
+    fn add_item_to_inventory(&mut self, item: Item) {
+        self.base_mut().inventory.push(item);
+    }
 
     /// Removes an item from the inventory and returns it.
     ///
@@ -191,17 +274,28 @@ pub trait Unit {
     /// # Returns
     ///
     /// Returns `Some(item)` if the item was found and removed, `None` otherwise.
-    fn remove_item_from_inventory(&mut self, item_id: ItemId) -> Option<Item>;
+    fn remove_item_from_inventory(&mut self, item_id: ItemId) -> Option<Item> {
+        let base = self.base_mut();
+        if let Some(pos) = base.inventory.iter().position(|item| item.id == item_id) {
+            Some(base.inventory.remove(pos))
+        } else {
+            None
+        }
+    }
 
-    // ===== Level & Experience =====
+    // ===== Level & Experience Methods (Default Implementations) =====
 
     /// Returns the unit's current level.
     ///
     /// Level affects base stats and unlocks new abilities.
-    fn level(&self) -> i32;
+    fn level(&self) -> i32 {
+        self.base().level
+    }
 
     /// Returns the unit's current experience points.
-    fn experience(&self) -> i32;
+    fn experience(&self) -> i32 {
+        self.base().experience
+    }
 
     /// Adds experience points to the unit.
     ///
@@ -213,22 +307,43 @@ pub trait Unit {
     ///
     /// Returns `true` if the unit leveled up, `false` otherwise.
     /// When leveling up, base stats are automatically increased.
-    fn add_experience(&mut self, exp: i32) -> bool;
+    fn add_experience(&mut self, exp: i32) -> bool {
+        self.base_mut().add_experience(exp)
+    }
 
     /// Returns the experience required to reach the next level.
-    fn experience_for_next_level(&self) -> i32;
+    fn experience_for_next_level(&self) -> i32 {
+        self.base().xp_remaining_for_level_up()
+    }
 
     /// Returns the progress toward the next level as a percentage.
     ///
     /// # Returns
     ///
     /// A value between 0.0 and 1.0, where 0.0 is no progress and 1.0 is ready to level up.
-    fn level_progress(&self) -> f32;
+    fn level_progress(&self) -> f32 {
+        use crate::base_unit::BaseUnit;
+        let base = self.base();
+        let current_level_exp = BaseUnit::xp_required_for_level(base.level);
+        let next_level_exp = BaseUnit::xp_required_for_level(base.level + 1);
+        let progress_exp = base.experience - current_level_exp;
+        let level_exp_range = next_level_exp - current_level_exp;
+
+        if level_exp_range > 0 {
+            progress_exp as f32 / level_exp_range as f32
+        } else {
+            0.0
+        }
+    }
 
     /// Checks if the unit has enough XP to level up.
-    fn can_level_up(&self) -> bool;
+    fn can_level_up(&self) -> bool {
+        self.base().can_level_up()
+    }
 
     /// Performs a level-up with evolution to next unit type.
+    ///
+    /// Automatically updates attacks in BaseUnit, no override needed.
     ///
     /// # Arguments
     ///
@@ -242,59 +357,135 @@ pub trait Unit {
         new_attacks: Vec<crate::attack::Attack>,
         new_unit_type: String,
         heal_to_full: bool,
-    );
+    ) {
+        self.base_mut()
+            .level_up_evolution(new_stats, new_attacks, new_unit_type, heal_to_full);
+    }
 
     /// Performs incremental level-up for max-level units (no evolution).
-    /// Grants +2 max HP and +1 attack.
+    /// Grants +2 max HP and +1 attack. Attacks stay the same.
     ///
     /// # Arguments
     ///
     /// * `heal_to_full` - Whether to restore unit to full health
-    fn perform_level_up_incremental(&mut self, heal_to_full: bool);
+    fn perform_level_up_incremental(&mut self, heal_to_full: bool) {
+        self.base_mut().level_up_incremental(heal_to_full);
+    }
 
-    // ===== Terrain =====
+    // ===== Terrain Methods (Default Implementations) =====
 
     /// Returns the terrain type the unit is currently standing on.
     ///
     /// Terrain affects movement cost, combat bonuses, and visibility.
-    fn current_terrain(&self) -> Terrain;
+    fn current_terrain(&self) -> Terrain {
+        self.base().current_terrain
+    }
 
     /// Sets the terrain type for the unit's current position.
     ///
     /// This should be called when the unit moves to update terrain-based modifiers.
-    fn set_terrain(&mut self, terrain: Terrain);
+    fn set_terrain(&mut self, terrain: Terrain) {
+        let base = self.base_mut();
+        base.current_terrain = terrain;
+        base.recalculate_stats();
+    }
 
-    // ===== Utility Methods =====
+    // ===== Utility Methods (Default Implementations) =====
 
     /// Checks if the unit is alive.
     ///
     /// # Returns
     ///
     /// Returns `true` if the unit's health is greater than 0, `false` otherwise.
-    fn is_alive(&self) -> bool;
+    fn is_alive(&self) -> bool {
+        self.base().combat_stats.is_alive()
+    }
 
     /// Checks if the unit can attack a target at the given position.
-    fn can_attack(&self, target_position: HexCoord) -> bool;
+    fn can_attack(&self, target_position: HexCoord) -> bool {
+        let distance = self.base().position.distance(target_position);
+        distance > 0 && distance <= self.base().combat_stats.attack_range
+    }
 
     /// Check if unit can move to target position
-    fn can_move_to(&self, target: HexCoord) -> bool;
+    fn can_move_to(&self, target: HexCoord) -> bool {
+        let distance = self.base().position.distance(target);
+        distance > 0 && distance <= self.base().combat_stats.movement_speed
+    }
 
     /// Get all hexagonal coordinates within movement range
-    fn get_movement_range(&self) -> Vec<HexCoord>;
+    fn get_movement_range(&self) -> Vec<HexCoord> {
+        self.base().get_movement_range()
+    }
 
     /// Take damage
-    fn take_damage(&mut self, damage: u32);
+    fn take_damage(&mut self, damage: u32) {
+        self.base_mut().combat_stats.take_damage(damage as i32);
+    }
 
     /// Heal the unit
-    fn heal(&mut self, amount: i32);
+    fn heal(&mut self, amount: i32) {
+        self.base_mut().combat_stats.heal(amount);
+    }
 
     /// Recalculate all derived stats
-    fn recalculate_stats(&mut self);
+    fn recalculate_stats(&mut self) {
+        self.base_mut().recalculate_stats();
+    }
 
-    // ===== Attack Methods =====
+    // ===== Attack Methods (Default Implementations) =====
 
     /// Get all available attacks for this unit (including equipped items)
-    fn get_attacks(&self) -> Vec<Attack>;
+    fn get_attacks(&self) -> Vec<Attack> {
+        use items::item_properties::ItemProperties;
+
+        /// Helper function to convert item damage types to combat damage types.
+        fn item_damage_type_to_combat(
+            dt: items::item_properties::DamageType,
+        ) -> combat::DamageType {
+            match dt {
+                items::item_properties::DamageType::Slash => combat::DamageType::Slash,
+                items::item_properties::DamageType::Pierce => combat::DamageType::Pierce,
+                items::item_properties::DamageType::Blunt => combat::DamageType::Blunt,
+                items::item_properties::DamageType::Fire => combat::DamageType::Fire,
+                items::item_properties::DamageType::Dark => combat::DamageType::Dark,
+                _ => combat::DamageType::Slash,
+            }
+        }
+
+        // Start with the unit's innate attacks
+        let mut all_attacks = self.attacks().to_vec();
+
+        // Add attacks from equipped weapon
+        if let Some(weapon) = &self.base().equipment.weapon {
+            if let ItemProperties::Weapon { attacks, .. } = &weapon.properties {
+                for item_attack in attacks {
+                    all_attacks.push(Attack::melee(
+                        item_attack.name.clone(),
+                        item_attack.damage,
+                        item_attack.attack_times,
+                        item_damage_type_to_combat(item_attack.damage_type),
+                    ));
+                }
+            }
+        }
+
+        // Add attacks from equipped accessories (if any provide attacks)
+        for accessory in &self.base().equipment.accessories {
+            if let ItemProperties::Weapon { attacks, .. } = &accessory.properties {
+                for item_attack in attacks {
+                    all_attacks.push(Attack::melee(
+                        item_attack.name.clone(),
+                        item_attack.damage,
+                        item_attack.attack_times,
+                        item_damage_type_to_combat(item_attack.damage_type),
+                    ));
+                }
+            }
+        }
+
+        all_attacks
+    }
 
     /// Get the unit's defense value (base hit chance for enemies)
     ///
@@ -315,6 +506,7 @@ pub trait Unit {
     ///
     /// Each unit type has its own sprite for visual representation.
     /// This enables proper encapsulation where units know their own appearance.
+    /// The sprite is stored in the BaseUnit and set during unit construction.
     ///
     /// # Returns
     ///
@@ -330,28 +522,98 @@ pub trait Unit {
     /// assert_eq!(sprite, SpriteType::DwarfWarrior);
     /// ```
     fn sprite(&self) -> SpriteType {
-        // Default implementation returns generic Unit sprite
-        // Override this in specific unit implementations for custom sprites
-        SpriteType::Unit
+        // Default implementation reads from BaseUnit's sprite_type field
+        self.base().sprite_type
     }
 
-    // ===== Display Methods =====
+    // ===== Display Methods (Default Implementations) =====
 
     /// Get unit's display color based on race
-    fn get_display_color(&self) -> [f32; 3];
+    fn get_display_color(&self) -> [f32; 3] {
+        self.base().race.get_display_color()
+    }
 
     /// Get detailed unit information for display
-    fn get_info(&self) -> String;
+    fn get_info(&self) -> String {
+        let base = self.base();
+        format!(
+            "{} (Lv.{} {:?} {})\nHP: {}/{}\nATK: {}\nExp: {}/{}",
+            base.name,
+            base.level,
+            base.race,
+            base.unit_type,
+            base.combat_stats.health,
+            base.combat_stats.max_health,
+            base.combat_stats.get_total_attack(),
+            base.experience,
+            self.experience_for_next_level()
+        )
+    }
 
     /// Get a short summary of the unit
-    fn get_summary(&self) -> String;
+    fn get_summary(&self) -> String {
+        let base = self.base();
+        format!(
+            "{} L{} HP:{}/{}",
+            base.name, base.level, base.combat_stats.health, base.combat_stats.max_health
+        )
+    }
 
     /// Display comprehensive unit information
-    fn display_unit_info(&self);
+    fn display_unit_info(&self) {
+        println!("{}", self.get_info());
+    }
 
     /// Display quick unit info
-    fn display_quick_info(&self);
+    fn display_quick_info(&self) {
+        println!("{}", self.get_summary());
+    }
 
     /// Handle click event
-    fn on_click(&self);
+    fn on_click(&self) {
+        let base = self.base();
+        println!("{:?} {} {}", base.race, base.unit_type, base.name);
+    }
+
+    // ===== Evolution Methods =====
+
+    /// Get the previous unit type in the evolution chain (if any)
+    ///
+    /// Returns `Some(unit_type)` if this unit evolved from another type,
+    /// `None` if this is the base form in the evolution chain.
+    /// The evolution is stored in BaseUnit and set during construction.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::{Unit, UnitFactory, Terrain};
+    /// # use graphics::HexCoord;
+    /// # let warrior = UnitFactory::create("Dwarf Warrior", None, None, None).unwrap();
+    /// if let Some(prev) = warrior.evolution_previous() {
+    ///     println!("Evolved from: {}", prev);
+    /// }
+    /// ```
+    fn evolution_previous(&self) -> Option<String> {
+        self.base().evolution_previous.clone()
+    }
+
+    /// Get the next unit type in the evolution chain (if any)
+    ///
+    /// Returns `Some(unit_type)` if this unit can evolve into another type,
+    /// `None` if this is the final form in the evolution chain.
+    /// The evolution is stored in BaseUnit and set during construction.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::{Unit, UnitFactory, Terrain};
+    /// # use graphics::HexCoord;
+    /// # let young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    /// if let Some(next) = young_warrior.evolution_next() {
+    ///     println!("Evolves into: {}", next);
+    /// }
+    /// ```
+    fn evolution_next(&self) -> Option<String> {
+        self.base().evolution_next.clone()
+    }
 }

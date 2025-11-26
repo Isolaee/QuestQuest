@@ -22,7 +22,6 @@ use graphics::HexCoord;
 /// - **XP to Next Level**: 50 (level² × 50)
 pub struct DwarfYoungWarrior {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl DwarfYoungWarrior {
@@ -119,6 +118,9 @@ impl DwarfYoungWarrior {
             Self::UNIT_TYPE.to_string(),
             "An inexperienced but sturdy dwarven fighter beginning their martial training. Young Warriors excel in mountainous terrain and possess natural dwarven resilience. With experience, they evolve into seasoned Dwarf Warriors.".to_string(),
             terrain,
+            graphics::SpriteType::DwarfWarrior,
+            None,
+            Some("Dwarf Warrior".to_string()),
             combat_stats,
         );
 
@@ -127,9 +129,9 @@ impl DwarfYoungWarrior {
         base.experience = Self::STARTING_EXPERIENCE;
 
         // Define available attacks for level 1
-        let attacks = vec![Self::axe_chop(), Self::shield_bash()];
+        base.attacks = vec![Self::axe_chop(), Self::shield_bash()];
 
-        Self { base, attacks }
+        Self { base }
     }
 
     // ===== LEVEL PROGRESSION DATA =====
@@ -146,6 +148,16 @@ impl DwarfYoungWarrior {
     /// Returns `Some("Dwarf Warrior")` as the next evolution stage.
     pub fn get_next_unit_type() -> Option<String> {
         Some(Self::NEXT_UNIT_TYPE.to_string())
+    }
+
+    /// Returns the previous unit type in evolution chain (trait method).
+    pub fn evolution_previous(&self) -> Option<String> {
+        Self::get_previous_unit_type()
+    }
+
+    /// Returns the next unit type in evolution chain (trait method).
+    pub fn evolution_next(&self) -> Option<String> {
+        Self::get_next_unit_type()
     }
 
     /// Check if this unit has a next evolution.
@@ -190,8 +202,20 @@ impl DwarfYoungWarrior {
     }
 }
 
-// Use the macro to implement all standard Unit trait methods
-crate::impl_unit_delegate!(DwarfYoungWarrior);
+// Implement the Unit trait with minimal boilerplate
+impl crate::unit_trait::Unit for DwarfYoungWarrior {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+}
 
 crate::submit_unit!(
     DwarfYoungWarrior,

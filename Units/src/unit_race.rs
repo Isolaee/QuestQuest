@@ -477,3 +477,22 @@ pub enum Terrain {
     Mountain,
     Swamp,
 }
+
+impl Terrain {
+    /// Get the display name of this terrain type
+    pub fn name(self) -> &'static str {
+        match self {
+            Terrain::Forest0 | Terrain::Forest1 => "Forest",
+            Terrain::Grasslands => "Grasslands",
+            Terrain::HauntedWoods => "Haunted Woods",
+            Terrain::Hills => "Hills",
+            Terrain::Mountain => "Mountain",
+            Terrain::Swamp => "Swamp",
+        }
+    }
+
+    /// Get the hit chance for a race on this terrain (defense value)
+    pub fn get_hit_chance(self, race: Race) -> u8 {
+        race.get_base_defense(self)
+    }
+}

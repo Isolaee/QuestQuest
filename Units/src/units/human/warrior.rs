@@ -6,7 +6,6 @@ use graphics::HexCoord;
 
 pub struct HumanWarrior {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl HumanWarrior {
@@ -30,33 +29,50 @@ impl HumanWarrior {
             1,  // attacks_per_round
         );
 
-        let base = BaseUnit::new(
+        let mut base = BaseUnit::new(
             name,
             position,
             Race::Human,
             "Human Warrior".to_string(),
             "A versatile human warrior with balanced stats. Humans excel at adaptation and can thrive in various terrains. Armed with sword and bow, they form the backbone of most armies.".to_string(),
             terrain,
+            graphics::SpriteType::Unit,
+            None, // No previous evolution
+            None, // No next evolution
             combat_stats,
         );
 
         // Define default attacks for human warrior
-        let attacks = vec![
+        base.attacks = vec![
             Attack::melee("Sword Slash", 15, 1, DamageType::Slash),
             Attack::ranged("Shoddy Bow", 1, 2, DamageType::Pierce, 2),
         ];
 
-        Self { base, attacks }
+        Self { base }
     }
 
     /// Add a new attack to this warrior's repertoire
     pub fn add_attack(&mut self, attack: Attack) {
-        self.attacks.push(attack);
+        self.base.attacks.push(attack);
     }
 }
 
-// Use the macro to implement all standard Unit trait methods
-crate::impl_unit_delegate!(HumanWarrior);
+// Implement the Unit trait with minimal boilerplate
+impl crate::unit_trait::Unit for HumanWarrior {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+
+    // Evolution methods work automatically - no overrides needed
+}
 
 // Register this unit type with the global registry
 crate::submit_unit!(

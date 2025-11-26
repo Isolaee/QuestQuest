@@ -1,8 +1,74 @@
-// Unit creation and functionality tests using the new system
-// Each unit type (HumanWarrior, GoblinGrunt, etc.) defines its own stats
+// Unit creation and functionality tests using the new trait-based system
+// Each unit type implements Unit trait with base(), base_mut(), and attacks() methods
 
 use ::units::*;
 use graphics::HexCoord;
+
+// ===== New Trait Pattern Tests =====
+
+#[test]
+fn test_trait_default_implementations() {
+    // Test that trait default implementations work correctly
+    let unit = UnitFactory::create_human_warrior(
+        "TestWarrior".to_string(),
+        HexCoord::new(0, 0),
+        Terrain::Grasslands,
+    );
+
+    // These methods now use default trait implementations
+    assert_eq!(unit.name(), "TestWarrior");
+    assert_eq!(unit.position(), HexCoord::new(0, 0));
+    assert_eq!(unit.race(), Race::Human);
+    assert!(unit.is_alive());
+    assert_eq!(unit.level(), 1);
+}
+
+#[test]
+fn test_evolution_methods_via_trait() {
+    // Test evolution units expose their evolution chain via trait methods
+    let young = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    assert!(young.evolution_previous().is_none());
+    assert_eq!(young.evolution_next(), Some("Dwarf Warrior".to_string()));
+
+    let warrior = UnitFactory::create("Dwarf Warrior", None, None, None).unwrap();
+    assert_eq!(
+        warrior.evolution_previous(),
+        Some("Dwarf Young Warrior".to_string())
+    );
+    assert_eq!(
+        warrior.evolution_next(),
+        Some("Dwarf Veteran Warrior".to_string())
+    );
+
+    let veteran = UnitFactory::create("Dwarf Veteran Warrior", None, None, None).unwrap();
+    assert_eq!(
+        veteran.evolution_previous(),
+        Some("Dwarf Warrior".to_string())
+    );
+    assert!(veteran.evolution_next().is_none());
+}
+
+#[test]
+fn test_mutable_operations_via_trait() {
+    // Test that mutable operations work through default implementations
+    let mut unit = UnitFactory::create_human_warrior(
+        "Fighter".to_string(),
+        HexCoord::new(0, 0),
+        Terrain::Grasslands,
+    );
+
+    // Test movement
+    assert!(unit.move_to(HexCoord::new(1, 0)));
+    assert_eq!(unit.position(), HexCoord::new(1, 0));
+
+    // Test damage and healing
+    let initial_hp = unit.combat_stats().health;
+    unit.take_damage(20);
+    assert_eq!(unit.combat_stats().health, initial_hp - 20);
+
+    unit.heal(10);
+    assert_eq!(unit.combat_stats().health, initial_hp - 10);
+}
 
 // ===== Unit Creation Tests =====
 

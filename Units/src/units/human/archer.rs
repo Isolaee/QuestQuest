@@ -6,7 +6,6 @@ use graphics::HexCoord;
 
 pub struct HumanArcher {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl HumanArcher {
@@ -36,6 +35,9 @@ impl HumanArcher {
             "Human Archer".to_string(),
             "A skilled human archer specializing in ranged combat. With keen eyes and steady hands, archers provide crucial long-range support. They excel in forests and open terrain where their mobility shines.".to_string(),
             terrain,
+            graphics::SpriteType::Unit,
+            None,
+            None,
             combat_stats,
         );
 
@@ -54,16 +56,29 @@ impl HumanArcher {
         let mut base = base;
         base.terrain_defenses = Some(terrain_defenses);
 
-        let attacks = vec![
+        base.attacks = vec![
             Attack::ranged("Longbow", 12, 1, combat::DamageType::Pierce, 3),
             Attack::melee("Short Blade", 6, 1, combat::DamageType::Slash),
         ];
 
-        Self { base, attacks }
+        Self { base }
     }
 }
 
-crate::impl_unit_delegate!(HumanArcher);
+// Implement the Unit trait with minimal boilerplate
+impl crate::unit_trait::Unit for HumanArcher {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+}
 
 crate::submit_unit!(
     HumanArcher,

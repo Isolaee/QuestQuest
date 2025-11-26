@@ -23,7 +23,6 @@ use graphics::HexCoord;
 /// - **XP per Level**: 800, 1250, 1800... (level² × 50)
 pub struct OrcEliteSwordsman {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl OrcEliteSwordsman {
@@ -137,6 +136,9 @@ impl OrcEliteSwordsman {
             Self::UNIT_TYPE.to_string(),
             "A battle-hardened orc warrior of exceptional prowess. Elite Swordsmen are veterans of countless conflicts, wielding their blades with deadly precision. Their ferocity in combat is matched only by their tactical cunning.".to_string(),
             terrain,
+            graphics::SpriteType::OrcWarrior,
+            Some("Orc Swordsman".to_string()),
+            None,
             combat_stats,
         );
 
@@ -145,14 +147,14 @@ impl OrcEliteSwordsman {
         base.experience = 250; // Carried over from level 2
 
         // Define available attacks for level 3
-        let attacks = vec![
+        base.attacks = vec![
             Self::heavy_slash(),
             Self::sword_thrust(),
             Self::crushing_blow(),
             Self::defensive_strike(),
         ];
 
-        Self { base, attacks }
+        Self { base }
     }
 
     // ===== LEVEL PROGRESSION DATA =====
@@ -187,13 +189,13 @@ impl OrcEliteSwordsman {
 
     /// Add a new attack to this unit's repertoire
     pub fn add_attack(&mut self, attack: Attack) {
-        self.attacks.push(attack);
+        self.base.attacks.push(attack);
     }
 
     /// Remove an attack by name
     pub fn remove_attack(&mut self, name: &str) -> bool {
-        if let Some(pos) = self.attacks.iter().position(|a| a.name == name) {
-            self.attacks.remove(pos);
+        if let Some(pos) = self.base.attacks.iter().position(|a| a.name == name) {
+            self.base.attacks.remove(pos);
             true
         } else {
             false
@@ -202,12 +204,24 @@ impl OrcEliteSwordsman {
 
     /// Get all attack names
     pub fn get_attack_names(&self) -> Vec<&str> {
-        self.attacks.iter().map(|a| a.name.as_str()).collect()
+        self.base.attacks.iter().map(|a| a.name.as_str()).collect()
     }
 }
 
-// Use the macro to implement all standard Unit trait methods
-crate::impl_unit_delegate!(OrcEliteSwordsman);
+// Implement the Unit trait with minimal boilerplate
+impl crate::unit_trait::Unit for OrcEliteSwordsman {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+}
 
 crate::submit_unit!(
     OrcEliteSwordsman,

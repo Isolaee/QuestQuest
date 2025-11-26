@@ -6,7 +6,6 @@ use graphics::HexCoord;
 
 pub struct GoblinChief {
     base: BaseUnit,
-    attacks: Vec<Attack>,
 }
 
 impl GoblinChief {
@@ -31,25 +30,40 @@ impl GoblinChief {
             1,  // attacks_per_round
         );
 
-        let base = BaseUnit::new(
+        let mut base = BaseUnit::new(
             name,
             position,
             Race::Goblin,
             "Goblin Chief".to_string(),
             "A goblin leader with enhanced combat prowess. Chiefs command respect through strength and cunning, wielding better equipment than their underlings. Still maintains the goblin's characteristic agility.".to_string(),
             terrain,
+            graphics::SpriteType::Unit,
+            None,
+            None,
             combat_stats,
         );
 
         // Define default attacks for goblin chief
-        let attacks = vec![
+        base.attacks = vec![
             Attack::melee("Tribal Blade", 12, 1, DamageType::Slash),
             Attack::melee("War Cry", 10, 1, DamageType::Blunt), // Intimidation attack
         ];
 
-        Self { base, attacks }
+        Self { base }
     }
 }
 
-// Use the macro to implement all standard Unit trait methods
-crate::impl_unit_delegate!(GoblinChief);
+// Implement the Unit trait with minimal boilerplate
+impl crate::unit_trait::Unit for GoblinChief {
+    fn base(&self) -> &BaseUnit {
+        &self.base
+    }
+
+    fn base_mut(&mut self) -> &mut BaseUnit {
+        &mut self.base
+    }
+
+    fn attacks(&self) -> &[Attack] {
+        &self.base.attacks
+    }
+}
