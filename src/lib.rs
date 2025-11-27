@@ -116,16 +116,12 @@
 //!
 //! Centralized unit creation ensures consistency:
 //!
-//! ```rust,no_run
+//! ```rust
 //! use units::UnitFactory;
-//! use graphics::HexCoord;
 //!
-//! // Create a human warrior using the public factory helper
-//! let unit = UnitFactory::create_human_warrior(
-//!     "Thorin".to_string(),
-//!     HexCoord::new(0, 0),
-//!     units::unit_race::Terrain::Grasslands,
-//! );
+//! // Create a unit using the registry-based factory
+//! let unit = UnitFactory::create("Elf Warrior", None, None, None)
+//!     .expect("Failed to create unit");
 //! ```
 //!
 //! ### 3. Separation of Concerns

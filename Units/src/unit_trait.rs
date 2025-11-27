@@ -36,32 +36,6 @@ pub type UnitId = Uuid;
 /// - `attacks()` - Returns the unit's attack list
 ///
 /// All other methods have default implementations that delegate to the BaseUnit.
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use units::{Unit, UnitFactory, Terrain};
-/// use graphics::HexCoord;
-///
-/// let mut unit = UnitFactory::create_human_warrior(
-///     "Knight".to_string(),
-///     HexCoord::new(0, 0),
-///     Terrain::Grasslands,
-/// );
-///
-/// // Check unit identity
-/// println!("Name: {}", unit.name());
-/// println!("Race: {:?}", unit.race());
-/// println!("Level: {}", unit.level());
-///
-/// // Move the unit
-/// unit.move_to(HexCoord::new(1, 0));
-///
-/// // Check health
-/// if unit.is_alive() {
-///     println!("Unit is alive with {} HP", unit.combat_stats().health);
-/// }
-/// ```
 pub trait Unit {
     // ===== Core Required Methods =====
     // These MUST be implemented by each unit type
@@ -94,15 +68,6 @@ pub trait Unit {
     }
 
     /// Returns the unit's display name.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use units::{Unit, UnitFactory, Terrain};
-    /// # use graphics::HexCoord;
-    /// # let unit = UnitFactory::create_human_warrior("Aragorn".to_string(), HexCoord::new(0, 0), Terrain::Grasslands);
-    /// assert_eq!(unit.name(), "Aragorn");
-    /// ```
     fn name(&self) -> &str {
         &self.base().name
     }
@@ -131,16 +96,6 @@ pub trait Unit {
     ///
     /// This description provides lore, tactical information, and gameplay context
     /// about the unit that will be displayed in game wikis and tooltips.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use units::{Unit, UnitFactory, Terrain};
-    /// # use graphics::HexCoord;
-    /// # let unit = UnitFactory::create_human_warrior("Knight".to_string(), HexCoord::new(0, 0), Terrain::Grasslands);
-    /// let description = unit.description();
-    /// println!("Unit description: {}", description);
-    /// ```
     fn description(&self) -> &str {
         &self.base().description
     }
@@ -615,5 +570,88 @@ pub trait Unit {
     /// ```
     fn evolution_next(&self) -> Option<String> {
         self.base().evolution_next.clone()
+    }
+
+    /// Creates an evolved version of this unit, preserving inventory and equipment.
+    ///
+    /// This method creates a new unit of the next evolution type, transferring:
+    /// - Name
+    /// - Position
+    /// - Current terrain
+    /// - All inventory items
+    /// - All equipped items
+    /// - Current experience (reset to what's appropriate for the new level)
+    ///
+    /// The new unit will have:
+    /// - Increased level (current level + 1)
+    /// - Better base stats
+    /// - New/improved attacks
+    /// - Optionally full health
+    ///
+    /// # Arguments
+    ///
+    /// * `heal_to_full` - Whether to restore the evolved unit to full health
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(Box<dyn Unit>)` with the evolved unit, or `None` if:
+    /// - This unit has no next evolution (is max level)
+    /// - The evolution unit type is not registered
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::{Unit, UnitFactory};
+    /// # let mut young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    /// young_warrior.add_experience(100);
+    /// if let Some(evolved) = young_warrior.evolve(true) {
+    ///     println!("Evolved to: {}", evolved.unit_type());
+    /// }
+    /// ```
+    fn evolve(&self, heal_to_full: bool) -> Option<Box<dyn Unit>> {
+        use crate::unit_factory::UnitFactory;
+
+        // Check if this unit can evolve
+        let next_type = self.evolution_next()?;
+
+        // Create the evolved unit with same name, position, and terrain
+        let mut evolved = UnitFactory::create(
+            &next_type,
+            Some(self.name().to_string()),
+            Some(self.position()),
+            Some(self.current_terrain()),
+        )
+        .ok()?;
+
+        // Transfer inventory
+        for item in self.inventory() {
+            evolved.add_item_to_inventory(item.clone());
+        }
+
+        // Transfer equipped items
+        let old_equipment = self.equipment();
+        if let Some(weapon) = &old_equipment.weapon {
+            evolved.add_item_to_inventory(weapon.clone());
+            let _ = evolved.equip_item(weapon.id);
+        }
+        if let Some(armor) = &old_equipment.armor {
+            evolved.add_item_to_inventory(armor.clone());
+            let _ = evolved.equip_item(armor.id);
+        }
+        for accessory in &old_equipment.accessories {
+            evolved.add_item_to_inventory(accessory.clone());
+            let _ = evolved.equip_item(accessory.id);
+        }
+
+        // Set experience to current (the new unit starts with some XP)
+        let current_xp = self.experience();
+        evolved.base_mut().experience = current_xp;
+
+        // Optionally heal to full
+        if heal_to_full {
+            evolved.combat_stats_mut().health = evolved.combat_stats().max_health;
+        }
+
+        Some(evolved)
     }
 }

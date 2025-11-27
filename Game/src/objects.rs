@@ -142,27 +142,6 @@ pub trait GameObject {
     }
 }
 
-/// Represents a terrain tile on the hex grid.
-///
-/// Terrain tiles define the base layer of the game world, providing movement costs,
-/// blocking behavior, and visual appearance for each hex. Terrain properties affect
-/// pathfinding and tactical positioning during gameplay.
-///
-/// # Examples
-///
-/// ```
-/// use game::TerrainTile;
-/// use graphics::{HexCoord, SpriteType};
-///
-/// let position = HexCoord::new(5, -3);
-/// let mut tile = TerrainTile::new(position, SpriteType::Forest);
-///
-/// // Check movement cost
-/// assert_eq!(tile.movement_cost(), 2);
-///
-/// // Add metadata
-/// tile.set_metadata("description".to_string(), "Dense forest".to_string());
-/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerrainTile {
     id: Uuid,
@@ -174,29 +153,6 @@ pub struct TerrainTile {
 }
 
 impl TerrainTile {
-    /// Creates a new terrain tile at the specified position.
-    ///
-    /// Movement cost and blocking behavior are automatically determined based on
-    /// the sprite type:
-    /// - Grasslands: 1 movement cost
-    /// - Forest: 2 movement cost
-    /// - Hills: 3 movement cost
-    /// - Mountain: 4 movement cost (blocks movement)
-    /// - Swamp: 3 movement cost
-    ///
-    /// # Arguments
-    ///
-    /// * `position` - Hex coordinate for this tile
-    /// * `sprite_type` - Visual appearance and terrain type
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use game::TerrainTile;
-    /// use graphics::{HexCoord, SpriteType};
-    ///
-    /// let tile = TerrainTile::new(HexCoord::new(0, 0), SpriteType::Grasslands);
-    /// ```
     pub fn new(position: HexCoord, sprite_type: SpriteType) -> Self {
         // Use canonical movement cost from SpriteType so costs are centralized
         let movement_cost = sprite_type.movement_cost() as f32;
@@ -287,28 +243,6 @@ impl GameObject for TerrainTile {
     }
 }
 
-/// Wrapper around a Unit trait object that integrates it into the game world.
-///
-/// `GameUnit` provides game-level functionality on top of the core Unit trait,
-/// including team affiliation, action cooldowns, and GameObject trait implementation.
-/// It cannot be serialized due to containing trait objects.
-///
-/// # Examples
-///
-/// ```
-/// use game::{GameUnit, Team};
-/// use graphics::HexCoord;
-/// use units::unit_factory::UnitFactory;
-///
-/// let boxed = UnitFactory::create_human_warrior(
-///     "Ragnar".to_string(),
-///     HexCoord::new(0, 0),
-///     units::unit_race::Terrain::Grasslands,
-/// );
-/// let mut game_unit = GameUnit::new(boxed);
-/// game_unit.set_team(Team::Player);
-/// assert_eq!(game_unit.team(), Team::Player);
-/// ```
 pub struct GameUnit {
     id: Uuid,
     unit: Box<dyn units::Unit>,
@@ -328,28 +262,6 @@ pub struct GameUnit {
 }
 
 impl GameUnit {
-    /// Creates a new game unit from a boxed Unit trait object.
-    ///
-    /// The unit is assigned to the Player team by default and given a unique UUID.
-    ///
-    /// # Arguments
-    ///
-    /// * `unit` - Boxed trait object implementing the Unit trait
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use game::GameUnit;
-    /// use graphics::HexCoord;
-    /// use units::unit_factory::UnitFactory;
-    ///
-    /// let boxed = UnitFactory::create_human_warrior(
-    ///     "Bjorn".to_string(),
-    ///     HexCoord::new(0, 0),
-    ///     units::unit_race::Terrain::Grasslands,
-    /// );
-    /// let _game_unit = GameUnit::new(boxed);
-    /// ```
     pub fn new(unit: Box<dyn units::Unit>) -> Self {
         // Initialize moves_left from the underlying unit's combat stats
         let movement = unit.combat_stats().movement_speed;
@@ -367,28 +279,6 @@ impl GameUnit {
         }
     }
 
-    /// Creates a new game unit with the specified team affiliation.
-    ///
-    /// # Arguments
-    ///
-    /// * `unit` - Boxed trait object implementing the Unit trait
-    /// * `team` - Team affiliation (Player, Enemy, or Neutral)
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use game::{GameUnit, Team};
-    /// use graphics::HexCoord;
-    /// use units::unit_factory::UnitFactory;
-    ///
-    /// let boxed = UnitFactory::create_human_warrior(
-    ///     "Enemy Guard".to_string(),
-    ///     HexCoord::new(5, 5),
-    ///     units::unit_race::Terrain::Grasslands,
-    /// );
-    /// let enemy_unit = GameUnit::new_with_team(boxed, Team::Enemy);
-    /// assert_eq!(enemy_unit.team(), Team::Enemy);
-    /// ```
     pub fn new_with_team(unit: Box<dyn units::Unit>, team: Team) -> Self {
         let movement = unit.combat_stats().movement_speed;
         Self {
@@ -417,6 +307,18 @@ impl GameUnit {
     /// * `team` - New team affiliation
     pub fn set_team(&mut self, team: Team) {
         self.team = team;
+    }
+
+    /// Sets the UUID of this game unit.
+    ///
+    /// This is used when replacing a unit with its evolved form to preserve
+    /// the same ID throughout the evolution.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The UUID to assign to this unit
+    pub fn set_id(&mut self, id: Uuid) {
+        self.id = id;
     }
 
     /// Returns a reference to the underlying Unit trait object.

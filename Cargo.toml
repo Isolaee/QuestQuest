@@ -8,11 +8,6 @@ edition = "2021"
 name = "questquest"
 path = "src/lib.rs"
 
-# Example binary
-[[bin]]
-name = "example"
-path = "example.rs"
-
 [dependencies]
 combat = { path = "Combat" }
 graphics = { path = "Graphics" }

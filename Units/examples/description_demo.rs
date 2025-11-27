@@ -14,7 +14,7 @@ fn main() {
     println!("Descriptions provide lore and gameplay information for wikis and tooltips.\n");
 
     // Create various unit types (using registered units only)
-    let units = vec![
+    let units = [
         UnitFactory::create("Human Warrior", None, None, None)
             .expect("Failed to create Human Warrior"),
         UnitFactory::create("Human Archer", None, None, None)

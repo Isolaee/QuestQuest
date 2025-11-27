@@ -11,10 +11,7 @@ fn world_state_basics() {
     assert_eq!(s.get("Flag"), Some(&FactValue::Bool(true)));
     assert!(s.satisfies("Place", &FactValue::Str("X".to_string())));
 
-    s.apply_effects(&vec![(
-        "Place".to_string(),
-        FactValue::Str("Y".to_string()),
-    )]);
+    s.apply_effects(&[("Place".to_string(), FactValue::Str("Y".to_string()))]);
     assert_eq!(s.get("Place"), Some(&FactValue::Str("Y".to_string())));
 }
 
@@ -124,8 +121,8 @@ fn plan_for_team_sequential_application() {
     let result = plan_for_team(&start, &actions, &goals, &order, 1000);
 
     // Both agents should have plans; a1's plan should include its action (index 0)
-    assert!(result.get("a1").is_some());
-    assert!(result.get("a2").is_some());
+    assert!(result.contains_key("a1"));
+    assert!(result.contains_key("a2"));
     assert_eq!(result.get("a1").unwrap(), &vec![0usize]);
     // For a2 the index refers to filtered actions (only a2 visible) -> its plan should be [0]
     assert_eq!(result.get("a2").unwrap(), &vec![0usize]);

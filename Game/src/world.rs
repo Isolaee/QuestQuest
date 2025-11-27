@@ -1846,7 +1846,34 @@ impl GameWorld {
                 let leveled_up = attacker.unit_mut().add_experience(killer_xp);
                 println!("  {} gains {} XP (killer bonus)", attacker_name, killer_xp);
                 if leveled_up {
-                    println!("    🎉 {} can level up!", attacker_name);
+                    println!("    🎉 {} is leveling up!", attacker_name);
+
+                    // Check if unit can evolve to next form
+                    if let Some(evolved_unit) = attacker.unit().evolve(true) {
+                        let team = attacker.team();
+                        let old_type = attacker.unit().unit_type().to_string();
+                        let new_type = evolved_unit.unit_type().to_string();
+                        let new_level = evolved_unit.level();
+
+                        // Replace the unit with its evolution
+                        let mut new_game_unit =
+                            crate::objects::GameUnit::new_with_team(evolved_unit, team);
+                        new_game_unit.set_id(attacker_id); // Preserve the same ID
+                        new_game_unit.reset_moves_to_max();
+                        self.units.insert(attacker_id, new_game_unit);
+
+                        println!(
+                            "    ✨ Evolved from {} to {} (Level {})!",
+                            old_type, new_type, new_level
+                        );
+                    } else {
+                        // No evolution available - incremental level up
+                        attacker.unit_mut().perform_level_up_incremental(true);
+                        println!(
+                            "    ✨ Level {} (+2 HP, +1 attack)!",
+                            attacker.unit().level()
+                        );
+                    }
                 }
             }
 
@@ -1877,7 +1904,34 @@ impl GameWorld {
                         let leveled_up = ally.unit_mut().add_experience(ally_xp);
                         println!("  {} gains {} XP (adjacent ally)", ally_name, ally_xp);
                         if leveled_up {
-                            println!("    🎉 {} can level up!", ally_name);
+                            println!("    🎉 {} is leveling up!", ally_name);
+
+                            // Check if unit can evolve to next form
+                            if let Some(evolved_unit) = ally.unit().evolve(true) {
+                                let team = ally.team();
+                                let old_type = ally.unit().unit_type().to_string();
+                                let new_type = evolved_unit.unit_type().to_string();
+                                let new_level = evolved_unit.level();
+
+                                // Replace the unit with its evolution
+                                let mut new_game_unit =
+                                    crate::objects::GameUnit::new_with_team(evolved_unit, team);
+                                new_game_unit.set_id(ally_id); // Preserve the same ID
+                                new_game_unit.reset_moves_to_max();
+                                self.units.insert(ally_id, new_game_unit);
+
+                                println!(
+                                    "    ✨ Evolved from {} to {} (Level {})!",
+                                    old_type, new_type, new_level
+                                );
+                            } else {
+                                // No evolution available - incremental level up
+                                ally.unit_mut().perform_level_up_incremental(true);
+                                println!(
+                                    "    ✨ Level {} (+2 HP, +1 attack)!",
+                                    ally.unit().level()
+                                );
+                            }
                         }
                     }
                 }
@@ -1930,7 +1984,34 @@ impl GameWorld {
                 let leveled_up = defender.unit_mut().add_experience(killer_xp);
                 println!("  {} gains {} XP (killer bonus)", defender_name, killer_xp);
                 if leveled_up {
-                    println!("    🎉 {} can level up!", defender_name);
+                    println!("    🎉 {} is leveling up!", defender_name);
+
+                    // Check if unit can evolve to next form
+                    if let Some(evolved_unit) = defender.unit().evolve(true) {
+                        let team = defender.team();
+                        let old_type = defender.unit().unit_type().to_string();
+                        let new_type = evolved_unit.unit_type().to_string();
+                        let new_level = evolved_unit.level();
+
+                        // Replace the unit with its evolution
+                        let mut new_game_unit =
+                            crate::objects::GameUnit::new_with_team(evolved_unit, team);
+                        new_game_unit.set_id(defender_id); // Preserve the same ID
+                        new_game_unit.reset_moves_to_max();
+                        self.units.insert(defender_id, new_game_unit);
+
+                        println!(
+                            "    ✨ Evolved from {} to {} (Level {})!",
+                            old_type, new_type, new_level
+                        );
+                    } else {
+                        // No evolution available - incremental level up
+                        defender.unit_mut().perform_level_up_incremental(true);
+                        println!(
+                            "    ✨ Level {} (+2 HP, +1 attack)!",
+                            defender.unit().level()
+                        );
+                    }
                 }
             }
 
@@ -1961,7 +2042,34 @@ impl GameWorld {
                         let leveled_up = ally.unit_mut().add_experience(ally_xp);
                         println!("  {} gains {} XP (adjacent ally)", ally_name, ally_xp);
                         if leveled_up {
-                            println!("    🎉 {} can level up!", ally_name);
+                            println!("    🎉 {} is leveling up!", ally_name);
+
+                            // Check if unit can evolve to next form
+                            if let Some(evolved_unit) = ally.unit().evolve(true) {
+                                let team = ally.team();
+                                let old_type = ally.unit().unit_type().to_string();
+                                let new_type = evolved_unit.unit_type().to_string();
+                                let new_level = evolved_unit.level();
+
+                                // Replace the unit with its evolution
+                                let mut new_game_unit =
+                                    crate::objects::GameUnit::new_with_team(evolved_unit, team);
+                                new_game_unit.set_id(ally_id); // Preserve the same ID
+                                new_game_unit.reset_moves_to_max();
+                                self.units.insert(ally_id, new_game_unit);
+
+                                println!(
+                                    "    ✨ Evolved from {} to {} (Level {})!",
+                                    old_type, new_type, new_level
+                                );
+                            } else {
+                                // No evolution available - incremental level up
+                                ally.unit_mut().perform_level_up_incremental(true);
+                                println!(
+                                    "    ✨ Level {} (+2 HP, +1 attack)!",
+                                    ally.unit().level()
+                                );
+                            }
                         }
                     }
                 }

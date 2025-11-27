@@ -12,24 +12,6 @@
 //! - **[`Race`]**: Character races with terrain-specific bonuses
 //! - **[`UnitClass`]**: Character classes with unique resistances and abilities
 //! - **[`Attack`]**: Attack definitions with damage types and ranges
-//!
-//! ## Example
-//!
-//! ```rust,no_run
-//! use units::{UnitFactory, Terrain};
-//! use graphics::HexCoord;
-//!
-//! // Create a human warrior at position (0, 0)
-//! let mut warrior = UnitFactory::create_human_warrior(
-//!     "Aragorn".to_string(),
-//!     HexCoord::new(0, 0),
-//!     Terrain::Grasslands,
-//! );
-//!
-//! // Access unit properties
-//! println!("Unit: {}", warrior.name());
-//! println!("Health: {}", warrior.combat_stats().health);
-//! ```
 
 pub mod attack;
 pub mod base_unit;
@@ -60,7 +42,7 @@ pub use unit_trait::Unit;
 // Export concrete unit types
 pub use units::{
     DwarfVeteranWarrior, DwarfWarrior, DwarfYoungWarrior, ElfArcher, ElfMage, ElfWarrior,
-    HumanArcher, HumanMage, HumanWarrior, OrcEliteSwordsman, OrcSwordsman, OrcYoungSwordsman,
+    OrcEliteSwordsman, OrcSwordsman, OrcYoungSwordsman,
 };
 
 // Export structure types and factory

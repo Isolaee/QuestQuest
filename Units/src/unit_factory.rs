@@ -102,41 +102,6 @@ impl UnitFactory {
         get_registry().is_registered(type_name)
     }
 
-    // ========== Legacy Individual Factory Methods ==========
-    // These are kept for backward compatibility with existing code
-
-    pub fn create_human_warrior(
-        name: String,
-        position: HexCoord,
-        terrain: Terrain,
-    ) -> Box<dyn Unit> {
-        Box::new(HumanWarrior::new(name, position, terrain))
-    }
-
-    pub fn create_human_archer(
-        name: String,
-        position: HexCoord,
-        terrain: Terrain,
-    ) -> Box<dyn Unit> {
-        Box::new(HumanArcher::new(name, position, terrain))
-    }
-
-    pub fn create_human_mage(name: String, position: HexCoord, terrain: Terrain) -> Box<dyn Unit> {
-        Box::new(HumanMage::new(name, position, terrain))
-    }
-
-    pub fn create_elf_warrior(name: String, position: HexCoord, terrain: Terrain) -> Box<dyn Unit> {
-        Box::new(ElfWarrior::new(name, position, terrain))
-    }
-
-    pub fn create_elf_archer(name: String, position: HexCoord, terrain: Terrain) -> Box<dyn Unit> {
-        Box::new(ElfArcher::new(name, position, terrain))
-    }
-
-    pub fn create_elf_mage(name: String, position: HexCoord, terrain: Terrain) -> Box<dyn Unit> {
-        Box::new(ElfMage::new(name, position, terrain))
-    }
-
     pub fn create_dwarf_young_warrior(
         name: String,
         position: HexCoord,
