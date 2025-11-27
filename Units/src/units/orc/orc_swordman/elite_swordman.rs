@@ -157,34 +157,6 @@ impl OrcEliteSwordsman {
         Self { base }
     }
 
-    // ===== LEVEL PROGRESSION DATA =====
-
-    /// Returns the previous unit type in evolution chain
-    pub fn get_previous_unit_type() -> Option<String> {
-        Some(Self::PREVIOUS_UNIT_TYPE.to_string())
-    }
-
-    /// Elite Swordsman is max evolution - no next unit type
-    pub fn get_next_unit_type() -> Option<String> {
-        Self::NEXT_UNIT_TYPE.map(|s| s.to_string())
-    }
-
-    /// Check if this unit has a next evolution
-    pub fn has_next_evolution() -> bool {
-        false
-    }
-
-    /// Elite Swordsman is max level - no next level stats yet
-    /// Implement this if you add a level 4 (e.g., Champion)
-    pub fn get_next_level_stats() -> Option<CombatStats> {
-        None // Max level reached
-    }
-
-    /// Elite Swordsman is max level - no next level attacks yet
-    pub fn get_next_level_attacks() -> Vec<Attack> {
-        vec![] // Max level reached
-    }
-
     // ===== CUSTOM METHODS =====
 
     /// Add a new attack to this unit's repertoire

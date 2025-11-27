@@ -13,6 +13,8 @@
 //! - **[`UnitClass`]**: Character classes with unique resistances and abilities
 //! - **[`Attack`]**: Attack definitions with damage types and ranges
 
+#![allow(dead_code)]
+
 pub mod attack;
 pub mod base_unit;
 pub mod combat;

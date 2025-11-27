@@ -404,35 +404,16 @@ impl BaseUnit {
         level * level * 50
     }
 
-    /// Get XP needed to reach next level from current level
-    pub fn xp_to_next_level(&self) -> i32 {
-        Self::xp_required_for_level(self.level + 1)
-    }
-
-    /// Get remaining XP needed to level up
-    pub fn xp_remaining_for_level_up(&self) -> i32 {
-        (self.xp_to_next_level() - self.experience).max(0)
-    }
-
-    /// Check if unit has enough XP to level up
-    pub fn can_level_up(&self) -> bool {
-        self.experience >= self.xp_to_next_level()
-    }
-
-    /// Add experience and check if leveled up
+    /// Add experience points
     ///
     /// # Arguments
     ///
     /// * `xp` - Amount of experience to add
     ///
-    /// # Returns
-    ///
-    /// Returns `true` if the unit now has enough XP to level up, `false` otherwise.
-    /// Note: This does NOT automatically level up the unit - it only adds XP and checks
-    /// the threshold. The caller must handle the actual level-up process.
-    pub fn add_experience(&mut self, xp: i32) -> bool {
+    /// Note: The Unit trait's add_experience method handles level-up checking.
+    /// This is just a simple XP addition helper.
+    pub fn add_experience(&mut self, xp: i32) {
         self.experience += xp;
-        self.can_level_up()
     }
 
     /// Perform a complete level-up with evolution to next unit type

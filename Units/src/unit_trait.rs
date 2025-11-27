@@ -263,12 +263,49 @@ pub trait Unit {
     /// Returns `true` if the unit leveled up, `false` otherwise.
     /// When leveling up, base stats are automatically increased.
     fn add_experience(&mut self, exp: i32) -> bool {
-        self.base_mut().add_experience(exp)
+        let next_level = self.level() + 1;
+        let xp_threshold = self.xp_required_for_level(next_level);
+        self.base_mut().experience += exp;
+        self.base().experience >= xp_threshold
+    }
+
+    /// Returns the experience required to reach a specific level.
+    ///
+    /// Override this method in your unit implementation to customize XP thresholds.
+    /// Default implementation uses quadratic progression: level² × 50
+    ///
+    /// # Arguments
+    ///
+    /// * `level` - The target level
+    ///
+    /// # Returns
+    ///
+    /// Total experience required to reach that level
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::{Unit, UnitFactory};
+    /// # let unit = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    /// // Default: level² × 50
+    /// assert_eq!(unit.xp_required_for_level(2), 200);  // Level 2: 200 XP
+    /// assert_eq!(unit.xp_required_for_level(3), 450);  // Level 3: 450 XP
+    /// assert_eq!(unit.xp_required_for_level(4), 800);  // Level 4: 800 XP
+    /// ```
+    fn xp_required_for_level(&self, level: i32) -> i32 {
+        if level <= 1 {
+            return 0;
+        }
+        // Default: Quadratic progression
+        level * level * 50
     }
 
     /// Returns the experience required to reach the next level.
     fn experience_for_next_level(&self) -> i32 {
-        self.base().xp_remaining_for_level_up()
+        let next_level = self.level() + 1;
+        let current_xp = self.experience();
+        let next_level_xp = self.xp_required_for_level(next_level);
+        (next_level_xp - current_xp).max(0)
     }
 
     /// Returns the progress toward the next level as a percentage.
@@ -277,10 +314,9 @@ pub trait Unit {
     ///
     /// A value between 0.0 and 1.0, where 0.0 is no progress and 1.0 is ready to level up.
     fn level_progress(&self) -> f32 {
-        use crate::base_unit::BaseUnit;
         let base = self.base();
-        let current_level_exp = BaseUnit::xp_required_for_level(base.level);
-        let next_level_exp = BaseUnit::xp_required_for_level(base.level + 1);
+        let current_level_exp = self.xp_required_for_level(base.level);
+        let next_level_exp = self.xp_required_for_level(base.level + 1);
         let progress_exp = base.experience - current_level_exp;
         let level_exp_range = next_level_exp - current_level_exp;
 
@@ -293,7 +329,9 @@ pub trait Unit {
 
     /// Checks if the unit has enough XP to level up.
     fn can_level_up(&self) -> bool {
-        self.base().can_level_up()
+        let next_level = self.level() + 1;
+        let xp_threshold = self.xp_required_for_level(next_level);
+        self.base().experience >= xp_threshold
     }
 
     /// Performs a level-up with evolution to next unit type.
@@ -570,6 +608,24 @@ pub trait Unit {
     /// ```
     fn evolution_next(&self) -> Option<String> {
         self.base().evolution_next.clone()
+    }
+
+    /// Check if this unit has a next evolution.
+    ///
+    /// Returns `true` if the unit can evolve to a higher form, `false` if it's at max level.
+    /// This is a convenience method that checks if `evolution_next()` returns `Some`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use units::{Unit, UnitFactory};
+    /// # let young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    /// if young_warrior.has_next_evolution() {
+    ///     println!("This unit can evolve!");
+    /// }
+    /// ```
+    fn has_next_evolution(&self) -> bool {
+        self.evolution_next().is_some()
     }
 
     /// Creates an evolved version of this unit, preserving inventory and equipment.

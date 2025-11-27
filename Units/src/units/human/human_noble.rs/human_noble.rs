@@ -5,24 +5,23 @@ use combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use graphics::HexCoord;
 
 /// Level 1 Human Noble
-/// 
+///
 /// Human Nobles are the starting units for human players, embodying
 /// the ideals of chivalry and leadership. They are versatile units
 /// capable of both offense and defense, making them suitable for
 /// various battlefield roles.
-/// 
+///
 /// # Evolution Chain
 /// **Previous**: None (first in chain)
 /// **Current**: Human Noble (Level 1)
 /// **Next**: Human Prince (Level 2)
-/// 
+///
 /// # Stats
-/// - **HP**: 100
-/// - **Attack**: 12
+/// - **HP**: 40
+/// - **Attack**: 5
 /// - **Movement**: 4
 /// - **Range**: Melee
-/// - **XP to Next Level**: 50 (level² × 50)
-
+/// - **XP to Next Level**: 100 (level² × 25, faster leveling for starter units)
 pub struct HumanNoble {
     base: BaseUnit,
 }
@@ -64,21 +63,36 @@ impl HumanNoble {
     // Experience
     const STARTING_EXPERIENCE: i32 = 0;
 
-    // ===== ATTACK DEFINITIONS =====
+    // ===== XP PROGRESSION =====
+
+    /// Custom XP formula for Human Nobles - faster leveling for starting units
+    /// Formula: level² × 25 (half of default)
+    /// - Level 1→2: 100 XP
+    /// - Level 2→3: 225 XP
+    /// - Level 3→4: 400 XP
+    pub fn xp_formula(level: i32) -> i32 {
+        if level <= 1 {
+            return 0;
+        }
+        level * level * 25
+    }
+
+    // ===== ATTACK DEFINITIONS ======
 
     /// Basic sword strike
     fn sword_strike() -> Attack {
         Attack::melee(
             "Sword Strike",
             5, // damage
-            1,  // range (melee)
+            1, // attack_times
+            DamageType::Slash,
         )
     }
 
     // ===== CONSTRUCTOR =====
 
     /// Creates a new Human Noble unit
-    /// 
+    ///
     /// # Arguments
     /// * `name` - The unit's name
     /// * `position` - Starting position on the hex grid
@@ -110,9 +124,9 @@ impl HumanNoble {
             Self::UNIT_TYPE.to_string(),
             "An inexperienced but sturdy human noble beginning their journey. Human Nobles excel in leadership and versatility on the battlefield. With experience, they will become threth on the battlefield.".to_string(),
             terrain,
-            graphics::SpriteType::HumanNoble,
+            graphics::SpriteType::Unit,
             None,
-            Some("Human Noble".to_string()),
+            Some("Human Prince".to_string()),
             combat_stats,
         );
 
@@ -124,72 +138,6 @@ impl HumanNoble {
         base.attacks = vec![Self::sword_strike()];
 
         Self { base }
-    }
-
-    // ===== LEVEL PROGRESSION DATA =====
-
-    /// Returns the previous unit type in evolution chain.
-    ///
-    /// Returns `None` for Young Warrior as it's the first in the chain.
-    pub fn get_previous_unit_type() -> Option<String> {
-        Self::PREVIOUS_UNIT_TYPE.map(|s| s.to_string())
-    }
-
-    /// Returns the next unit type in evolution chain.
-    ///
-    /// Returns `Some("Human Prince")` as the next evolution stage.
-    pub fn get_next_unit_type() -> Option<String> {
-        Some(Self::NEXT_UNIT_TYPE.to_string())
-    }
-
-    /// Returns the previous unit type in evolution chain (trait method).
-    pub fn evolution_previous(&self) -> Option<String> {
-        Self::get_previous_unit_type()
-    }
-
-    /// Returns the next unit type in evolution chain (trait method).
-    pub fn evolution_next(&self) -> Option<String> {
-        Self::get_next_unit_type()
-    }
-
-    /// Check if this unit has a next evolution.
-    ///
-    /// Returns `true` since Young Warrior can evolve to Warrior.
-    pub fn has_next_evolution() -> bool {
-        true
-    }
-
-    /// Returns the combat stats for the next evolution level (Human Prince - Level 2).
-    ///
-    /// # Stats Progression
-    /// - HP: 40 → 46 (+6)
-    /// - Attack: 5 → 8 (+3)
-    /// - Resistances increased in relevant areas
-    pub fn get_next_level_stats() -> CombatStats {
-        CombatStats::new_with_attacks(
-            46,                                  // health (+6)
-            8,                                   // base attack (+3)
-            3 + Race::Human.get_movement_bonus(), // movement (same)
-            RangeCategory::Melee,
-            Resistances::new(
-                20, // blunt (+0)
-                25, // pierce (+5)
-                0, // fire (+0)
-                20, // dark (+5)
-                20, // slash (+10)
-                10, // crush (+10)
-            ),
-            0, // attack_strength (+0)
-            1,  // attacks_per_round (same)
-        )
-    }
-
-    /// Returns the attacks available at the next level
-    pub fn get_next_level_attacks() -> Vec<Attack> {
-        vec![
-            Attack::melee("Proficient Slash", 6, 2, DamageType::Slash),
-            Attack::range("Small Crossbow", 10, 1, DamageType::Pierce),
-        ]
     }
 }
 
@@ -206,13 +154,18 @@ impl crate::unit_trait::Unit for HumanNoble {
     fn attacks(&self) -> &[Attack] {
         &self.base.attacks
     }
+
+    // Custom XP progression - faster leveling for starting units
+    fn xp_required_for_level(&self, level: i32) -> i32 {
+        Self::xp_formula(level)
+    }
 }
 
 crate::submit_unit!(
     HumanNoble,
     "Human Noble",
     "An inexperienced but sturdy human noble beginning their journey. Human Nobles excel in leadership and versatility on the battlefield. With experience, they will become threth on the battlefield.",
-    Terrain::Plains,
+    Terrain::Grasslands,
     "Human",
     "Noble"
 );

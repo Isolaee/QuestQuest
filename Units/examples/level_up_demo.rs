@@ -11,15 +11,18 @@
 //! - Previous/Next unit type tracking
 
 use graphics::HexCoord;
-use units::units::{OrcSwordsman, OrcYoungSwordsman};
+use units::units::OrcYoungSwordsman;
 use units::{Terrain, Unit};
 
 fn main() {
     println!("=== Evolution & Incremental Level-Up Demo ===\n");
 
     // Create a Level 1 Young Swordsman
-    let mut unit =
-        OrcYoungSwordsman::new("Gruk".to_string(), HexCoord::new(0, 0), Terrain::Grasslands);
+    let mut unit: Box<dyn Unit> = Box::new(OrcYoungSwordsman::new(
+        "Gruk".to_string(),
+        HexCoord::new(0, 0),
+        Terrain::Grasslands,
+    ));
 
     println!("Created: {} (Level {})", unit.name(), unit.level());
     println!(
@@ -28,32 +31,28 @@ fn main() {
         unit.combat_stats().max_health
     );
     println!("Attack: {}", unit.combat_stats().base_attack);
-    println!(
-        "Has next evolution: {}\n",
-        OrcYoungSwordsman::has_next_evolution()
-    );
-
     // EVOLUTION 1: Young Swordsman → Swordsman
     println!("--- Gruk gains 200 XP ---");
     if unit.add_experience(200) {
         println!("🎉 Ready to evolve! (XP: {})\n", unit.experience());
 
-        if OrcYoungSwordsman::has_next_evolution() {
-            println!("→ Evolving into next form...");
-            let new_stats = OrcYoungSwordsman::get_next_level_stats();
-            let new_attacks = OrcYoungSwordsman::get_next_level_attacks();
-            let new_type = OrcYoungSwordsman::get_next_unit_type().unwrap();
-
-            unit.perform_level_up_evolution(new_stats, new_attacks, new_type, true);
-
-            println!("✓ Evolved to {} (Level {})", unit.unit_type(), unit.level());
+        println!("→ Evolving into next form...");
+        if let Some(evolved) = unit.evolve(true) {
+            println!(
+                "✓ Evolved to {} (Level {})",
+                evolved.unit_type(),
+                evolved.level()
+            );
             println!(
                 "✓ HP: {}/{} (healed to full)",
-                unit.combat_stats().health,
-                unit.combat_stats().max_health
+                evolved.combat_stats().health,
+                evolved.combat_stats().max_health
             );
-            println!("✓ Attack: {}", unit.combat_stats().base_attack);
+            println!("✓ Attack: {}", evolved.combat_stats().base_attack);
             println!("✓ New attacks unlocked!\n");
+            unit = evolved;
+        } else {
+            println!("✗ No evolution available\n");
         }
     }
 
@@ -62,22 +61,23 @@ fn main() {
     if unit.add_experience(250) {
         println!("🎉 Ready to evolve again! (XP: {})\n", unit.experience());
 
-        if OrcSwordsman::has_next_evolution() {
+        if unit.has_next_evolution() {
             println!("→ Evolving into elite form...");
-            let new_stats = OrcSwordsman::get_next_level_stats();
-            let new_attacks = OrcSwordsman::get_next_level_attacks();
-            let new_type = OrcSwordsman::get_next_unit_type().unwrap();
-
-            unit.perform_level_up_evolution(new_stats, new_attacks, new_type, false);
-
-            println!("✓ Evolved to {} (Level {})", unit.unit_type(), unit.level());
-            println!(
-                "✓ HP: {}/{}",
-                unit.combat_stats().health,
-                unit.combat_stats().max_health
-            );
-            println!("✓ Attack: {}", unit.combat_stats().base_attack);
-            println!("✓ Max evolution reached!\n");
+            if let Some(evolved) = unit.evolve(false) {
+                println!(
+                    "✓ Evolved to {} (Level {})",
+                    evolved.unit_type(),
+                    evolved.level()
+                );
+                println!(
+                    "✓ HP: {}/{}",
+                    evolved.combat_stats().health,
+                    evolved.combat_stats().max_health
+                );
+                println!("✓ Attack: {}", evolved.combat_stats().base_attack);
+                println!("✓ Max evolution reached!\n");
+                unit = evolved;
+            }
         }
     }
 

@@ -144,64 +144,6 @@ impl OrcSwordsman {
 
         Self { base }
     }
-
-    // ===== LEVEL PROGRESSION DATA =====
-
-    /// Returns the previous unit type in evolution chain.
-    ///
-    /// Returns `Some("Orc Young Swordsman")` as the previous evolution stage.
-    pub fn get_previous_unit_type() -> Option<String> {
-        Some(Self::PREVIOUS_UNIT_TYPE.to_string())
-    }
-
-    /// Returns the next unit type in evolution chain.
-    ///
-    /// Returns `Some("Orc Elite Swordsman")` as the next evolution stage.
-    pub fn get_next_unit_type() -> Option<String> {
-        Some(Self::NEXT_UNIT_TYPE.to_string())
-    }
-
-    /// Check if this unit has a next evolution.
-    ///
-    /// Returns `true` since Swordsman can evolve to Elite Swordsman.
-    pub fn has_next_evolution() -> bool {
-        true
-    }
-
-    /// Returns the combat stats for the next evolution level (Orc Elite Swordsman - Level 3).
-    ///
-    /// # Stats Progression
-    /// - HP: 125 → 150 (+25)
-    /// - Attack: 15 → 18 (+3)
-    /// - Resistances increased across the board
-    pub fn get_next_level_stats() -> CombatStats {
-        CombatStats::new_with_attacks(
-            150,                                // health (+25)
-            18,                                 // base attack (+3)
-            4 + Race::Orc.get_movement_bonus(), // movement (same)
-            RangeCategory::Melee,
-            Resistances::new(
-                35, // blunt (+7)
-                25, // pierce (+5)
-                15, // fire (+3)
-                20, // dark (+3)
-                40, // slash (+8)
-                30, // crush (+5)
-            ),
-            18, // attack_strength (+3)
-            1,  // attacks_per_round (same)
-        )
-    }
-
-    /// Returns the attacks available at the next level
-    pub fn get_next_level_attacks() -> Vec<Attack> {
-        vec![
-            Attack::melee("Heavy Slash", 22, 1, DamageType::Slash),
-            Attack::melee("Sword Thrust", 15, 1, DamageType::Pierce),
-            Attack::melee("Crushing Blow", 18, 1, DamageType::Crush),
-            Attack::melee("Defensive Strike", 12, 1, DamageType::Slash),
-        ]
-    }
 }
 
 // Implement the Unit trait with minimal boilerplate
