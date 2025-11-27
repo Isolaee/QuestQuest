@@ -19,10 +19,13 @@
 //! - **Mouse Hover**: View unit details in UI panel (automatic)
 //! - **Left Click**: Move selected unit, confirm actions, interact with UI
 //! - **Right Click**: Select unit, cancel actions
-//! - **Arrow Keys**: Move camera
+//! - **Arrow Keys**: Move camera (scroll encyclopedia when open)
+//! - **E**: Toggle encyclopedia wiki
+//! - **1/2/3**: Switch encyclopedia categories (Units/Terrain/Mechanics) when open
 //! - **C**: Show detailed unit info in console
 //! - **H**: Toggle hover debug mode (hex highlighting)
-//! - **ESC**: Open/close menu, deselect unit
+//! - **SPACE**: End turn
+//! - **ESC**: Close encyclopedia/menu, deselect unit
 //!
 //! ## Architecture
 //!
@@ -33,6 +36,7 @@ mod game_scene;
 mod main_menu;
 mod scene_manager;
 
+use encyclopedia::Encyclopedia;
 use game::*;
 use glutin::context::ContextAttributesBuilder;
 use glutin::display::GetGlDisplay;
@@ -42,8 +46,8 @@ use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
 use graphics::math::Vec2;
 use graphics::{
-    find_path, setup_dynamic_hexagons, GuideLibrary, HexCoord, HexGrid, HighlightType, Renderer,
-    UiPanel, UnitAnimation, UnitDisplayInfo,
+    find_path, setup_dynamic_hexagons, EncyclopediaCategory, EncyclopediaPanel, GuideLibrary,
+    HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitAnimation, UnitDisplayInfo,
 };
 use main_menu::MainMenuScene;
 use raw_window_handle::HasWindowHandle;
@@ -130,6 +134,11 @@ struct GameApp {
 
     // Movement animation
     active_animation: Option<UnitAnimation>, // Currently animating unit
+
+    // Encyclopedia system
+    encyclopedia: Encyclopedia,                    // Encyclopedia data
+    encyclopedia_panel: Option<EncyclopediaPanel>, // Encyclopedia UI panel
+    encyclopedia_visible: bool,                    // Whether encyclopedia is currently displayed
 }
 
 /// Item pickup prompt state.
@@ -254,6 +263,11 @@ impl GameApp {
 
             // Movement animation
             active_animation: None,
+
+            // Encyclopedia system
+            encyclopedia: Encyclopedia::new(),
+            encyclopedia_panel: None,
+            encyclopedia_visible: false,
         }
     }
 
@@ -317,16 +331,58 @@ impl GameApp {
         let move_speed = 0.1;
         match physical_key {
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                self.hex_grid.move_camera(0.0, move_speed);
+                if self.encyclopedia_visible {
+                    // Scroll encyclopedia up
+                    if let Some(panel) = &mut self.encyclopedia_panel {
+                        panel.scroll_up(3);
+                    }
+                } else {
+                    self.hex_grid.move_camera(0.0, move_speed);
+                }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                self.hex_grid.move_camera(0.0, -move_speed);
+                if self.encyclopedia_visible {
+                    // Scroll encyclopedia down
+                    if let Some(panel) = &mut self.encyclopedia_panel {
+                        panel.scroll_down(3);
+                    }
+                } else {
+                    self.hex_grid.move_camera(0.0, -move_speed);
+                }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                self.hex_grid.move_camera(-move_speed, 0.0);
+                if !self.encyclopedia_visible {
+                    self.hex_grid.move_camera(-move_speed, 0.0);
+                }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
-                self.hex_grid.move_camera(move_speed, 0.0);
+                if !self.encyclopedia_visible {
+                    self.hex_grid.move_camera(move_speed, 0.0);
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Digit1) => {
+                if self.encyclopedia_visible {
+                    if let Some(panel) = &mut self.encyclopedia_panel {
+                        panel.set_category(EncyclopediaCategory::Units);
+                        self.update_encyclopedia_content();
+                    }
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Digit2) => {
+                if self.encyclopedia_visible {
+                    if let Some(panel) = &mut self.encyclopedia_panel {
+                        panel.set_category(EncyclopediaCategory::Terrain);
+                        self.update_encyclopedia_content();
+                    }
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Digit3) => {
+                if self.encyclopedia_visible {
+                    if let Some(panel) = &mut self.encyclopedia_panel {
+                        panel.set_category(EncyclopediaCategory::Mechanics);
+                        self.update_encyclopedia_content();
+                    }
+                }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyC) => {
                 // Show detailed unit info in console
@@ -346,17 +402,26 @@ impl GameApp {
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
-                // Priority 1: Check if guide is open, close it
+                // Priority 1: Check if encyclopedia is open, close it
                 let mut handled = false;
-                if let Some(renderer) = &mut self.renderer {
-                    if renderer.guide_display.active {
-                        renderer.guide_display.hide();
-                        println!("📚 Guide: Closed");
-                        handled = true;
+                if self.encyclopedia_visible {
+                    self.encyclopedia_visible = false;
+                    println!("📚 Encyclopedia: Closed");
+                    handled = true;
+                }
+
+                // Priority 2: Check if guide is open, close it
+                if !handled {
+                    if let Some(renderer) = &mut self.renderer {
+                        if renderer.guide_display.active {
+                            renderer.guide_display.hide();
+                            println!("📚 Guide: Closed");
+                            handled = true;
+                        }
                     }
                 }
 
-                // Priority 2: Toggle menu (only if guide wasn't closed)
+                // Priority 3: Toggle menu (only if guide/encyclopedia wasn't closed)
                 if !handled {
                     if let Some(renderer) = &mut self.renderer {
                         renderer.menu_display.toggle();
@@ -369,9 +434,20 @@ impl GameApp {
                     }
                 }
 
-                // Priority 3: Clear unit selection (only if nothing else was handled)
+                // Priority 4: Clear unit selection (only if nothing else was handled)
                 if !handled {
                     self.clear_selection();
+                }
+            }
+            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => {
+                // Toggle encyclopedia
+                self.encyclopedia_visible = !self.encyclopedia_visible;
+                if self.encyclopedia_visible {
+                    println!("📚 Encyclopedia: Opened (Press E or ESC to close)");
+                    // Update content based on current category
+                    self.update_encyclopedia_content();
+                } else {
+                    println!("📚 Encyclopedia: Closed");
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyH) => {
@@ -1241,6 +1317,110 @@ impl GameApp {
         }
     }
 
+    /// Updates the encyclopedia panel content based on the current category
+    fn update_encyclopedia_content(&mut self) {
+        let current_category = if let Some(panel) = &self.encyclopedia_panel {
+            panel.current_category
+        } else {
+            return;
+        };
+
+        let content = match current_category {
+            EncyclopediaCategory::Units => self.get_units_content(),
+            EncyclopediaCategory::Terrain => self.get_terrain_content(),
+            EncyclopediaCategory::Mechanics => self.get_mechanics_content(),
+        };
+
+        if let Some(panel) = &mut self.encyclopedia_panel {
+            panel.update_content(content);
+        }
+    }
+
+    /// Gets formatted content for the Units category
+    fn get_units_content(&self) -> Vec<String> {
+        let mut lines = vec![
+            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+            "║                        📖 UNIT ENCYCLOPEDIA                            ║"
+                .to_string(),
+            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+            "".to_string(),
+        ];
+
+        // Group units by race
+        for race in [
+            units::Race::Human,
+            units::Race::Elf,
+            units::Race::Dwarf,
+            units::Race::Orc,
+            units::Race::Goblin,
+        ] {
+            let race_units = self.encyclopedia.units_by_race(race);
+            if !race_units.is_empty() {
+                lines.push(format!("║  {:?} Units:", race));
+                for unit in race_units {
+                    lines.push(format!("║    • {} - {}", unit.unit_type, unit.class));
+                }
+                lines.push("║".to_string());
+            }
+        }
+
+        lines.push(
+            "╚═══════════════════════════════════════════════════════════════════════╝".to_string(),
+        );
+        lines
+    }
+
+    /// Gets formatted content for the Terrain category
+    fn get_terrain_content(&self) -> Vec<String> {
+        let mut lines = vec![
+            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+            "║                       🗺️  TERRAIN GUIDE                                ║"
+                .to_string(),
+            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+            "".to_string(),
+        ];
+
+        let terrain_types = self.encyclopedia.all_terrain();
+        for terrain in terrain_types {
+            lines.push(format!("║  {}", terrain.terrain_type.name()));
+            lines.push(format!("║    Movement Cost: {}", terrain.movement_cost));
+            lines.push(format!("║    {}", terrain.description));
+            lines.push("║".to_string());
+        }
+
+        lines.push(
+            "╚═══════════════════════════════════════════════════════════════════════╝".to_string(),
+        );
+        lines
+    }
+
+    /// Gets formatted content for the Mechanics category
+    fn get_mechanics_content(&self) -> Vec<String> {
+        let mut lines = vec![
+            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+            "║                      ⚙️  GAME MECHANICS                                ║"
+                .to_string(),
+            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+            "".to_string(),
+        ];
+
+        let mechanics = self.encyclopedia.all_mechanics();
+        for mechanic in mechanics {
+            lines.push(format!("║  {}", mechanic.title));
+            lines.push(format!("║    {}", mechanic.description));
+            lines.push("║".to_string());
+            for detail in &mechanic.details {
+                lines.push(format!("║      • {}", detail));
+            }
+            lines.push("║".to_string());
+        }
+
+        lines.push(
+            "╚═══════════════════════════════════════════════════════════════════════╝".to_string(),
+        );
+        lines
+    }
+
     /// Tracks mouse hover position and updates UI with unit details.
     ///
     /// Continuously monitors the mouse position and performs the following:
@@ -1461,6 +1641,17 @@ impl ApplicationHandler for GameApp {
                     }
                     Err(e) => {
                         println!("⚠️  Failed to create UI panel: {}", e);
+                    }
+                }
+
+                // Initialize Encyclopedia panel
+                match EncyclopediaPanel::new(SCREEN_WIDTH, SCREEN_HEIGHT) {
+                    Ok(panel) => {
+                        self.encyclopedia_panel = Some(panel);
+                        println!("✅ Encyclopedia Panel initialized!");
+                    }
+                    Err(e) => {
+                        println!("⚠️  Failed to create Encyclopedia panel: {}", e);
                     }
                 }
 
@@ -1713,6 +1904,14 @@ impl ApplicationHandler for GameApp {
 
                             // Render UI overlay
                             self.render_ui();
+
+                            // Render encyclopedia panel if visible
+                            if self.encyclopedia_visible {
+                                if let Some(encyclopedia_panel) = &mut self.encyclopedia_panel {
+                                    encyclopedia_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT);
+                                }
+                            }
+
                             if let (Some(gl_context), Some(gl_surface)) =
                                 (&self.gl_context, &self.gl_surface)
                             {
@@ -1751,10 +1950,13 @@ impl ApplicationHandler for GameApp {
 ///
 /// - **Left Click**: Move units, interact with UI
 /// - **Right Click**: Select units
-/// - **Arrow Keys**: Move camera
+/// - **Arrow Keys**: Move camera (scroll encyclopedia when open)
+/// - **E**: Toggle encyclopedia wiki
+/// - **1/2/3**: Switch encyclopedia categories when open
 /// - **C**: Show unit info
 /// - **H**: Toggle hover debug
-/// - **ESC**: Open menu / Deselect unit
+/// - **SPACE**: End turn
+/// - **ESC**: Close encyclopedia/menu, deselect unit
 ///
 /// # Panics
 ///
@@ -1766,5 +1968,6 @@ fn main() {
     let mut app = GameApp::new();
 
     println!("🎮 Starting QuestQuest Interactive Game Window...");
+    println!("📚 Press E to open the Encyclopedia at any time!");
     event_loop.run_app(&mut app).unwrap();
 }

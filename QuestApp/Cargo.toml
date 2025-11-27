@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+encyclopedia = { path = "../Encyclopedia" }
 game = { path = "../Game" }
 graphics = { path = "../Graphics" }
 units = { path = "../Units" }

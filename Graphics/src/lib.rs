@@ -36,4 +36,4 @@ pub use rendering::{
     setup_dynamic_hexagons, AttackOption, CombatConfirmation, GuideBuilder, GuideDisplay,
     GuideEntry, GuideLibrary, MenuAction, Renderer,
 };
-pub use ui::{UiPanel, UnitDisplayInfo};
+pub use ui::{EncyclopediaCategory, EncyclopediaPanel, UiPanel, UnitDisplayInfo};
