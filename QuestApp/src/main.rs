@@ -36,6 +36,9 @@ mod game_scene;
 mod main_menu;
 mod scene_manager;
 
+// Import the new game scene state management
+use game_scene::{GameSceneState, GameState};
+
 use encyclopedia::Encyclopedia;
 use game::*;
 use glutin::context::ContextAttributesBuilder;
@@ -113,14 +116,11 @@ struct GameApp {
     renderer: Option<Renderer>,
     ui_panel: Option<UiPanel>,
     game_world: GameWorld,
-    selected_unit: Option<uuid::Uuid>,
     show_unit_info: bool,
     unit_info_text: Vec<String>,
     cursor_position: (f64, f64),       // Track cursor position for clicks
-    movement_range: Vec<HexCoord>,     // Available movement hexes for selected unit
     hower_debug_hex: Option<HexCoord>, // Debug: hex under cursor
     hower_debug_enabled: bool,         // Toggle for hower debug mode
-    pickup_prompt: Option<PickupPrompt>, // Item pickup prompt state
 
     // Scene management
     scene_manager: SceneManager,
@@ -138,7 +138,9 @@ struct GameApp {
     // Encyclopedia system
     encyclopedia: Encyclopedia,                    // Encyclopedia data
     encyclopedia_panel: Option<EncyclopediaPanel>, // Encyclopedia UI panel
-    encyclopedia_visible: bool,                    // Whether encyclopedia is currently displayed
+
+    // Game state management (replaces scattered state variables)
+    game_state: GameSceneState,
 }
 
 /// Item pickup prompt state.
@@ -242,14 +244,11 @@ impl GameApp {
             renderer: None,
             ui_panel: None,
             game_world,
-            selected_unit: None,
             show_unit_info: false,
             unit_info_text: Vec::new(),
             cursor_position: (0.0, 0.0),
-            movement_range: Vec::new(),
             hower_debug_hex: None,
             hower_debug_enabled: true, // Start with debug enabled
-            pickup_prompt: None,
 
             // Scene management - start at main menu
             scene_manager: SceneManager::new(),
@@ -267,7 +266,9 @@ impl GameApp {
             // Encyclopedia system
             encyclopedia: Encyclopedia::new(),
             encyclopedia_panel: None,
-            encyclopedia_visible: false,
+
+            // Game state management
+            game_state: GameSceneState::new(),
         }
     }
 
@@ -282,6 +283,57 @@ impl GameApp {
         self.game_world.start_turn_based_game();
 
         println!("✅ Game scene initialized!");
+    }
+
+    // ===== State Access Helpers =====
+    // These provide backward-compatible access to state managed by GameSceneState
+
+    /// Get the currently selected unit ID (if any)
+    fn selected_unit(&self) -> Option<uuid::Uuid> {
+        self.game_state.exploring.selected_unit()
+    }
+
+    /// Check if encyclopedia is visible
+    fn encyclopedia_visible(&self) -> bool {
+        self.game_state.encyclopedia.is_visible()
+    }
+
+    /// Set encyclopedia visibility
+    fn set_encyclopedia_visible(&mut self, visible: bool) {
+        if visible {
+            self.game_state.encyclopedia.visible = true;
+            self.game_state.transition_to(GameState::Encyclopedia);
+        } else {
+            self.game_state.encyclopedia.visible = false;
+            self.game_state.transition_to(GameState::Exploring);
+        }
+    }
+
+    /// Get pickup prompt data from state (if in ItemPickup state)
+    fn pickup_prompt(&self) -> Option<PickupPrompt> {
+        if let GameState::ItemPickup {
+            unit_id,
+            item_id,
+            item_name,
+        } = &self.game_state.current_state
+        {
+            Some(PickupPrompt {
+                unit_id: *unit_id,
+                item_id: *item_id,
+                item_name: item_name.clone(),
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Take (consume and return) the pickup prompt, transitioning state to Exploring
+    fn take_pickup_prompt(&mut self) -> Option<PickupPrompt> {
+        let prompt = self.pickup_prompt();
+        if prompt.is_some() {
+            self.game_state.transition_to(GameState::Exploring);
+        }
+        prompt
     }
 
     /// Start animating unit movement along a path
@@ -331,7 +383,7 @@ impl GameApp {
         let move_speed = 0.1;
         match physical_key {
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowUp) => {
-                if self.encyclopedia_visible {
+                if self.encyclopedia_visible() {
                     // Scroll encyclopedia up
                     if let Some(panel) = &mut self.encyclopedia_panel {
                         panel.scroll_up(3);
@@ -341,7 +393,7 @@ impl GameApp {
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowDown) => {
-                if self.encyclopedia_visible {
+                if self.encyclopedia_visible() {
                     // Scroll encyclopedia down
                     if let Some(panel) = &mut self.encyclopedia_panel {
                         panel.scroll_down(3);
@@ -351,17 +403,17 @@ impl GameApp {
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowLeft) => {
-                if !self.encyclopedia_visible {
+                if !self.encyclopedia_visible() {
                     self.hex_grid.move_camera(-move_speed, 0.0);
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::ArrowRight) => {
-                if !self.encyclopedia_visible {
+                if !self.encyclopedia_visible() {
                     self.hex_grid.move_camera(move_speed, 0.0);
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Digit1) => {
-                if self.encyclopedia_visible {
+                if self.encyclopedia_visible() {
                     if let Some(panel) = &mut self.encyclopedia_panel {
                         panel.set_category(EncyclopediaCategory::Units);
                         self.update_encyclopedia_content();
@@ -369,7 +421,7 @@ impl GameApp {
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Digit2) => {
-                if self.encyclopedia_visible {
+                if self.encyclopedia_visible() {
                     if let Some(panel) = &mut self.encyclopedia_panel {
                         panel.set_category(EncyclopediaCategory::Terrain);
                         self.update_encyclopedia_content();
@@ -377,7 +429,7 @@ impl GameApp {
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Digit3) => {
-                if self.encyclopedia_visible {
+                if self.encyclopedia_visible() {
                     if let Some(panel) = &mut self.encyclopedia_panel {
                         panel.set_category(EncyclopediaCategory::Mechanics);
                         self.update_encyclopedia_content();
@@ -386,7 +438,7 @@ impl GameApp {
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyC) => {
                 // Show detailed unit info in console
-                if let Some(unit_id) = self.selected_unit {
+                if let Some(unit_id) = self.selected_unit() {
                     self.call_unit_on_click(unit_id);
                 } else {
                     println!("No unit selected. Click on a unit first!");
@@ -404,8 +456,8 @@ impl GameApp {
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
                 // Priority 1: Check if encyclopedia is open, close it
                 let mut handled = false;
-                if self.encyclopedia_visible {
-                    self.encyclopedia_visible = false;
+                if self.encyclopedia_visible() {
+                    self.set_encyclopedia_visible(false);
                     println!("📚 Encyclopedia: Closed");
                     handled = true;
                 }
@@ -441,8 +493,9 @@ impl GameApp {
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyE) => {
                 // Toggle encyclopedia
-                self.encyclopedia_visible = !self.encyclopedia_visible;
-                if self.encyclopedia_visible {
+                let new_visible = !self.encyclopedia_visible();
+                self.set_encyclopedia_visible(new_visible);
+                if new_visible {
                     println!("📚 Encyclopedia: Opened (Press E or ESC to close)");
                     // Update content based on current category
                     self.update_encyclopedia_content();
@@ -472,7 +525,7 @@ impl GameApp {
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyY) => {
                 // Accept item pickup
-                if let Some(prompt) = self.pickup_prompt.take() {
+                if let Some(prompt) = self.take_pickup_prompt() {
                     self.handle_item_pickup(prompt.unit_id, prompt.item_id);
                     // Clear UI prompt
                     if let Some(ui_panel) = &mut self.ui_panel {
@@ -482,7 +535,7 @@ impl GameApp {
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyN) => {
                 // Decline item pickup
-                if let Some(prompt) = self.pickup_prompt.take() {
+                if let Some(prompt) = self.take_pickup_prompt() {
                     println!("❌ Declined to pick up '{}'", prompt.item_name);
                     // Clear UI prompt
                     if let Some(ui_panel) = &mut self.ui_panel {
@@ -552,7 +605,7 @@ impl GameApp {
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyI) => {
                 // Show info for selected unit (class-specific guide)
-                if let Some(unit_id) = self.selected_unit {
+                if let Some(unit_id) = self.selected_unit() {
                     if let Some(game_unit) = self.game_world.units.get(&unit_id) {
                         let class_name = game_unit.unit().unit_type().to_lowercase();
                         if let Some(renderer) = &mut self.renderer {
@@ -691,10 +744,10 @@ impl GameApp {
             }
 
             // Check pickup prompt buttons
-            if self.pickup_prompt.is_some() {
+            if self.pickup_prompt().is_some() {
                 if ui_panel.check_yes_button_click(x as f32, y as f32) {
                     // Handle "Pick Up" button click
-                    if let Some(prompt) = self.pickup_prompt.take() {
+                    if let Some(prompt) = self.take_pickup_prompt() {
                         self.handle_item_pickup(prompt.unit_id, prompt.item_id);
                         // Clear UI prompt
                         if let Some(ui_panel) = &mut self.ui_panel {
@@ -704,7 +757,7 @@ impl GameApp {
                     return; // Don't process hex click
                 } else if ui_panel.check_no_button_click(x as f32, y as f32) {
                     // Handle "Leave It" button click
-                    if let Some(prompt) = self.pickup_prompt.take() {
+                    if let Some(prompt) = self.take_pickup_prompt() {
                         println!("❌ Declined to pick up '{}'", prompt.item_name);
                         // Clear UI prompt
                         if let Some(ui_panel) = &mut self.ui_panel {
@@ -718,7 +771,7 @@ impl GameApp {
 
         // Process hex clicks if no button was clicked
         if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
-            if let Some(unit_id) = self.selected_unit {
+            if let Some(unit_id) = self.selected_unit() {
                 // STATE 1: Unit is already selected
 
                 // Check if clicking on an enemy within attack range
@@ -780,7 +833,12 @@ impl GameApp {
                             }
                         }
                     }
-                } else if self.movement_range.contains(&hex_coord) {
+                } else if self
+                    .game_state
+                    .exploring
+                    .movement_range()
+                    .contains(&hex_coord)
+                {
                     // Valid move - animate movement (non-combat)
                     if let Some(game_unit) = self.game_world.units.get(&unit_id) {
                         let start_pos = game_unit.position();
@@ -814,8 +872,8 @@ impl GameApp {
                         {
                             if item_obj.can_interact() {
                                 let item_name = item_obj.name().to_string();
-                                // Show pickup prompt
-                                self.pickup_prompt = Some(PickupPrompt {
+                                // Transition to pickup state
+                                self.game_state.transition_to(GameState::ItemPickup {
                                     unit_id,
                                     item_id: item_obj_id,
                                     item_name: item_name.clone(),
@@ -877,44 +935,30 @@ impl GameApp {
     ///
     /// * `unit_id` - UUID of the unit to select
     fn select_unit(&mut self, unit_id: uuid::Uuid) {
-        self.selected_unit = Some(unit_id);
+        // Use exploring state to handle selection
+        let mut ctx = game_scene::ExploringContext {
+            game_world: &mut self.game_world,
+            hex_grid: &self.hex_grid,
+            renderer: self.renderer.as_mut(),
+            ui_panel: self.ui_panel.as_mut(),
+            screen_width: SCREEN_WIDTH,
+            screen_height: SCREEN_HEIGHT,
+        };
+
+        self.game_state.exploring.select_unit(unit_id, &mut ctx);
+
         self.show_unit_info = true;
         self.update_unit_info_display(unit_id);
+        self.update_highlight_display();
 
-        // Get movement range for the selected unit
-        if let Some(game_unit) = self.game_world.units.get(&unit_id) {
-            let all_coords = game_unit.unit().get_movement_range();
+        println!(
+            "Unit selected: {:?} with {} valid movement options",
+            unit_id,
+            self.game_state.exploring.movement_range().len()
+        );
 
-            // Filter movement range to only include valid hexes for movement
-            // Exclude hexes with enemy units (those are for attack only when adjacent)
-            self.movement_range = all_coords
-                .into_iter()
-                .filter(|&coord| {
-                    // Must be valid for movement
-                    if !self
-                        .game_world
-                        .is_position_valid_for_movement(coord, Some(unit_id))
-                    {
-                        return false;
-                    }
-
-                    // Exclude hexes with enemy units (attack only, not movement)
-                    !self.has_enemy_unit(unit_id, coord)
-                })
-                .collect();
-
-            // Update hex grid highlighting
-            self.update_highlight_display();
-
-            println!(
-                "Unit selected: {:?} with {} valid movement options",
-                unit_id,
-                self.movement_range.len()
-            );
-
-            // Call the unit's on_click method to show detailed info in console
-            self.call_unit_on_click(unit_id);
-        }
+        // Call the unit's on_click method to show detailed info in console
+        self.call_unit_on_click(unit_id);
     }
 
     /// Clears the current unit selection and related UI state.
@@ -925,10 +969,9 @@ impl GameApp {
     /// - Movement range highlights
     /// - Pickup prompts
     fn clear_selection(&mut self) {
-        self.selected_unit = None;
+        self.game_state.exploring.deselect_unit();
         self.show_unit_info = false;
         self.unit_info_text.clear();
-        self.movement_range.clear();
 
         // Clear all highlights
         self.hex_grid.clear_all_highlights();
@@ -1018,7 +1061,7 @@ impl GameApp {
         self.hex_grid.clear_all_highlights();
 
         // Highlight selected unit position
-        if let Some(unit_id) = self.selected_unit {
+        if let Some(unit_id) = self.selected_unit() {
             if let Some(game_unit) = self.game_world.units.get(&unit_id) {
                 self.hex_grid
                     .highlight_hex(game_unit.position(), HighlightType::Selected);
@@ -1043,8 +1086,10 @@ impl GameApp {
         }
 
         // Highlight movement range in blue
-        self.hex_grid
-            .highlight_hexes(&self.movement_range, HighlightType::MovementRange);
+        self.hex_grid.highlight_hexes(
+            self.game_state.exploring.movement_range(),
+            HighlightType::MovementRange,
+        );
     }
 
     /// Calls the unit's detailed information display method.
@@ -1454,7 +1499,7 @@ impl GameApp {
             if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
                 // Unit found - only update UI if it's different from selected unit
                 // Priority: Show selected unit's data unless hovering over a different unit
-                if self.selected_unit.is_none() || self.selected_unit != Some(unit_id) {
+                if self.selected_unit().is_none() || self.selected_unit() != Some(unit_id) {
                     // No unit selected, or hovering over a different unit - show hovered unit
                     if let Some(game_unit) = self.game_world.units.get(&unit_id) {
                         let unit = game_unit.unit();
@@ -1486,7 +1531,7 @@ impl GameApp {
             } else {
                 // No unit at this hex - keep showing selected unit if one is selected
                 // Only clear if no unit is selected
-                if self.selected_unit.is_none() {
+                if self.selected_unit().is_none() {
                     if let Some(ui_panel) = &mut self.ui_panel {
                         ui_panel.clear_unit_info();
                     }
@@ -1906,7 +1951,7 @@ impl ApplicationHandler for GameApp {
                             self.render_ui();
 
                             // Render encyclopedia panel if visible
-                            if self.encyclopedia_visible {
+                            if self.encyclopedia_visible() {
                                 if let Some(encyclopedia_panel) = &mut self.encyclopedia_panel {
                                     encyclopedia_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT);
                                 }
