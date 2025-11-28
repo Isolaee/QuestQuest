@@ -9,7 +9,7 @@
 /// Run with: cargo run --package game --example evolution_demo
 use game::{GameObject, GameUnit, GameWorld, Team};
 use graphics::HexCoord;
-use units::{Terrain, Unit, UnitFactory};
+use units::{Unit, UnitFactory};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════╗");
