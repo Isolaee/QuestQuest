@@ -153,6 +153,20 @@ impl HexGrid {
         }
     }
 
+    /// Set text overlay on a specific hex.
+    pub fn set_hex_text_overlay(&mut self, coord: HexCoord, text: Option<String>) {
+        if let Some(hex) = self.hexagons.get_mut(&coord) {
+            hex.set_text_overlay(text);
+        }
+    }
+
+    /// Clear all text overlays from all hexes.
+    pub fn clear_all_text_overlays(&mut self) {
+        for hex in self.hexagons.values_mut() {
+            hex.clear_text_overlay();
+        }
+    }
+
     /// Convert screen coordinates (mouse position) to hex coordinate.
     ///
     /// * `screen_pos`: Mouse position in screen pixels (origin at top-left)

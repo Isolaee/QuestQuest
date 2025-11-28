@@ -605,6 +605,10 @@ impl Renderer {
 
             // LAYER 4: Render guide/encyclopedia (UI overlay, no depth test)
             gl::Disable(gl::DEPTH_TEST);
+
+            // LAYER 3.5: Render text overlays on tiles (after disabling depth test)
+            self.render_tile_text_overlays(&visible_hexagons, hex_grid);
+
             self.render_guide_layer();
 
             // LAYER 5: Render menu (topmost UI layer, no depth test)
@@ -850,6 +854,67 @@ impl Renderer {
         for i in 0..hex_count {
             let vertex_offset = (i * 8) as GLint;
             gl::DrawArrays(gl::TRIANGLE_FAN, vertex_offset, 8);
+        }
+    }
+
+    /// Render text overlays on tiles (e.g., defense values)
+    /// Must be called AFTER disabling depth test
+    unsafe fn render_tile_text_overlays(
+        &mut self,
+        visible_hexagons: &[&Hexagon],
+        hex_grid: &HexGrid,
+    ) {
+        let mut text_count = 0;
+        for hex in visible_hexagons {
+            if let Some(ref text) = hex.text_overlay {
+                text_count += 1;
+                // Convert world position to screen coordinates using camera
+                let window_size = crate::math::Vec2::new(self.window_width, self.window_height);
+                let screen_pos = hex_grid.camera.world_to_screen(hex.world_pos, window_size);
+
+                println!(
+                    "🎯 Rendering '{}' at screen pos ({}, {})",
+                    text, screen_pos.x, screen_pos.y
+                );
+
+                // Center the text on the tile with larger font
+                let font_size = 24.0; // Large font size for visibility
+                let char_width = font_size * 0.6; // Approximate character width
+                let text_width = text.len() as f32 * char_width;
+                let centered_x = screen_pos.x - text_width / 2.0;
+                let centered_y = screen_pos.y - font_size / 2.0; // Vertically center
+
+                // First render a black shadow/outline for contrast (8 directions)
+                for dx in [-2.0, -1.0, 0.0, 1.0, 2.0].iter() {
+                    for dy in [-2.0, -1.0, 0.0, 1.0, 2.0].iter() {
+                        if *dx != 0.0 || *dy != 0.0 {
+                            self.text_renderer.render_text(
+                                text,
+                                centered_x + dx,
+                                centered_y + dy,
+                                font_size,
+                                [0.0, 0.0, 0.0, 1.0], // solid black shadow
+                                self.window_width,
+                                self.window_height,
+                            );
+                        }
+                    }
+                }
+
+                // Then render the bright yellow text on top
+                self.text_renderer.render_text(
+                    text,
+                    centered_x,
+                    centered_y,
+                    font_size,
+                    [1.0, 1.0, 0.0, 1.0], // bright yellow color for high contrast
+                    self.window_width,
+                    self.window_height,
+                );
+            }
+        }
+        if text_count > 0 {
+            println!("📝 Rendered {} text overlays", text_count);
         }
     }
 

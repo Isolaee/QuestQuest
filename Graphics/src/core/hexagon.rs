@@ -283,6 +283,7 @@ pub struct Hexagon {
     pub unit_sprite: Option<SpriteType>, // Optional unit sprite on top
     pub item_sprite: Option<SpriteType>, // Optional item sprite on top
     pub highlight: HighlightType,        // Highlight state
+    pub text_overlay: Option<String>, // Optional text to display on the tile (e.g., defense value)
 }
 
 impl Hexagon {
@@ -309,6 +310,7 @@ impl Hexagon {
             unit_sprite: None, // No unit by default
             item_sprite: None, // No item by default
             highlight: HighlightType::None,
+            text_overlay: None, // No text overlay by default
         }
     }
 
@@ -335,6 +337,16 @@ impl Hexagon {
     /// Clear highlight
     pub fn clear_highlight(&mut self) {
         self.highlight = HighlightType::None;
+    }
+
+    /// Set text overlay on this hex
+    pub fn set_text_overlay(&mut self, text: Option<String>) {
+        self.text_overlay = text;
+    }
+
+    /// Clear text overlay
+    pub fn clear_text_overlay(&mut self) {
+        self.text_overlay = None;
     }
 
     /// Get the display sprite (unit takes priority if present)

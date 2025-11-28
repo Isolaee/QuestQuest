@@ -970,6 +970,9 @@ impl GameApp {
         // Clear all highlights
         self.hex_grid.clear_all_highlights();
 
+        // Clear all text overlays
+        self.hex_grid.clear_all_text_overlays();
+
         // Clear UI panel
         if let Some(ui_panel) = &mut self.ui_panel {
             ui_panel.clear_unit_info();
@@ -1079,11 +1082,30 @@ impl GameApp {
             }
         }
 
-        // Highlight movement range in blue
+        // Highlight movement range in blue and display defense values
         self.hex_grid.highlight_hexes(
             self.game_state.exploring.movement_range(),
             HighlightType::MovementRange,
         );
+
+        // Display defense value on each movement range tile
+        if let Some(unit_id) = self.game_state.exploring.selected_unit() {
+            if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                // Use slash resistance as defense value (common defense metric)
+                let defense = game_unit.unit().combat_stats().resistances.slash;
+                let movement_range = self.game_state.exploring.movement_range();
+                println!(
+                    "🛡️  Setting defense overlay on {} tiles: DEF:{}",
+                    movement_range.len(),
+                    defense
+                );
+                for &hex_coord in movement_range {
+                    self.hex_grid
+                        .set_hex_text_overlay(hex_coord, Some(format!("DEF:{}", defense)));
+                    println!("   - Set text overlay on tile {:?}", hex_coord);
+                }
+            }
+        }
     }
 
     /// Calls the unit's detailed information display method.
