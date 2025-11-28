@@ -21,7 +21,6 @@ pub mod combat;
 pub mod structures; // Structure system (walls, towers, buildings, etc.)
 pub mod team; // Team affiliation for units and structures
 pub mod unit_factory;
-pub mod unit_macros; // Macro to reduce boilerplate
 pub mod unit_race;
 pub mod unit_registry; // Dynamic unit registry
 pub mod unit_trait;
