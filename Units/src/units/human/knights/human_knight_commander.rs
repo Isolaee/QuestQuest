@@ -122,7 +122,7 @@ impl HumanKnightCommander {
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
-            "An experienced knight commander who leads through example. Human Knight Commanders are battle-tested warriors who combine superior combat skills with tactical leadership. They excel at coordinating attacks and defending their allies. With continued service, they will become grand knights.".to_string(),
+            "An experienced knight commander who leads through example. Human Knight Commanders are battle-tested warriors who combine superior combat skills with tactical leadership. Their presence on the battlefield inspires nearby allies, granting them increased combat effectiveness. They excel at coordinating attacks and defending their allies. With continued service, they will become grand knights.".to_string(),
             terrain,
             graphics::SpriteType::Unit,
             Some(crate::unit_type::UnitType::HumanKnight),
@@ -136,6 +136,16 @@ impl HumanKnightCommander {
 
         // Define available attacks
         base.attacks = vec![Self::commanding_strike()];
+
+        // Add leadership aura - buffs adjacent allies
+        let leadership_aura = crate::ability::Ability::Aura(crate::ability::AuraAbility::new(
+            "Knight Commander's Leadership",
+            "Adjacent allies gain +1 attack",
+            1, // range: 1 hex (adjacent)
+            crate::ability::AuraTarget::Allies,
+            crate::ability::AuraEffect::AttackBonus(1),
+        ));
+        base.add_ability(leadership_aura);
 
         Self { base }
     }
@@ -164,7 +174,7 @@ impl crate::unit_trait::Unit for HumanKnightCommander {
 crate::submit_unit!(
     HumanKnightCommander,
     "Human Knight Commander",
-    "An experienced knight commander who leads through example. Human Knight Commanders are battle-tested warriors who combine superior combat skills with tactical leadership. They excel at coordinating attacks and defending their allies. With continued service, they will become grand knights.",
+    "An experienced knight commander who leads through example. Human Knight Commanders are battle-tested warriors who combine superior combat skills with tactical leadership. Their presence on the battlefield inspires nearby allies, granting them increased combat effectiveness. They excel at coordinating attacks and defending their allies. With continued service, they will become grand knights.",
     Terrain::Grasslands,
     "Human",
     "Knight Commander"

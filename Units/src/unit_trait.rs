@@ -714,4 +714,165 @@ pub trait Unit {
 
         Some(evolved)
     }
+
+    // ===== Ability Methods (Default Implementations) =====
+
+    /// Get all abilities for this unit
+    fn abilities(&self) -> &[crate::ability::Ability] {
+        self.base().get_abilities()
+    }
+
+    /// Get mutable reference to abilities
+    fn abilities_mut(&mut self) -> &mut Vec<crate::ability::Ability> {
+        self.base_mut().get_abilities_mut()
+    }
+
+    /// Add an ability to the unit
+    fn add_ability(&mut self, ability: crate::ability::Ability) {
+        self.base_mut().add_ability(ability);
+    }
+
+    /// Remove an ability by ID
+    fn remove_ability(&mut self, ability_id: crate::ability::AbilityId) -> bool {
+        self.base_mut().remove_ability(ability_id)
+    }
+
+    /// Find an ability by ID
+    fn find_ability(
+        &self,
+        ability_id: crate::ability::AbilityId,
+    ) -> Option<&crate::ability::Ability> {
+        self.base().find_ability(ability_id)
+    }
+
+    /// Find a mutable ability by ID
+    fn find_ability_mut(
+        &mut self,
+        ability_id: crate::ability::AbilityId,
+    ) -> Option<&mut crate::ability::Ability> {
+        self.base_mut().find_ability_mut(ability_id)
+    }
+
+    /// Get the ability state (active effects and cooldowns)
+    fn ability_state(&self) -> &crate::ability::AbilityState {
+        &self.base().ability_state
+    }
+
+    /// Get mutable reference to ability state
+    fn ability_state_mut(&mut self) -> &mut crate::ability::AbilityState {
+        &mut self.base_mut().ability_state
+    }
+
+    /// Tick abilities (reduce cooldowns and effect durations)
+    ///
+    /// Should be called at the start of each turn.
+    fn tick_abilities(&mut self) {
+        self.base_mut().tick_abilities();
+    }
+
+    /// Use an active ability
+    ///
+    /// # Arguments
+    ///
+    /// * `ability_id` - The ID of the ability to use
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the ability was used successfully, or an error message if:
+    /// - The ability doesn't exist
+    /// - The ability is not an active ability
+    /// - The ability is on cooldown
+    fn use_active_ability(&mut self, ability_id: crate::ability::AbilityId) -> Result<(), String> {
+        use crate::ability::Ability;
+
+        // Check if ability is on cooldown in ability state
+        if self.ability_state().is_on_cooldown(ability_id) {
+            let remaining = self.ability_state().get_cooldown(ability_id);
+            return Err(format!(
+                "Ability on cooldown ({} turns remaining)",
+                remaining
+            ));
+        }
+
+        // Check if ability exists and is active
+        let ability = self.find_ability(ability_id).ok_or("Ability not found")?;
+
+        let cooldown_max = match ability {
+            Ability::Active(active) => active.cooldown_max,
+            _ => return Err("Not an active ability".to_string()),
+        };
+
+        // Set cooldown
+        self.ability_state_mut()
+            .set_cooldown(ability_id, cooldown_max);
+
+        Ok(())
+    }
+
+    /// Check if an active ability is ready to use
+    fn is_ability_ready(&self, ability_id: crate::ability::AbilityId) -> bool {
+        use crate::ability::Ability;
+
+        if let Some(Ability::Active(active)) = self.find_ability(ability_id) {
+            active.is_ready() && !self.ability_state().is_on_cooldown(ability_id)
+        } else {
+            false
+        }
+    }
+
+    /// Get all passive abilities
+    fn get_passive_abilities(&self) -> Vec<&crate::ability::PassiveAbility> {
+        use crate::ability::Ability;
+
+        self.abilities()
+            .iter()
+            .filter_map(|a| {
+                if let Ability::Passive(p) = a {
+                    Some(p)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Get all active abilities
+    fn get_active_abilities(&self) -> Vec<&crate::ability::ActiveAbility> {
+        use crate::ability::Ability;
+
+        self.abilities()
+            .iter()
+            .filter_map(|a| {
+                if let Ability::Active(a) = a {
+                    Some(a)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Get all aura abilities
+    fn get_aura_abilities(&self) -> Vec<&crate::ability::AuraAbility> {
+        use crate::ability::Ability;
+
+        self.abilities()
+            .iter()
+            .filter_map(|a| {
+                if let Ability::Aura(a) = a {
+                    Some(a)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// Get all auras affecting a specific position
+    fn get_auras_at_position(&self, target: HexCoord) -> Vec<&crate::ability::AuraAbility> {
+        self.get_aura_abilities()
+            .into_iter()
+            .filter(|aura| aura.is_in_range(self.position(), target))
+            .collect()
+    }
 }

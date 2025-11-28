@@ -99,6 +99,10 @@ pub struct BaseUnit {
 
     // Attacks (stored here so level-up methods can update them automatically)
     pub attacks: Vec<Attack>,
+
+    // Abilities
+    pub abilities: Vec<crate::ability::Ability>,
+    pub ability_state: crate::ability::AbilityState,
 }
 
 impl BaseUnit {
@@ -168,7 +172,9 @@ impl BaseUnit {
             sprite_type,
             evolution_previous,
             evolution_next,
-            attacks: Vec::new(), // Will be set by unit constructor
+            attacks: Vec::new(),   // Will be set by unit constructor
+            abilities: Vec::new(), // Will be set by unit constructor
+            ability_state: crate::ability::AbilityState::new(),
         }
     }
 
@@ -291,6 +297,9 @@ impl BaseUnit {
         };
 
         self.combat_stats.set_terrain_hit_chance(hit_chance);
+
+        // Apply passive ability bonuses
+        self.apply_passive_bonuses();
     }
 
     /// Get all hexagonal coordinates within movement range
@@ -602,5 +611,98 @@ impl BaseUnit {
     /// Get all attack names from the attacks vector.
     pub fn get_attack_names_from_vec(attacks: &[Attack]) -> Vec<&str> {
         attacks.iter().map(|a| a.name.as_str()).collect()
+    }
+
+    // ===== Ability Management Methods =====
+
+    /// Add an ability to the unit
+    pub fn add_ability(&mut self, ability: crate::ability::Ability) {
+        self.abilities.push(ability);
+    }
+
+    /// Remove an ability by ID
+    pub fn remove_ability(&mut self, ability_id: crate::ability::AbilityId) -> bool {
+        if let Some(pos) = self.abilities.iter().position(|a| a.id() == ability_id) {
+            self.abilities.remove(pos);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get all abilities
+    pub fn get_abilities(&self) -> &[crate::ability::Ability] {
+        &self.abilities
+    }
+
+    /// Get mutable reference to abilities
+    pub fn get_abilities_mut(&mut self) -> &mut Vec<crate::ability::Ability> {
+        &mut self.abilities
+    }
+
+    /// Find an ability by ID
+    pub fn find_ability(
+        &self,
+        ability_id: crate::ability::AbilityId,
+    ) -> Option<&crate::ability::Ability> {
+        self.abilities.iter().find(|a| a.id() == ability_id)
+    }
+
+    /// Find a mutable ability by ID
+    pub fn find_ability_mut(
+        &mut self,
+        ability_id: crate::ability::AbilityId,
+    ) -> Option<&mut crate::ability::Ability> {
+        self.abilities.iter_mut().find(|a| a.id() == ability_id)
+    }
+
+    /// Tick ability state (reduce cooldowns and durations)
+    pub fn tick_abilities(&mut self) {
+        self.ability_state.tick();
+    }
+
+    /// Apply passive ability bonuses to stats
+    ///
+    /// This should be called during `recalculate_stats()` to include
+    /// passive ability bonuses in the final cached stats.
+    pub fn apply_passive_bonuses(&mut self) {
+        use crate::ability::{PassiveEffect, PassiveTrigger};
+
+        for ability in &self.abilities {
+            if let crate::ability::Ability::Passive(passive) = ability {
+                // Only apply "Always" passive effects to stats
+                if passive.trigger == PassiveTrigger::Always {
+                    match &passive.effect {
+                        PassiveEffect::AttackBonus(bonus) => {
+                            self.cached_attack += bonus;
+                        }
+                        PassiveEffect::AttackBonusPercent(percent) => {
+                            let bonus = (self.cached_attack * (*percent as i32)) / 100;
+                            self.cached_attack += bonus;
+                        }
+                        PassiveEffect::DefenseBonus(bonus) => {
+                            self.cached_defense += bonus;
+                        }
+                        PassiveEffect::DefenseBonusPercent(percent) => {
+                            let bonus = (self.cached_defense * (*percent as i32)) / 100;
+                            self.cached_defense += bonus;
+                        }
+                        PassiveEffect::HealthBonus(bonus) => {
+                            self.cached_max_health += bonus;
+                        }
+                        PassiveEffect::HealthBonusPercent(percent) => {
+                            let bonus = (self.cached_max_health * (*percent as i32)) / 100;
+                            self.cached_max_health += bonus;
+                        }
+                        PassiveEffect::MovementBonus(bonus) => {
+                            self.cached_movement += bonus;
+                        }
+                        _ => {
+                            // Other passive effects are applied when their trigger conditions are met
+                        }
+                    }
+                }
+            }
+        }
     }
 }

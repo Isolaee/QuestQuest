@@ -15,6 +15,7 @@
 
 #![allow(dead_code)]
 
+pub mod ability; // Ability system (passive, active, aura)
 pub mod attack;
 pub mod base_unit;
 pub mod combat;
@@ -28,6 +29,11 @@ pub mod unit_type; // Type-safe unit identifiers
 pub mod units; // Concrete unit implementations
 
 // Re-export commonly used types
+pub use ability::{
+    Ability, AbilityId, AbilityState, ActiveAbility, ActiveEffect, ActiveEffectInstance,
+    AuraAbility, AuraEffect, AuraTarget, BuffStat, PassiveAbility, PassiveEffect, PassiveTrigger,
+    TargetType,
+};
 pub use attack::Attack;
 pub use base_unit::BaseUnit;
 pub use combat::{CombatAction, CombatResult, CombatStats};
