@@ -26,11 +26,8 @@ fn main() {
 
     // Create a Level 1 Young Warrior at (0, 0)
     println!("Creating Level 1 Dwarf Young Warrior:");
-    let young_warrior = UnitFactory::create_dwarf_young_warrior(
-        "Thorin".to_string(),
-        HexCoord::new(0, 0),
-        Terrain::Mountain,
-    );
+    let young_warrior =
+        UnitFactory::create_dwarf_young_warrior("Thorin".to_string(), HexCoord::new(0, 0));
     println!("  • Name: {}", young_warrior.name());
     println!("  • Level: {}", young_warrior.level());
     println!("  • Type: {}", young_warrior.unit_type());
@@ -51,11 +48,7 @@ fn main() {
 
     // Create an enemy at (1, 0) for the warrior to defeat
     println!("\nCreating Enemy Level 1 Orc Young Swordsman:");
-    let enemy1 = units::units::OrcYoungSwordsman::new(
-        "Grishnak".to_string(),
-        HexCoord::new(1, 0),
-        Terrain::Grasslands,
-    );
+    let enemy1 = units::units::OrcYoungSwordsman::new("Grishnak".to_string(), HexCoord::new(1, 0));
     println!("  • Name: {}", enemy1.name());
     println!("  • Level: {}", enemy1.level());
     println!("  • HP: {}", enemy1.combat_stats().health);
@@ -123,11 +116,7 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════╝\n");
 
     println!("Creating Enemy Level 2 Orc Swordsman:");
-    let enemy2 = units::units::OrcSwordsman::new(
-        "Ugluk".to_string(),
-        HexCoord::new(2, 0),
-        Terrain::Grasslands,
-    );
+    let enemy2 = units::units::OrcSwordsman::new("Ugluk".to_string(), HexCoord::new(2, 0));
     println!("  • Name: {}", enemy2.name());
     println!("  • Level: {}", enemy2.level());
     println!("  • HP: {}", enemy2.combat_stats().health);

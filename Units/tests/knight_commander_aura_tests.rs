@@ -1,7 +1,7 @@
 //! Test for Human Knight Commander's leadership aura ability
 
 use graphics::HexCoord;
-use units::{Terrain, UnitFactory};
+use units::UnitFactory;
 
 #[test]
 fn test_knight_commander_has_leadership_aura() {
@@ -9,7 +9,6 @@ fn test_knight_commander_has_leadership_aura() {
         "Human Knight Commander",
         Some("Test Commander".to_string()),
         Some(HexCoord::new(0, 0)),
-        Some(Terrain::Grasslands),
     )
     .expect("Failed to create Knight Commander");
 
@@ -47,7 +46,6 @@ fn test_knight_commander_aura_range() {
         "Human Knight Commander",
         Some("Test Commander".to_string()),
         Some(HexCoord::new(0, 0)),
-        Some(Terrain::Grasslands),
     )
     .expect("Failed to create Knight Commander");
 

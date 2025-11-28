@@ -8,18 +8,9 @@ use graphics::HexCoord;
 
 #[test]
 fn test_all_dwarf_units() {
-    let young = UnitFactory::create_dwarf_young_warrior(
-        "Y".to_string(),
-        HexCoord::new(0, 0),
-        Terrain::Mountain,
-    );
-    let warrior =
-        UnitFactory::create_dwarf_warrior("W".to_string(), HexCoord::new(0, 0), Terrain::Mountain);
-    let veteran = UnitFactory::create_dwarf_veteran_warrior(
-        "V".to_string(),
-        HexCoord::new(0, 0),
-        Terrain::Mountain,
-    );
+    let young = UnitFactory::create_dwarf_young_warrior("Y".to_string(), HexCoord::new(0, 0));
+    let warrior = UnitFactory::create_dwarf_warrior("W".to_string(), HexCoord::new(0, 0));
+    let veteran = UnitFactory::create_dwarf_veteran_warrior("V".to_string(), HexCoord::new(0, 0));
 
     assert_eq!(young.race(), Race::Dwarf);
     assert_eq!(warrior.race(), Race::Dwarf);
@@ -46,10 +37,8 @@ fn test_all_dwarf_units() {
 
 #[test]
 fn test_goblin_units() {
-    let grunt =
-        UnitFactory::create_goblin_grunt("G".to_string(), HexCoord::new(0, 0), Terrain::Swamp);
-    let chief =
-        UnitFactory::create_goblin_chief("C".to_string(), HexCoord::new(0, 0), Terrain::Swamp);
+    let grunt = UnitFactory::create_goblin_grunt("G".to_string(), HexCoord::new(0, 0));
+    let chief = UnitFactory::create_goblin_chief("C".to_string(), HexCoord::new(0, 0));
 
     assert_eq!(grunt.race(), Race::Goblin);
     assert_eq!(chief.race(), Race::Goblin);

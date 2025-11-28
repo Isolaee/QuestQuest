@@ -96,8 +96,7 @@ impl HumanPrince {
     /// # Arguments
     /// * `name` - The unit's name
     /// * `position` - Starting position on the hex grid
-    /// * `terrain` - The terrain type at the starting position
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         // Build combat stats from constants
         let combat_stats = CombatStats::new_with_attacks(
             Self::BASE_HEALTH,
@@ -123,8 +122,6 @@ impl HumanPrince {
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
             "A skilled human prince with growing leadership abilities. Human Princes are experienced combatants who excel in both offense and defense. With continued training, they will become formidable kings.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             Some(crate::unit_type::UnitType::HumanNoble),
             vec![crate::unit_type::UnitType::HumanKing],
             combat_stats,

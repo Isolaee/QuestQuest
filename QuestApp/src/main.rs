@@ -180,7 +180,6 @@ impl GameApp {
             "Dwarf Young Warrior",
             Some("Fili".to_string()),
             Some(HexCoord::new(-2, 0)),
-            Some(units::Terrain::Mountain),
         )
         .expect("Failed to create Dwarf Young Warrior");
         game_world.add_unit(GameUnit::new_with_team(dwarf_young, game::Team::Player));
@@ -189,7 +188,6 @@ impl GameApp {
             "Dwarf Warrior",
             Some("Thorin".to_string()),
             Some(HexCoord::new(0, 0)),
-            Some(units::Terrain::Mountain),
         )
         .expect("Failed to create Dwarf Warrior");
         game_world.add_unit(GameUnit::new_with_team(dwarf_warrior, game::Team::Player));
@@ -198,7 +196,6 @@ impl GameApp {
             "Dwarf Veteran Warrior",
             Some("Dwalin".to_string()),
             Some(HexCoord::new(2, 0)),
-            Some(units::Terrain::Mountain),
         )
         .expect("Failed to create Dwarf Veteran Warrior");
         game_world.add_unit(GameUnit::new_with_team(dwarf_veteran, game::Team::Player));
@@ -208,7 +205,6 @@ impl GameApp {
             "Orc Young Swordsman",
             Some("Grishnakh".to_string()),
             Some(HexCoord::new(-2, 4)),
-            Some(units::Terrain::Grasslands),
         )
         .expect("Failed to create Orc Young Swordsman");
         game_world.add_unit(GameUnit::new_with_team(orc_young, game::Team::Enemy));
@@ -217,7 +213,6 @@ impl GameApp {
             "Orc Swordsman",
             Some("Ugluk".to_string()),
             Some(HexCoord::new(0, 4)),
-            Some(units::Terrain::Grasslands),
         )
         .expect("Failed to create Orc Swordsman");
         game_world.add_unit(GameUnit::new_with_team(orc_swordsman, game::Team::Enemy));
@@ -226,7 +221,6 @@ impl GameApp {
             "Orc Elite Swordsman",
             Some("Azog".to_string()),
             Some(HexCoord::new(2, 4)),
-            Some(units::Terrain::Grasslands),
         )
         .expect("Failed to create Orc Elite Swordsman");
         game_world.add_unit(GameUnit::new_with_team(orc_elite, game::Team::Enemy));
@@ -1269,7 +1263,7 @@ impl GameApp {
                     experience: unit.experience(),
                     health: stats.health as u32,
                     max_health: stats.max_health as u32,
-                    terrain: format!("{:?}", unit.current_terrain()),
+                    terrain: "N/A".to_string(), // TODO: Get terrain from map at position
                     position_q: position.q,
                     position_r: position.r,
                     moves_left: game_unit.moves_left() as u32,
@@ -1514,7 +1508,7 @@ impl GameApp {
                             experience: unit.experience(),
                             health: stats.health as u32,
                             max_health: stats.max_health as u32,
-                            terrain: format!("{:?}", unit.current_terrain()),
+                            terrain: "N/A".to_string(), // TODO: Get terrain from map at position
                             position_q: position.q,
                             position_r: position.r,
                             moves_left: game_unit.moves_left() as u32,

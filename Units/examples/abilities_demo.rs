@@ -4,7 +4,7 @@
 
 use combat::DamageType;
 use graphics::HexCoord;
-use units::{ability::*, Terrain, UnitFactory};
+use units::{ability::*, UnitFactory};
 
 fn main() {
     println!("=== Unit Abilities System Demo ===\n");
@@ -12,11 +12,10 @@ fn main() {
     // Create a warrior unit
     let mut warrior = UnitFactory::create(
         "Dwarf Warrior",
-        Some("Thorin".to_string()),
+        Some("Warrior".to_string()),
         Some(HexCoord::new(0, 0)),
-        Some(Terrain::Mountain),
     )
-    .expect("Failed to create warrior");
+    .expect("Failed to create unit");
 
     println!("Created: {}", warrior.name());
     println!(

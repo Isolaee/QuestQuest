@@ -1,7 +1,7 @@
 //! Demonstration of Human Knight Commander's Leadership Aura
 
 use graphics::HexCoord;
-use units::{Terrain, UnitFactory};
+use units::UnitFactory;
 
 fn main() {
     println!("=== Human Knight Commander Leadership Aura Demo ===\n");
@@ -11,7 +11,6 @@ fn main() {
         "Human Knight Commander",
         Some("Sir Roland".to_string()),
         Some(HexCoord::new(0, 0)),
-        Some(Terrain::Grasslands),
     )
     .expect("Failed to create Knight Commander");
 

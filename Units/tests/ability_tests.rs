@@ -1,8 +1,8 @@
 //! Tests for the unit abilities system
 
 use combat::{CombatStats, DamageType, RangeCategory, Resistances};
-use graphics::{HexCoord, SpriteType};
-use units::{ability::*, Attack, BaseUnit, Race, Terrain, Unit};
+use graphics::HexCoord;
+use units::{ability::*, Attack, BaseUnit, Race, Unit};
 
 // Test unit wrapper that implements Unit trait
 struct TestUnit {
@@ -19,8 +19,6 @@ impl TestUnit {
             Race::Human,
             "Test".to_string(),
             "Test unit".to_string(),
-            Terrain::Grasslands,
-            SpriteType::Unit,
             None,
             vec![],
             stats,
@@ -53,8 +51,6 @@ fn create_test_unit() -> BaseUnit {
         Race::Human,
         "Test".to_string(),
         "Test unit".to_string(),
-        Terrain::Grasslands,
-        SpriteType::Unit,
         None,
         vec![],
         stats,

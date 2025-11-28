@@ -108,8 +108,7 @@ impl OrcEliteSwordsman {
     /// # Arguments
     /// * `name` - The unit's name
     /// * `position` - Starting position on the hex grid
-    /// * `terrain` - The terrain type at the starting position
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         // Build combat stats from constants
         let combat_stats = CombatStats::new_with_attacks(
             Self::BASE_HEALTH,
@@ -129,13 +128,12 @@ impl OrcEliteSwordsman {
         );
 
         // Create base unit
-        let mut base = BaseUnit::new(
+        let mut base = BaseUnit::new_with_sprite(
             name,
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
             "A battle-hardened orc warrior of exceptional prowess. Elite Swordsmen are veterans of countless conflicts, wielding their blades with deadly precision. Their ferocity in combat is matched only by their tactical cunning.".to_string(),
-            terrain,
             graphics::SpriteType::OrcWarrior,
             Some(crate::unit_type::UnitType::OrcSwordsman),
             vec![],

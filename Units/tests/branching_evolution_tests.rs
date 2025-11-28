@@ -8,7 +8,6 @@ fn test_human_knight_branching_evolution() {
         "Human Knight",
         Some("Sir Lancelot".to_string()),
         Some(HexCoord::new(0, 0)),
-        None,
     )
     .expect("Failed to create Human Knight");
 
@@ -52,7 +51,6 @@ fn test_knight_commander_evolution_chain() {
         "Human Knight",
         Some("Battle Leader".to_string()),
         Some(HexCoord::new(0, 0)),
-        None,
     )
     .unwrap();
 
@@ -71,7 +69,6 @@ fn test_knight_commander_evolution_chain() {
         "Human Knight",
         Some("Battle Leader".to_string()),
         Some(HexCoord::new(0, 0)),
-        None,
     )
     .unwrap();
     knight2.add_experience(100);

@@ -1,6 +1,6 @@
 use crate::attack::Attack;
 use crate::base_unit::BaseUnit;
-use crate::unit_race::{Race, Terrain};
+use crate::unit_race::Race;
 use combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use graphics::HexCoord;
 
@@ -9,7 +9,7 @@ pub struct GoblinChief {
 }
 
 impl GoblinChief {
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         // Define combat stats specific to Goblin Chief
         // Stronger than regular goblins, still agile
         let combat_stats = CombatStats::new_with_attacks(
@@ -36,8 +36,6 @@ impl GoblinChief {
             Race::Goblin,
             "Goblin Chief".to_string(),
             "A goblin leader with enhanced combat prowess. Chiefs command respect through strength and cunning, wielding better equipment than their underlings. Still maintains the goblin's characteristic agility.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             None,
             vec![],
             combat_stats,

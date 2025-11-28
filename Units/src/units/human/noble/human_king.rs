@@ -104,8 +104,7 @@ impl HumanKing {
     /// # Arguments
     /// * `name` - The unit's name
     /// * `position` - Starting position on the hex grid
-    /// * `terrain` - The terrain type at the starting position
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         // Build combat stats from constants
         let combat_stats = CombatStats::new_with_attacks(
             Self::BASE_HEALTH,
@@ -131,8 +130,6 @@ impl HumanKing {
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
             "A legendary human king who has mastered the art of war. Human Kings are supreme commanders who inspire their troops and dominate the battlefield with unmatched skill and authority.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             Some(crate::unit_type::UnitType::HumanPrince),
             vec![], // Final evolution - no next unit
             combat_stats,

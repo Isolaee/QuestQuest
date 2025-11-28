@@ -96,8 +96,7 @@ impl HumanKnightCommander {
     /// # Arguments
     /// * `name` - The unit's name
     /// * `position` - Starting position on the hex grid
-    /// * `terrain` - The terrain type at the starting position
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         // Build combat stats from constants
         let combat_stats = CombatStats::new_with_attacks(
             Self::BASE_HEALTH,
@@ -123,8 +122,6 @@ impl HumanKnightCommander {
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
             "An experienced knight commander who leads through example. Human Knight Commanders are battle-tested warriors who combine superior combat skills with tactical leadership. Their presence on the battlefield inspires nearby allies, granting them increased combat effectiveness. They excel at coordinating attacks and defending their allies. With continued service, they will become grand knights.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             Some(crate::unit_type::UnitType::HumanKnight),
             vec![],
             combat_stats,

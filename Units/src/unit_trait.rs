@@ -287,7 +287,7 @@ pub trait Unit {
     ///
     /// ```rust,no_run
     /// # use units::{Unit, UnitFactory};
-    /// # let unit = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    /// # let unit = UnitFactory::create("Dwarf Young Warrior", None, None).unwrap();
     /// // Default: level² × 50
     /// assert_eq!(unit.xp_required_for_level(2), 200);  // Level 2: 200 XP
     /// assert_eq!(unit.xp_required_for_level(3), 450);  // Level 3: 450 XP
@@ -368,20 +368,21 @@ pub trait Unit {
 
     // ===== Terrain Methods (Default Implementations) =====
 
-    /// Returns the terrain type the unit is currently standing on.
+    /// Calculate terrain hit chance for the given terrain.
     ///
-    /// Terrain affects movement cost, combat bonuses, and visibility.
-    fn current_terrain(&self) -> Terrain {
-        self.base().current_terrain
-    }
-
-    /// Sets the terrain type for the unit's current position.
+    /// Terrain affects combat bonuses and hit chances. This should be called
+    /// when determining combat effectiveness based on the terrain at the unit's
+    /// current map position.
     ///
-    /// This should be called when the unit moves to update terrain-based modifiers.
-    fn set_terrain(&mut self, terrain: Terrain) {
-        let base = self.base_mut();
-        base.current_terrain = terrain;
-        base.recalculate_stats();
+    /// # Arguments
+    ///
+    /// * `terrain` - The terrain type at the unit's position
+    ///
+    /// # Returns
+    ///
+    /// The hit chance percentage (0-100) for the given terrain
+    fn get_terrain_hit_chance(&self, terrain: Terrain) -> u8 {
+        self.base().get_terrain_hit_chance(terrain)
     }
 
     // ===== Utility Methods (Default Implementations) =====
@@ -511,7 +512,7 @@ pub trait Unit {
     /// ```rust,no_run
     /// # use units::{Unit, UnitFactory, Terrain};
     /// # use graphics::{HexCoord, SpriteType};
-    /// # let dwarf = UnitFactory::create("Dwarf Warrior", Some("Thorin".to_string()), Some(HexCoord::new(0, 0)), Some(Terrain::Mountain)).unwrap();
+    /// # let dwarf = UnitFactory::create("Dwarf Warrior", Some("Thorin".to_string()), Some(HexCoord::new(0, 0))).unwrap();
     /// let sprite = dwarf.sprite();
     /// assert_eq!(sprite, SpriteType::DwarfWarrior);
     /// ```
@@ -582,7 +583,7 @@ pub trait Unit {
     /// ```rust,no_run
     /// # use units::{Unit, UnitFactory, Terrain, UnitType};
     /// # use graphics::HexCoord;
-    /// # let warrior = UnitFactory::create("Dwarf Warrior", None, None, None).unwrap();
+    /// # let warrior = UnitFactory::create("Dwarf Warrior", None, None).unwrap();
     /// if let Some(prev) = warrior.evolution_previous() {
     ///     println!("Evolved from: {}", prev);
     /// }
@@ -602,7 +603,7 @@ pub trait Unit {
     /// ```rust,no_run
     /// # use units::{Unit, UnitFactory, Terrain, UnitType};
     /// # use graphics::HexCoord;
-    /// # let young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    /// # let young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None).unwrap();
     /// let evolutions = young_warrior.evolution_next();
     /// for evolution in evolutions {
     ///     println!("Can evolve into: {}", evolution);
@@ -621,7 +622,7 @@ pub trait Unit {
     ///
     /// ```rust,no_run
     /// # use units::{Unit, UnitFactory};
-    /// # let young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    /// # let young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None).unwrap();
     /// if young_warrior.has_next_evolution() {
     ///     println!("This unit can evolve!");
     /// }
@@ -660,7 +661,7 @@ pub trait Unit {
     ///
     /// ```rust,no_run
     /// # use units::{Unit, UnitFactory};
-    /// # let mut young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
+    /// # let mut young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None).unwrap();
     /// young_warrior.add_experience(100);
     /// // Choose first evolution path
     /// if let Some(evolved) = young_warrior.evolve(0, true) {
@@ -674,12 +675,11 @@ pub trait Unit {
         let evolutions = self.evolution_next();
         let next_type = evolutions.get(evolution_index)?;
 
-        // Create the evolved unit with same name, position, and terrain
+        // Create the evolved unit with same name and position
         let mut evolved = UnitFactory::create(
             next_type.as_str(),
             Some(self.name().to_string()),
             Some(self.position()),
-            Some(self.current_terrain()),
         )
         .ok()?;
 

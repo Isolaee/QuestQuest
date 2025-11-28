@@ -7,7 +7,7 @@
 /// Run with: cargo run --package game --example xp_distribution_demo
 use game::{GameObject, GameUnit, GameWorld, Team};
 use graphics::HexCoord;
-use units::{OrcEliteSwordsman, Terrain, Unit, UnitFactory};
+use units::{OrcEliteSwordsman, Unit, UnitFactory};
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════╗");
@@ -25,11 +25,7 @@ fn main() {
     println!("Creating Player Team:");
 
     // Main attacker - Level 2 Dwarf Warrior at (0, 0)
-    let attacker = UnitFactory::create_dwarf_warrior(
-        "Thorin".to_string(),
-        HexCoord::new(0, 0),
-        Terrain::Mountain,
-    );
+    let attacker = UnitFactory::create_dwarf_warrior("Gimli".to_string(), HexCoord::new(0, 0));
     println!(
         "  • {} (Level {}, {} XP)",
         attacker.name(),
@@ -41,11 +37,7 @@ fn main() {
     world.add_unit(attacker_unit);
 
     // Adjacent ally 1 - Level 1 Dwarf Young Warrior at (1, 0)
-    let ally1 = UnitFactory::create_dwarf_young_warrior(
-        "Balin".to_string(),
-        HexCoord::new(1, 0),
-        Terrain::Mountain,
-    );
+    let ally1 = UnitFactory::create_dwarf_young_warrior("Ally 1".to_string(), HexCoord::new(1, 0));
     println!(
         "  • {} (Level {}, {} XP) - Adjacent to Thorin",
         ally1.name(),
@@ -57,11 +49,7 @@ fn main() {
     world.add_unit(ally1_unit);
 
     // Adjacent ally 2 - Level 1 Dwarf Young Warrior at (0, 1)
-    let ally2 = UnitFactory::create_dwarf_young_warrior(
-        "Dwalin".to_string(),
-        HexCoord::new(0, 1),
-        Terrain::Mountain,
-    );
+    let ally2 = UnitFactory::create_dwarf_young_warrior("Ally 2".to_string(), HexCoord::new(0, 1));
     println!(
         "  • {} (Level {}, {} XP) - Adjacent to Thorin",
         ally2.name(),
@@ -73,11 +61,7 @@ fn main() {
     world.add_unit(ally2_unit);
 
     // Non-adjacent ally - Level 2 Dwarf Warrior at (3, 3)
-    let distant = UnitFactory::create_dwarf_warrior(
-        "Gimli".to_string(),
-        HexCoord::new(3, 3),
-        Terrain::Mountain,
-    );
+    let distant = UnitFactory::create_dwarf_warrior("Distant".to_string(), HexCoord::new(3, 3));
     println!(
         "  • {} (Level {}, {} XP) - Far from battle",
         distant.name(),
@@ -90,11 +74,7 @@ fn main() {
 
     // Create enemy unit - Level 3 Elite Swordsman at (1, -1)
     println!("\nCreating Enemy:");
-    let enemy = OrcEliteSwordsman::new(
-        "Azog".to_string(),
-        HexCoord::new(1, -1),
-        Terrain::Grasslands,
-    );
+    let enemy = OrcEliteSwordsman::new("Enemy".to_string(), HexCoord::new(1, -1));
     println!(
         "  • {} (Level {}, {} HP)",
         enemy.name(),

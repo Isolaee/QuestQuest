@@ -9,7 +9,7 @@ pub struct ElfMage {
 }
 
 impl ElfMage {
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         let combat_stats = CombatStats::new_with_attacks(
             75,                                 // health
             11,                                 // base attack
@@ -34,8 +34,6 @@ impl ElfMage {
             Race::Elf,
             "Elf Mage".to_string(),
             "An elf mage attuned to nature's magical energies. Ancient and wise, elf mages channel powerful arcane forces with finesse. Their connection to the natural world makes them particularly potent in forest environments.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             None,
             vec![],
             combat_stats,

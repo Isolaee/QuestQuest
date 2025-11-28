@@ -102,8 +102,7 @@ impl DwarfWarrior {
     /// # Arguments
     /// * `name` - The unit's name
     /// * `position` - Starting position on the hex grid
-    /// * `terrain` - The terrain type at the starting position
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         // Build combat stats from constants
         let combat_stats = CombatStats::new_with_attacks(
             Self::BASE_HEALTH,
@@ -123,13 +122,12 @@ impl DwarfWarrior {
         );
 
         // Create base unit
-        let mut base = BaseUnit::new(
+        let mut base = BaseUnit::new_with_sprite(
             name,
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
             "A battle-tested dwarven warrior with formidable defensive capabilities. Masters of mountain warfare, they wield axe and shield with deadly efficiency. Can evolve into elite Veteran Warriors with further experience.".to_string(),
-            terrain,
             graphics::SpriteType::DwarfWarrior,
             Some(crate::unit_type::UnitType::DwarfYoungWarrior),
             vec![crate::unit_type::UnitType::DwarfVeteranWarrior],

@@ -6,7 +6,6 @@
 //! Units are automatically discovered at compile-time via the `inventory` crate and the
 //! `submit_unit!` macro in each unit's implementation file.
 
-use crate::unit_race::Terrain;
 use crate::unit_registry::UnitRegistry;
 use crate::unit_trait::Unit;
 use crate::units::*;
@@ -33,45 +32,40 @@ impl UnitFactory {
     /// * `type_name` - The unit type name (e.g., "Human Warrior", "Elf Archer")
     /// * `name` - Optional custom name for the unit (defaults to type name)
     /// * `position` - Optional hex coordinate (defaults to (0,0))
-    /// * `terrain` - Optional terrain (defaults to unit's default terrain)
     ///
     /// # Examples
     ///
     /// ```rust,no_run
     /// use units::UnitFactory;
     /// use graphics::HexCoord;
-    /// use units::Terrain;
     ///
     /// // Create with all defaults
-    /// let unit = UnitFactory::create("Human Warrior", None, None, None).unwrap();
+    /// let unit = UnitFactory::create("Human Warrior", None, None).unwrap();
     ///
     /// // Create with custom name
-    /// let unit = UnitFactory::create("Elf Archer", Some("Legolas".to_string()), None, None).unwrap();
+    /// let unit = UnitFactory::create("Elf Archer", Some("Legolas".to_string()), None).unwrap();
     ///
-    /// // Create with custom position and terrain
+    /// // Create with custom position
     /// let unit = UnitFactory::create(
     ///     "Dwarf Warrior",
     ///     Some("Gimli".to_string()),
-    ///     Some(HexCoord::new(5, 3)),
-    ///     Some(Terrain::Mountain)
+    ///     Some(HexCoord::new(5, 3))
     /// ).unwrap();
     /// ```
     pub fn create(
         type_name: &str,
         name: Option<String>,
         position: Option<HexCoord>,
-        terrain: Option<Terrain>,
     ) -> Result<Box<dyn Unit>, String> {
         let registry = get_registry();
-        let info = registry
+        registry
             .get(type_name)
             .ok_or_else(|| format!("Unknown unit type: '{}'", type_name))?;
 
         let unit_name = name.unwrap_or_else(|| type_name.to_string());
         let pos = position.unwrap_or_else(|| HexCoord::new(0, 0));
-        let terr = terrain.unwrap_or(info.default_terrain);
 
-        registry.create_unit(type_name, unit_name, pos, terr)
+        registry.create_unit(type_name, unit_name, pos)
     }
 
     /// Lists all available unit types
@@ -102,43 +96,23 @@ impl UnitFactory {
         get_registry().is_registered(type_name)
     }
 
-    pub fn create_dwarf_young_warrior(
-        name: String,
-        position: HexCoord,
-        terrain: Terrain,
-    ) -> Box<dyn Unit> {
-        Box::new(DwarfYoungWarrior::new(name, position, terrain))
+    pub fn create_dwarf_young_warrior(name: String, position: HexCoord) -> Box<dyn Unit> {
+        Box::new(DwarfYoungWarrior::new(name, position))
     }
 
-    pub fn create_dwarf_warrior(
-        name: String,
-        position: HexCoord,
-        terrain: Terrain,
-    ) -> Box<dyn Unit> {
-        Box::new(DwarfWarrior::new(name, position, terrain))
+    pub fn create_dwarf_warrior(name: String, position: HexCoord) -> Box<dyn Unit> {
+        Box::new(DwarfWarrior::new(name, position))
     }
 
-    pub fn create_dwarf_veteran_warrior(
-        name: String,
-        position: HexCoord,
-        terrain: Terrain,
-    ) -> Box<dyn Unit> {
-        Box::new(DwarfVeteranWarrior::new(name, position, terrain))
+    pub fn create_dwarf_veteran_warrior(name: String, position: HexCoord) -> Box<dyn Unit> {
+        Box::new(DwarfVeteranWarrior::new(name, position))
     }
 
-    pub fn create_goblin_grunt(
-        name: String,
-        position: HexCoord,
-        terrain: Terrain,
-    ) -> Box<dyn Unit> {
-        Box::new(GoblinGrunt::new(name, position, terrain))
+    pub fn create_goblin_grunt(name: String, position: HexCoord) -> Box<dyn Unit> {
+        Box::new(GoblinGrunt::new(name, position))
     }
 
-    pub fn create_goblin_chief(
-        name: String,
-        position: HexCoord,
-        terrain: Terrain,
-    ) -> Box<dyn Unit> {
-        Box::new(GoblinChief::new(name, position, terrain))
+    pub fn create_goblin_chief(name: String, position: HexCoord) -> Box<dyn Unit> {
+        Box::new(GoblinChief::new(name, position))
     }
 }

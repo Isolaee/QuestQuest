@@ -23,7 +23,7 @@ use graphics::HexCoord;
 use std::collections::HashMap;
 
 /// Type alias for a unit constructor function
-pub type UnitConstructor = fn(String, HexCoord, Terrain) -> Box<dyn Unit>;
+pub type UnitConstructor = fn(String, HexCoord) -> Box<dyn Unit>;
 
 /// Metadata about a unit type
 #[derive(Clone)]
@@ -74,10 +74,9 @@ impl UnitRegistry {
         type_name: &str,
         name: String,
         position: HexCoord,
-        terrain: Terrain,
     ) -> Result<Box<dyn Unit>, String> {
         match self.units.get(type_name) {
-            Some(info) => Ok((info.constructor)(name, position, terrain)),
+            Some(info) => Ok((info.constructor)(name, position)),
             None => Err(format!("Unknown unit type: '{}'", type_name)),
         }
     }
@@ -127,8 +126,8 @@ macro_rules! submit_unit {
                 default_terrain: $terrain,
                 race: $race,
                 class: $class,
-                constructor: |name, pos, terrain| {
-                    Box::new(<$unit_type>::new(name, pos, terrain))
+                constructor: |name, pos| {
+                    Box::new(<$unit_type>::new(name, pos))
                 },
             }
         }

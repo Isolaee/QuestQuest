@@ -95,8 +95,7 @@ impl HumanSquire {
     /// # Arguments
     /// * `name` - The unit's name
     /// * `position` - Starting position on the hex grid
-    /// * `terrain` - The terrain type at the starting position
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         // Build combat stats from constants
         let combat_stats = CombatStats::new_with_attacks(
             Self::BASE_HEALTH,
@@ -122,8 +121,6 @@ impl HumanSquire {
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
             "A moderately armored human squire sworn to protect the innocent. Human Squires are defensive specialists who excel at holding the line and protecting allies. With training, they will become human knights.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             None,
             vec![crate::unit_type::UnitType::HumanKnight],
             combat_stats,

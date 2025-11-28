@@ -120,7 +120,7 @@
 //! use units::UnitFactory;
 //!
 //! // Create a unit using the registry-based factory
-//! let unit = UnitFactory::create("Elf Warrior", None, None, None)
+//! let unit = UnitFactory::create("Elf Warrior", None, None)
 //!     .expect("Failed to create unit");
 //! ```
 //!

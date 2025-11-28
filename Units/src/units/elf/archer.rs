@@ -9,7 +9,7 @@ pub struct ElfArcher {
 }
 
 impl ElfArcher {
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         let combat_stats = CombatStats::new_with_attacks(
             85,                                 // health
             13,                                 // base attack (elves are skilled archers)
@@ -34,8 +34,6 @@ impl ElfArcher {
             Race::Elf,
             "Elf Archer".to_string(),
             "A legendary elf archer with unmatched precision. Elven archers are the finest marksmen in the realm, capable of picking off enemies from great distances while remaining nearly invisible in forests.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             None,
             vec![],
             combat_stats,

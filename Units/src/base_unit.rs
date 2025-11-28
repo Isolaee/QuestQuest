@@ -35,14 +35,13 @@ use std::collections::HashMap;
 /// - `equipment`: Currently equipped items
 /// - `inventory`: Items in the unit's backpack
 /// - `cached_*`: Pre-calculated values for performance
-/// - `current_terrain`: The terrain type at the unit's position
 ///
 /// # Examples
 ///
 /// ```rust,no_run
-/// use units::{BaseUnit, Race, Terrain};
+/// use units::{BaseUnit, Race};
 /// use combat::{CombatStats, RangeCategory, Resistances};
-/// use graphics::{HexCoord, SpriteType};
+/// use graphics::HexCoord;
 ///
 /// let stats = CombatStats::new(100, 10, 5, RangeCategory::Melee, Resistances::default());
 /// let unit = BaseUnit::new(
@@ -51,8 +50,6 @@ use std::collections::HashMap;
 ///     Race::Human,
 ///     "Human Warrior".to_string(),
 ///     "A versatile warrior".to_string(),
-///     Terrain::Grasslands,
-///     SpriteType::Unit,
 ///     None,
 ///     vec![],
 ///     stats,
@@ -85,9 +82,6 @@ pub struct BaseUnit {
     pub cached_attack: i32,
     pub cached_movement: i32,
     pub cached_max_health: i32,
-
-    // Environment
-    pub current_terrain: Terrain,
 
     // Visual representation
     pub sprite_type: SpriteType,
@@ -125,6 +119,50 @@ impl BaseUnit {
     ///
     /// A new `BaseUnit` instance at level 1 with 0 experience.
     ///
+    /// Convenience constructor for units that automatically uses `SpriteType::Unit`.
+    ///
+    /// This is the recommended constructor for creating game units, as it eliminates
+    /// the need to specify the sprite type which is always `SpriteType::Unit` for units.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The unit's display name
+    /// * `position` - Starting position on the hex grid
+    /// * `race` - The unit's race
+    /// * `unit_type` - Type identifier (e.g., "Human Warrior")
+    /// * `description` - Lore and gameplay description
+    /// * `evolution_previous` - Optional previous evolution in the chain
+    /// * `evolution_next` - Possible next evolutions
+    /// * `combat_stats` - Base combat statistics
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        name: String,
+        position: HexCoord,
+        race: Race,
+        unit_type: String,
+        description: String,
+        evolution_previous: Option<UnitType>,
+        evolution_next: Vec<UnitType>,
+        combat_stats: CombatStats,
+    ) -> Self {
+        Self::new_with_sprite(
+            name,
+            position,
+            race,
+            unit_type,
+            description,
+            SpriteType::Unit,
+            evolution_previous,
+            evolution_next,
+            combat_stats,
+        )
+    }
+
+    /// Creates a new base unit with a custom sprite type.
+    ///
+    /// This is the lower-level constructor that allows specifying any sprite type.
+    /// Most code should use `BaseUnit::new()` instead, which defaults to `SpriteType::Unit`.
+    ///
     /// # TODO: Refactor for Production
     ///
     /// This constructor has too many arguments (10/7 allowed by Clippy).
@@ -135,13 +173,12 @@ impl BaseUnit {
     /// - **Factory Method**: Move construction logic to a factory that loads unit definitions
     ///   from configuration/data files
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new_with_sprite(
         name: String,
         position: HexCoord,
         race: Race,
         unit_type: String,
         description: String,
-        terrain: Terrain,
         sprite_type: SpriteType,
         evolution_previous: Option<UnitType>,
         evolution_next: Vec<UnitType>,
@@ -167,7 +204,6 @@ impl BaseUnit {
             cached_attack: base_attack,
             cached_movement: base_movement,
             cached_max_health: max_health,
-            current_terrain: terrain,
             terrain_defenses: None,
             sprite_type,
             evolution_previous,
@@ -191,7 +227,6 @@ impl BaseUnit {
     /// * `level` - Initial level (minimum 1)
     /// * `experience` - Initial experience points (minimum 0)
     /// * `description` - Lore and gameplay description
-    /// * `terrain` - The terrain at the starting position
     /// * `combat_stats` - Base combat statistics
     ///
     /// # Returns
@@ -206,8 +241,6 @@ impl BaseUnit {
         description: String,
         level: i32,
         experience: i32,
-        terrain: Terrain,
-        sprite_type: SpriteType,
         evolution_previous: Option<UnitType>,
         evolution_next: Vec<UnitType>,
         combat_stats: CombatStats,
@@ -218,8 +251,6 @@ impl BaseUnit {
             race,
             unit_type,
             description,
-            terrain,
-            sprite_type,
             evolution_previous,
             evolution_next,
             combat_stats,
@@ -286,20 +317,35 @@ impl BaseUnit {
         // Ensure minimum range of 1
         self.combat_stats.attack_range = self.combat_stats.attack_range.max(1);
 
-        // Update terrain hit chance based on per-unit mapping (if any) or race and current terrain
-        let hit_chance = if let Some(map) = &self.terrain_defenses {
-            // If the unit provides a mapping for the current terrain, use it, otherwise fallback to race
-            map.get(&self.current_terrain)
-                .copied()
-                .unwrap_or_else(|| self.race.get_terrain_hit_chance(self.current_terrain))
-        } else {
-            self.race.get_terrain_hit_chance(self.current_terrain)
-        };
-
-        self.combat_stats.set_terrain_hit_chance(hit_chance);
+        // Note: Terrain hit chance should be calculated when needed based on the unit's position
+        // on the map, not stored as a cached value. The terrain is a property of the map tile,
+        // not the unit itself.
 
         // Apply passive ability bonuses
         self.apply_passive_bonuses();
+    }
+
+    /// Calculate terrain hit chance for the given terrain.
+    ///
+    /// This should be called when determining combat effectiveness based on the terrain
+    /// at the unit's current position on the map.
+    ///
+    /// # Arguments
+    ///
+    /// * `terrain` - The terrain type at the unit's position
+    ///
+    /// # Returns
+    ///
+    /// The hit chance percentage (0-100) for the given terrain
+    pub fn get_terrain_hit_chance(&self, terrain: Terrain) -> u8 {
+        if let Some(map) = &self.terrain_defenses {
+            // If the unit provides a mapping for the given terrain, use it, otherwise fallback to race
+            map.get(&terrain)
+                .copied()
+                .unwrap_or_else(|| self.race.get_terrain_hit_chance(terrain))
+        } else {
+            self.race.get_terrain_hit_chance(terrain)
+        }
     }
 
     /// Get all hexagonal coordinates within movement range
@@ -362,9 +408,9 @@ impl BaseUnit {
     /// # use units::BaseUnit;
     /// # use combat::{CombatStats, RangeCategory, Resistances};
     /// # use graphics::HexCoord;
-    /// # use units::{Race, Terrain};
+    /// # use units::Race;
     /// # let initial_stats = CombatStats::new(100, 10, 4, RangeCategory::Melee, Resistances::new(10, 10, 10, 10, 10, 10));
-    /// let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), "Test warrior".into(), Terrain::Grasslands, graphics::SpriteType::Unit, None, vec![], initial_stats);
+    /// let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), "Test warrior".into(), None, vec![], initial_stats);
     /// let new_stats = CombatStats::new(150, 15, 4, RangeCategory::Melee, Resistances::new(15, 15, 15, 15, 15, 15));
     /// unit.apply_level_up_stats(new_stats, true); // Level up and heal to full
     /// ```
@@ -527,8 +573,6 @@ impl BaseUnit {
     /// #     units::Race::Human,
     /// #     "Warrior".to_string(),
     /// #     "Test".to_string(),
-    /// #     units::Terrain::Grasslands,
-    /// #     graphics::SpriteType::Unit,
     /// #     None,
     /// #     vec![],
     /// #     combat::CombatStats::new(100, 10, 3, combat::RangeCategory::Melee, combat::Resistances::default()),

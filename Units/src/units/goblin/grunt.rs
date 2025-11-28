@@ -1,6 +1,6 @@
 use crate::attack::Attack;
 use crate::base_unit::BaseUnit;
-use crate::unit_race::{Race, Terrain};
+use crate::unit_race::Race;
 use combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use graphics::HexCoord;
 
@@ -9,7 +9,7 @@ pub struct GoblinGrunt {
 }
 
 impl GoblinGrunt {
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         // Define combat stats specific to Goblin Grunt
         // Goblins are weak but evasive
         let combat_stats = CombatStats::new_with_attacks(
@@ -36,8 +36,6 @@ impl GoblinGrunt {
             Race::Goblin,
             "Goblin Grunt".to_string(),
             "A weak but evasive goblin warrior. Goblins are cunning and fast, making up for their lack of strength with speed and numbers. They excel in swamps and dark places where they can ambush unwary foes.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             None,
             vec![],
             combat_stats,

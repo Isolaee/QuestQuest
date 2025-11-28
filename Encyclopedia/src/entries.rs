@@ -89,7 +89,7 @@ impl UnitEntry {
     /// Create a unit entry by dynamically loading a unit
     pub fn from_unit_type(type_name: &str) -> Result<Self, String> {
         // Create the unit to extract all its data
-        let unit = UnitFactory::create(type_name, None, None, None)?;
+        let unit = UnitFactory::create(type_name, None, None)?;
 
         let stats = unit.combat_stats();
         let attacks = unit.get_attacks();
@@ -118,7 +118,7 @@ impl UnitEntry {
             description: unit.description().to_string(),
             race: unit.race(),
             class: Self::extract_class_from_type(type_name),
-            default_terrain: unit.current_terrain(),
+            default_terrain: units::Terrain::Grasslands, // Default terrain for display
             stats: UnitStats {
                 level: unit.level(),
                 health: stats.health,

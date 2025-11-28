@@ -9,7 +9,7 @@ pub struct ElfWarrior {
 }
 
 impl ElfWarrior {
-    pub fn new(name: String, position: HexCoord, terrain: Terrain) -> Self {
+    pub fn new(name: String, position: HexCoord) -> Self {
         let combat_stats = CombatStats::new_with_attacks(
             100,                                // health (lighter armor than humans)
             14,                                 // base attack
@@ -34,8 +34,6 @@ impl ElfWarrior {
             Race::Elf,
             "Elf Warrior".to_string(),
             "An agile elf warrior with enhanced speed and grace. Elves are natural forest dwellers, gaining significant bonuses in woodland terrain. Swift and deadly with blade and shield.".to_string(),
-            terrain,
-            graphics::SpriteType::Unit,
             None,
             vec![],
             combat_stats,

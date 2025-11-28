@@ -48,52 +48,6 @@ pub struct AttackInfo {
     pub range: i32,
 }
 
-/// Contains all data needed for combat confirmation dialog.
-///
-/// When a player unit moves onto an enemy unit, combat is not immediately
-/// executed. Instead, a `PendingCombat` is created to allow the player to
-/// review both combatants' stats and select which attack to use.
-///
-/// # Examples
-///
-/// ```
-/// use game::GameWorld;
-/// use graphics::HexCoord;
-/// use units::unit_factory::UnitFactory;
-/// use game::{GameUnit, Team};
-///
-/// // Create world and start turn system so movement is allowed
-/// let mut world = GameWorld::new(4);
-/// world.start_turn_based_game();
-///
-/// // Create player unit at (0,0)
-/// let boxed_p = UnitFactory::create_goblin_grunt(
-///     "Player".to_string(),
-///     HexCoord::new(0, 0),
-///     units::unit_race::Terrain::Grasslands,
-/// );
-/// let mut pu = GameUnit::new(boxed_p);
-/// pu.set_team(Team::Player);
-/// let pid = world.add_unit(pu);
-///
-/// // Create enemy at (1,0)
-/// let boxed_e = UnitFactory::create_goblin_grunt(
-///     "Enemy".to_string(),
-///     HexCoord::new(1, 0),
-///     units::unit_race::Terrain::Grasslands,
-/// );
-/// let mut eu = GameUnit::new(boxed_e);
-/// eu.set_team(Team::Enemy);
-/// let _eid = world.add_unit(eu);
-///
-/// // Move player into enemy tile which should create a pending combat
-/// let _ = world.move_unit(pid, HexCoord::new(1, 0));
-/// assert!(world.pending_combat.is_some());
-/// let pending = world.pending_combat.as_ref().unwrap();
-/// assert_eq!(pending.attacker_name, "Player");
-/// assert_eq!(pending.defender_name, "Enemy");
-/// assert!(pending.attacker_attacks.len() > 0);
-/// ```
 #[derive(Clone, Debug)]
 pub struct PendingCombat {
     /// UUID of the attacking unit
@@ -145,35 +99,6 @@ pub enum GameEvent {
     },
 }
 
-/// The game world that manages all game entities and their interactions.
-///
-/// `GameWorld` is the central state container for the game, managing terrain,
-/// units, interactive objects, and combat on a hex-based grid. It provides
-/// methods for querying positions, validating movement, and executing game logic.
-///
-/// # Note
-///
-/// Cannot derive `Serialize`/`Deserialize` because `GameUnit` contains trait objects.
-/// Save/load functionality must be implemented through custom serialization or
-/// by reconstructing units from saved data.
-///
-/// # Examples
-///
-/// ```
-/// use game::GameWorld;
-/// use graphics::HexCoord;
-///
-/// // Create a world with radius 10 (covers coordinates from -10 to +10)
-/// let mut world = GameWorld::new(10);
-///
-/// // Generate procedural terrain
-/// world.generate_terrain();
-///
-/// // Query terrain at a position
-/// if let Some(terrain) = world.get_terrain(HexCoord::new(0, 0)) {
-///     println!("Movement cost: {}", terrain.movement_cost());
-/// }
-/// ```
 pub struct GameWorld {
     /// All terrain tiles in the world, indexed by hex coordinate
     pub terrain: HashMap<HexCoord, TerrainTile>,
@@ -204,23 +129,6 @@ pub struct GameWorld {
 }
 
 impl GameWorld {
-    /// Creates a new empty game world with the specified radius.
-    ///
-    /// The world is initially empty and must be populated with terrain using
-    /// `generate_terrain()` or by manually adding terrain tiles.
-    ///
-    /// # Arguments
-    ///
-    /// * `world_radius` - Maximum distance from center (0,0) for valid coordinates
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use game::GameWorld;
-    ///
-    /// let world = GameWorld::new(15); // Creates a world with radius 15
-    /// assert_eq!(world.world_radius(), 15);
-    /// ```
     pub fn new(world_radius: i32) -> Self {
         let mut turn_system = crate::turn_system::TurnSystem::new();
         // By default, only Player team is player-controlled
@@ -246,25 +154,6 @@ impl GameWorld {
         world
     }
 
-    /// Generates procedural terrain for the entire world.
-    ///
-    /// Uses coordinate-based seeding to generate consistent, deterministic terrain.
-    /// Each hex within the world radius is assigned a terrain type based on its
-    /// position, creating varied landscapes of grasslands, forests, hills, etc.
-    ///
-    /// This method should be called once after creating a new world.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use game::GameWorld;
-    ///
-    /// let mut world = GameWorld::new(10);
-    /// world.generate_terrain();
-    ///
-    /// // World now has terrain tiles at all valid coordinates
-    /// assert!(world.terrain().len() > 0);
-    /// ```
     pub fn generate_terrain(&mut self) {
         for q in -self.world_radius..=self.world_radius {
             for r in -self.world_radius..=self.world_radius {
@@ -1113,33 +1002,6 @@ impl GameWorld {
         SpriteType::random_terrain(seed)
     }
 
-    /// Adds a unit to the world and returns its UUID.
-    ///
-    /// # Arguments
-    ///
-    /// * `unit` - The GameUnit to add
-    ///
-    /// # Returns
-    ///
-    /// The UUID of the added unit, which can be used for later queries
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use game::{GameWorld, GameUnit};
-    /// use graphics::HexCoord;
-    /// use units::unit_factory::UnitFactory;
-    ///
-    /// let mut world = GameWorld::new(4);
-    /// let boxed = UnitFactory::create_goblin_grunt(
-    ///     "Gob1".to_string(),
-    ///     HexCoord::new(0, 0),
-    ///     units::unit_race::Terrain::Grasslands,
-    /// );
-    /// let u = GameUnit::new(boxed);
-    /// let id = world.add_unit(u);
-    /// assert!(world.get_unit(id).is_some());
-    /// ```
     pub fn add_unit(&mut self, unit: GameUnit) -> Uuid {
         let id = unit.id();
         self.units.insert(id, unit);
@@ -1364,57 +1226,6 @@ impl GameWorld {
         true
     }
 
-    /// Moves a unit to a new position with validation and combat detection.
-    ///
-    /// If the target position contains an enemy unit, combat confirmation is
-    /// initiated instead of moving. If the position is blocked or invalid,
-    /// an error is returned.
-    ///
-    /// # Arguments
-    ///
-    /// * `unit_id` - UUID of the unit to move
-    /// * `new_position` - Target hex coordinate
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(())` for successful movement
-    /// - `Err(String)` with error message for blocked movement or combat initiation
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use game::GameWorld;
-    /// use graphics::HexCoord;
-    /// use units::unit_factory::UnitFactory;
-    /// use game::{GameUnit, Team};
-    ///
-    /// let mut world = GameWorld::new(4);
-    /// world.start_turn_based_game();
-    ///
-    /// // Create player unit and add to world
-    /// let boxed_p = UnitFactory::create_goblin_grunt(
-    ///     "Player".to_string(),
-    ///     HexCoord::new(0,0),
-    ///     units::unit_race::Terrain::Grasslands,
-    /// );
-    /// let mut pu = GameUnit::new(boxed_p);
-    /// pu.set_team(Team::Player);
-    /// let pid = world.add_unit(pu);
-    ///
-    /// // Create enemy next to player
-    /// let boxed_e = UnitFactory::create_goblin_grunt(
-    ///     "Enemy".to_string(),
-    ///     HexCoord::new(1,0),
-    ///     units::unit_race::Terrain::Grasslands,
-    /// );
-    /// let mut eu = GameUnit::new(boxed_e);
-    /// eu.set_team(Team::Enemy);
-    /// let _eid = world.add_unit(eu);
-    ///
-    /// // Moving into the enemy tile should request combat (returns Err or sets pending_combat)
-    /// let res = world.move_unit(pid, HexCoord::new(1,0));
-    /// assert!(res.is_err() || world.pending_combat.is_some());
-    /// ```
     pub fn move_unit(&mut self, unit_id: Uuid, new_position: HexCoord) -> Result<(), String> {
         // Check if game has started
         if !self.turn_system.is_game_started() {
@@ -2302,18 +2113,6 @@ impl GameWorld {
 }
 
 impl Default for GameWorld {
-    /// Creates a default game world with radius 10.
-    ///
-    /// The world is empty and must be populated with terrain and entities.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use game::GameWorld;
-    ///
-    /// let world = GameWorld::default();
-    /// assert_eq!(world.world_radius(), 10);
-    /// ```
     fn default() -> Self {
         Self::new(10) // Default world radius of 10
     }

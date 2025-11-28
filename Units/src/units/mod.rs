@@ -26,10 +26,19 @@ pub mod undead;
 pub mod zombie;
 
 // Re-export all concrete unit types
-pub use dwarf::{DwarfVeteranWarrior, DwarfWarrior, DwarfYoungWarrior};
+
+// Dwarf units
+pub use dwarf::*;
+
+// Elf units
 pub use elf::{ElfArcher, ElfMage, ElfWarrior};
+
+// Goblin units
 pub use goblin::{GoblinChief, GoblinGrunt};
-// Human units temporarily disabled - being refactored
-// pub use human::HumanNoble;
+
+// Human units
+pub use human::knights::*;
+pub use human::noble::*;
+
+// Orc units
 pub use orc::{OrcEliteSwordsman, OrcSwordsman, OrcYoungSwordsman};
-// pub use orc::OrcGrunt; // TODO: Implement OrcGrunt
