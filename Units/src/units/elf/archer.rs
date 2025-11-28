@@ -11,10 +11,10 @@ pub struct ElfArcher {
 impl ElfArcher {
     pub fn new(name: String, position: HexCoord) -> Self {
         let combat_stats = CombatStats::new_with_attacks(
-            85,                                 // health
-            13,                                 // base attack (elves are skilled archers)
-            6 + Race::Elf.get_movement_bonus(), // movement speed (very fast)
-            RangeCategory::Range,               // range category
+            85,                   // health
+            13,                   // base attack (elves are skilled archers)
+            6,                    // movement speed (very fast)
+            RangeCategory::Range, // range category
             Resistances::new(
                 // resistances (light armor)
                 10, // blunt

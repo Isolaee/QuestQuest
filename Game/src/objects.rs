@@ -211,6 +211,11 @@ impl TerrainTile {
     pub fn get_metadata(&self, key: &str) -> Option<&String> {
         self.metadata.get(key)
     }
+
+    /// Returns the sprite type for this terrain tile.
+    pub fn sprite_type(&self) -> SpriteType {
+        self.sprite_type
+    }
 }
 
 impl GameObject for TerrainTile {

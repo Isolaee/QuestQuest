@@ -17,11 +17,8 @@ fn calculate_hit(attacker: &Unit, defender: &Unit) -> bool {
     // Get defender's hit chance % based on their race and current terrain
     let base_hit_chance = defender.get_defense();
 
-    // Apply attacker's attack bonus (each point reduces hit chance by 2%)
-    let attack_modifier = attacker.race.get_attack_bonus();
-
     // Calculate final hit chance (clamped between 10% and 95%)
-    let final_hit_chance = (base_hit_chance as i32 - attack_modifier * 2).clamp(10, 95) as u8;
+    let final_hit_chance = (base_hit_chance as i32).clamp(10, 95) as u8;
 
     // Pseudo-random roll 1-100
     let roll = ((hash % 100) + 1) as u8;

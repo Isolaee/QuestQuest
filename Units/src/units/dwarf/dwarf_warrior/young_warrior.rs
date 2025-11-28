@@ -95,7 +95,7 @@ impl DwarfYoungWarrior {
         let combat_stats = CombatStats::new_with_attacks(
             Self::BASE_HEALTH,
             Self::BASE_ATTACK,
-            Self::BASE_MOVEMENT + Self::RACE.get_movement_bonus(),
+            Self::BASE_MOVEMENT,
             Self::RANGE_CATEGORY,
             Resistances::new(
                 Self::RESISTANCE_BLUNT,

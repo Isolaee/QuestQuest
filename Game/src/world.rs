@@ -600,11 +600,9 @@ impl GameWorld {
 
                         // Estimate expected damage and hit chance to convert into an expected-utility cost.
                         // Hit chance is approximated using the same formula as combat resolver:
-                        // final_hit_chance = (defender.get_defense() as i32 - attacker_race_bonus*2).clamp(10,95)
+                        // final_hit_chance = (defender.get_defense() as i32).clamp(10,95)
                         let defender_def = other_unit.unit().get_defense() as i32;
-                        let attacker_bonus = unit.unit().race().get_attack_bonus();
-                        let final_hit_chance =
-                            (defender_def - attacker_bonus * 2).clamp(10, 95) as u8;
+                        let final_hit_chance = defender_def.clamp(10, 95) as u8;
                         let hit_prob = final_hit_chance as f32 / 100.0;
 
                         // Compute expected damage on hit using attack.damage and defender resistances

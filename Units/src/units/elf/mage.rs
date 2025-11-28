@@ -11,10 +11,10 @@ pub struct ElfMage {
 impl ElfMage {
     pub fn new(name: String, position: HexCoord) -> Self {
         let combat_stats = CombatStats::new_with_attacks(
-            75,                                 // health
-            11,                                 // base attack
-            5 + Race::Elf.get_movement_bonus(), // movement speed
-            RangeCategory::Range,               // range category (magic attacks are like ranged)
+            75,                   // health
+            11,                   // base attack
+            5,                    // movement speed
+            RangeCategory::Range, // range category (magic attacks are like ranged)
             Resistances::new(
                 // resistances (magical robes)
                 5,  // blunt

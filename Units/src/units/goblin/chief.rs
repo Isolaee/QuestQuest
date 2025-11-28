@@ -13,10 +13,10 @@ impl GoblinChief {
         // Define combat stats specific to Goblin Chief
         // Stronger than regular goblins, still agile
         let combat_stats = CombatStats::new_with_attacks(
-            90,                                    // health (moderate)
-            12,                                    // base attack (decent)
-            4 + Race::Goblin.get_movement_bonus(), // movement speed (fast)
-            RangeCategory::Melee,                  // range category
+            90,                   // health (moderate)
+            12,                   // base attack (decent)
+            4,                    // movement speed (fast)
+            RangeCategory::Melee, // range category
             Resistances::new(
                 // resistances (better armor than grunt)
                 20, // blunt

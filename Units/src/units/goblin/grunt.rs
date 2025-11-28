@@ -13,10 +13,10 @@ impl GoblinGrunt {
         // Define combat stats specific to Goblin Grunt
         // Goblins are weak but evasive
         let combat_stats = CombatStats::new_with_attacks(
-            60,                                    // health (low)
-            8,                                     // base attack (weak)
-            4 + Race::Goblin.get_movement_bonus(), // movement speed (fast)
-            RangeCategory::Melee,                  // range category
+            60,                   // health (low)
+            8,                    // base attack (weak)
+            4,                    // movement speed (fast)
+            RangeCategory::Melee, // range category
             Resistances::new(
                 // resistances (light armor, agile)
                 15, // blunt

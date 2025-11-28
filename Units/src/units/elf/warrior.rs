@@ -11,10 +11,10 @@ pub struct ElfWarrior {
 impl ElfWarrior {
     pub fn new(name: String, position: HexCoord) -> Self {
         let combat_stats = CombatStats::new_with_attacks(
-            100,                                // health (lighter armor than humans)
-            14,                                 // base attack
-            4 + Race::Elf.get_movement_bonus(), // movement speed (elves are fast)
-            RangeCategory::Melee,               // range category
+            100,                  // health (lighter armor than humans)
+            14,                   // base attack
+            4,                    // movement speed (elves are fast)
+            RangeCategory::Melee, // range category
             Resistances::new(
                 // resistances (medium armor)
                 20, // blunt

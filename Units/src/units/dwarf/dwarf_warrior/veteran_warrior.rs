@@ -3,6 +3,7 @@ use crate::base_unit::BaseUnit;
 use crate::unit_race::{Race, Terrain};
 use combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use graphics::HexCoord;
+use std::collections::HashMap;
 
 /// Level 3 Dwarf Veteran Warrior - Maximum evolution defender unit.
 ///
@@ -46,6 +47,16 @@ impl DwarfVeteranWarrior {
     const RESISTANCE_DARK: u8 = 18;
     const RESISTANCE_SLASH: u8 = 42;
     const RESISTANCE_CRUSH: u8 = 45;
+
+    // Terrain Defenses (hit chance % - lower is better defense)
+    // Veteran Warriors excel in mountains and hills, their natural domain
+    const DEFENSE_FOREST0: u8 = 50;
+    const DEFENSE_FOREST1: u8 = 50;
+    const DEFENSE_GRASSLANDS: u8 = 50;
+    const DEFENSE_HAUNTED_WOODS: u8 = 50;
+    const DEFENSE_HILLS: u8 = 50;
+    const DEFENSE_MOUNTAIN: u8 = 50;
+    const DEFENSE_SWAMP: u8 = 50;
 
     // Range category
     const RANGE_CATEGORY: RangeCategory = RangeCategory::Melee;
@@ -110,7 +121,7 @@ impl DwarfVeteranWarrior {
         let combat_stats = CombatStats::new_with_attacks(
             Self::BASE_HEALTH,
             Self::BASE_ATTACK,
-            Self::BASE_MOVEMENT + Self::RACE.get_movement_bonus(),
+            Self::BASE_MOVEMENT,
             Self::RANGE_CATEGORY,
             Resistances::new(
                 Self::RESISTANCE_BLUNT,
@@ -148,6 +159,17 @@ impl DwarfVeteranWarrior {
             Self::war_hammer(),
             Self::cleaving_strike(),
         ];
+
+        // Set unit-specific terrain defenses (overrides race defaults)
+        let mut terrain_defenses = HashMap::new();
+        terrain_defenses.insert(Terrain::Forest0, Self::DEFENSE_FOREST0);
+        terrain_defenses.insert(Terrain::Forest1, Self::DEFENSE_FOREST1);
+        terrain_defenses.insert(Terrain::Grasslands, Self::DEFENSE_GRASSLANDS);
+        terrain_defenses.insert(Terrain::HauntedWoods, Self::DEFENSE_HAUNTED_WOODS);
+        terrain_defenses.insert(Terrain::Hills, Self::DEFENSE_HILLS);
+        terrain_defenses.insert(Terrain::Mountain, Self::DEFENSE_MOUNTAIN);
+        terrain_defenses.insert(Terrain::Swamp, Self::DEFENSE_SWAMP);
+        base.terrain_defenses = Some(terrain_defenses);
 
         Self { base }
     }

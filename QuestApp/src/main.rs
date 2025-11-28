@@ -56,10 +56,24 @@ use main_menu::MainMenuScene;
 use raw_window_handle::HasWindowHandle;
 use scene_manager::{Scene, SceneManager, SceneType};
 use std::ffi::CString;
+use units::Terrain;
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::window::{Window, WindowId};
+
+/// Temporary helper to convert SpriteType to Terrain until proper terrain storage is implemented
+fn sprite_to_terrain(sprite: SpriteType) -> Terrain {
+    match sprite {
+        SpriteType::Forest | SpriteType::Forest2 => Terrain::Forest0,
+        SpriteType::Grasslands => Terrain::Grasslands,
+        SpriteType::HauntedWoods => Terrain::HauntedWoods,
+        SpriteType::Hills => Terrain::Hills,
+        SpriteType::Mountain => Terrain::Mountain,
+        SpriteType::Swamp => Terrain::Swamp,
+        _ => Terrain::Grasslands, // Default fallback
+    }
+}
 
 /// Screen width in pixels.
 const SCREEN_WIDTH: f32 = 1920.0;
@@ -1088,21 +1102,28 @@ impl GameApp {
             HighlightType::MovementRange,
         );
 
-        // Display defense value on each movement range tile
+        // Display defense value on each movement range tile (terrain-based)
         if let Some(unit_id) = self.game_state.exploring.selected_unit() {
             if let Some(game_unit) = self.game_world.units.get(&unit_id) {
-                // Use slash resistance as defense value (common defense metric)
-                let defense = game_unit.unit().combat_stats().resistances.slash;
                 let movement_range = self.game_state.exploring.movement_range();
                 println!(
-                    "🛡️  Setting defense overlay on {} tiles: DEF:{}",
-                    movement_range.len(),
-                    defense
+                    "🛡️  Setting defense overlay on {} tiles",
+                    movement_range.len()
                 );
                 for &hex_coord in movement_range {
-                    self.hex_grid
-                        .set_hex_text_overlay(hex_coord, Some(format!("DEF:{}", defense)));
-                    println!("   - Set text overlay on tile {:?}", hex_coord);
+                    // Get terrain at this position
+                    if let Some(terrain_tile) = self.game_world.get_terrain(hex_coord) {
+                        // Convert sprite type to terrain (temporary mapping until terrain is stored properly)
+                        let terrain = sprite_to_terrain(terrain_tile.sprite_type());
+                        // Calculate terrain-based defense for this unit at this position
+                        let defense = game_unit.unit().get_terrain_hit_chance(terrain);
+                        self.hex_grid
+                            .set_hex_text_overlay(hex_coord, Some(format!("DEF:{}", defense)));
+                        println!(
+                            "   - Set DEF:{} on tile {:?} ({:?})",
+                            defense, hex_coord, terrain
+                        );
+                    }
                 }
             }
         }
