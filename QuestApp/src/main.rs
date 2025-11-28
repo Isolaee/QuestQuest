@@ -49,8 +49,9 @@ use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
 use graphics::math::Vec2;
 use graphics::{
-    find_path, setup_dynamic_hexagons, EncyclopediaCategory, EncyclopediaPanel, GuideLibrary,
-    HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitAnimation, UnitDisplayInfo,
+    find_path, setup_dynamic_hexagons, AttackDisplayInfo, EncyclopediaCategory, EncyclopediaPanel,
+    GuideLibrary, HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitAnimation,
+    UnitDisplayInfo,
 };
 use main_menu::MainMenuScene;
 use raw_window_handle::HasWindowHandle;
@@ -1298,6 +1299,33 @@ impl GameApp {
             // Update UI panel with unit info
             if let Some(ui_panel) = &mut self.ui_panel {
                 let stats = unit.combat_stats();
+
+                // Get attacks from the unit
+                let attacks = unit
+                    .get_attacks()
+                    .into_iter()
+                    .map(|attack| AttackDisplayInfo {
+                        name: attack.name,
+                        damage: attack.damage,
+                        description: attack.description,
+                    })
+                    .collect();
+
+                // Get inventory from the unit
+                let inventory = unit
+                    .inventory()
+                    .iter()
+                    .map(|item| {
+                        let item_type_str = match item.item_type {
+                            units::ItemType::Weapon => "Weapon",
+                            units::ItemType::Armor => "Armor",
+                            units::ItemType::Accessory => "Accessory",
+                            units::ItemType::Consumable => "Consumable",
+                        };
+                        (item.name.clone(), item_type_str.to_string())
+                    })
+                    .collect();
+
                 let display_info = UnitDisplayInfo {
                     name: unit.name().to_string(),
                     race: format!("{:?}", unit.race()),
@@ -1312,6 +1340,8 @@ impl GameApp {
                     moves_left: game_unit.moves_left() as u32,
                     max_moves: stats.movement_speed as u32,
                     sprite_type: unit.sprite(),
+                    attacks,
+                    inventory,
                 };
                 ui_panel.set_unit_info(display_info);
             }
@@ -1543,6 +1573,32 @@ impl GameApp {
                         let stats = unit.combat_stats();
                         let position = unit.position();
 
+                        // Get attacks from the unit
+                        let attacks = unit
+                            .get_attacks()
+                            .into_iter()
+                            .map(|attack| AttackDisplayInfo {
+                                name: attack.name,
+                                damage: attack.damage,
+                                description: attack.description,
+                            })
+                            .collect();
+
+                        // Get inventory from the unit
+                        let inventory = unit
+                            .inventory()
+                            .iter()
+                            .map(|item| {
+                                let item_type_str = match item.item_type {
+                                    units::ItemType::Weapon => "Weapon",
+                                    units::ItemType::Armor => "Armor",
+                                    units::ItemType::Accessory => "Accessory",
+                                    units::ItemType::Consumable => "Consumable",
+                                };
+                                (item.name.clone(), item_type_str.to_string())
+                            })
+                            .collect();
+
                         let display_info = UnitDisplayInfo {
                             name: unit.name().to_string(),
                             race: format!("{:?}", unit.race()),
@@ -1557,6 +1613,8 @@ impl GameApp {
                             moves_left: game_unit.moves_left() as u32,
                             max_moves: stats.movement_speed as u32,
                             sprite_type: unit.sprite(),
+                            attacks,
+                            inventory,
                         };
 
                         if let Some(ui_panel) = &mut self.ui_panel {

@@ -60,6 +60,17 @@ impl Button {
     }
 }
 
+/// Information about an attack to be displayed.
+#[derive(Debug, Clone)]
+pub struct AttackDisplayInfo {
+    /// Name of the attack.
+    pub name: String,
+    /// Damage value.
+    pub damage: u32,
+    /// Description of the attack.
+    pub description: String,
+}
+
 /// Information about a unit to be displayed in the UI panel.
 ///
 /// Contains all the necessary data to render unit stats, health bars,
@@ -92,6 +103,10 @@ pub struct UnitDisplayInfo {
     pub max_moves: u32,
     /// Sprite type for visual representation of the unit.
     pub sprite_type: SpriteType,
+    /// List of available attacks.
+    pub attacks: Vec<AttackDisplayInfo>,
+    /// Inventory items (name and type).
+    pub inventory: Vec<(String, String)>,
 }
 
 /// Main UI panel that displays game information and interactive elements.
@@ -520,11 +535,16 @@ impl UiPanel {
             // Render unit sprite placeholder
             self.render_unit_sprite_placeholder(screen_width, screen_height, renderer);
 
-            // Render equipment slots placeholders
-            self.render_equipment_slots(screen_width, screen_height);
-
             // Render unit stat boxes and bars (before unbinding VAO)
             self.render_unit_boxes_and_bars(screen_width, screen_height);
+
+            // Render equipment slots only if there is an active unit
+            if self.unit_info.is_some() {
+                self.render_equipment_slots(screen_width, screen_height);
+            }
+
+            // Render attacks section (now after equipment)
+            self.render_attacks_section(screen_width, screen_height);
 
             // Render pickup prompt if active (clone to avoid borrow issues)
             if let Some(item_name) = self.pickup_prompt.clone() {
@@ -819,6 +839,114 @@ impl UiPanel {
             // (These can be added later if needed)
         }
     }
+
+    /// Renders the attacks section showing unit's available attacks.
+    ///
+    /// This method renders attack information between the HP/EXP bars and equipment slots.
+    /// Each attack is shown with its name, damage, and description.
+    ///
+    /// # Safety
+    ///
+    /// Must be called within a valid OpenGL context with VAO bound.
+    unsafe fn render_attacks_section(&mut self, screen_width: f32, screen_height: f32) {
+        if let Some(info) = &self.unit_info {
+            if info.attacks.is_empty() {
+                return;
+            }
+
+            let margin = 10.0;
+            let left_box_width = 60.0;
+            let sprite_size = self.width - left_box_width - margin * 3.0;
+
+            // Equipment layout calculations (copied from render_equipment_slots)
+            let slot_size = 60.0;
+            let small_slot_size = 50.0;
+            let spacing = 8.0;
+            let _boots_spacing = 15.0;
+            let name_box_height = 25.0;
+            let bars_height = 80.0;
+            let start_y = self.y
+                + margin
+                + sprite_size
+                + margin
+                + name_box_height
+                + 5.0
+                + bars_height
+                + margin;
+            let necklace_height = slot_size / 2.0;
+            let armor_height = slot_size * 1.5;
+            let boots_y =
+                start_y + slot_size + spacing + necklace_height + spacing + armor_height + spacing;
+            let boots_height = small_slot_size;
+
+            // Place attacks section below boots
+            let attacks_section_y = boots_y + boots_height + margin + 30.0;
+
+            // Calculate height needed for attacks
+            let attack_item_height = 45.0; // Height per attack entry
+            let attacks_height = (info.attacks.len() as f32 * attack_item_height) + 15.0;
+
+            // Render attacks container box
+            self.render_box(
+                self.x + margin,
+                attacks_section_y,
+                self.width - margin * 2.0,
+                attacks_height,
+                [0.15, 0.15, 0.2, 0.95],
+            );
+            self.render_border(
+                self.x + margin,
+                attacks_section_y,
+                self.width - margin * 2.0,
+                attacks_height,
+                [0.7, 0.7, 0.7, 1.0],
+            );
+
+            // Render "Attacks" label
+            let label_y = attacks_section_y + 5.0;
+            self.text_renderer.render_text(
+                "Attacks",
+                self.x + margin + 5.0,
+                label_y,
+                10.0,
+                [0.9, 0.9, 0.9, 1.0],
+                screen_width,
+                screen_height,
+            );
+
+            // Render each attack
+            let mut current_y = attacks_section_y + 20.0;
+            for attack in &info.attacks {
+                // Attack name and damage
+                let attack_text = format!("{} ({})", attack.name, attack.damage);
+                self.text_renderer.render_text(
+                    &attack_text,
+                    self.x + margin + 8.0,
+                    current_y,
+                    9.0,
+                    [1.0, 0.9, 0.6, 1.0], // Yellow-ish color for attack names
+                    screen_width,
+                    screen_height,
+                );
+
+                // Attack description (smaller, gray text)
+                if !attack.description.is_empty() {
+                    self.text_renderer.render_text(
+                        &attack.description,
+                        self.x + margin + 8.0,
+                        current_y + 13.0,
+                        7.5,
+                        [0.7, 0.7, 0.7, 1.0],
+                        screen_width,
+                        screen_height,
+                    );
+                }
+
+                current_y += attack_item_height;
+            }
+        }
+    }
+
     /// Renders the semi-transparent dark background for the entire UI panel.
     ///
     /// # Safety
