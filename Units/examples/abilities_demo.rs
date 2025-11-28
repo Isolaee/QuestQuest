@@ -4,7 +4,7 @@
 
 use combat::DamageType;
 use graphics::HexCoord;
-use units::{ability::*, Race, Terrain, UnitFactory};
+use units::{ability::*, Terrain, UnitFactory};
 
 fn main() {
     println!("=== Unit Abilities System Demo ===\n");

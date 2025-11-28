@@ -1,7 +1,7 @@
 //! Test for Human Knight Commander's leadership aura ability
 
 use graphics::HexCoord;
-use units::{Terrain, Unit, UnitFactory};
+use units::{Terrain, UnitFactory};
 
 #[test]
 fn test_knight_commander_has_leadership_aura() {
