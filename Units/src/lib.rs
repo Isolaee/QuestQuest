@@ -25,6 +25,7 @@ pub mod unit_macros; // Macro to reduce boilerplate
 pub mod unit_race;
 pub mod unit_registry; // Dynamic unit registry
 pub mod unit_trait;
+pub mod unit_type; // Type-safe unit identifiers
 pub mod units; // Concrete unit implementations
 
 // Re-export commonly used types
@@ -37,6 +38,7 @@ pub use unit_factory::UnitFactory;
 pub use unit_race::{Race, Terrain};
 pub use unit_registry::{UnitRegistry, UnitTypeInfo};
 pub use unit_trait::UnitId;
+pub use unit_type::UnitType;
 
 // Export the trait-based Unit interface
 pub use unit_trait::Unit;

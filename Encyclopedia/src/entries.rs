@@ -1,7 +1,7 @@
 //! Encyclopedia entry types for different content categories
 
 use combat::{DamageType, RangeCategory, Resistances};
-use units::{Race, Terrain, UnitFactory};
+use units::{Race, Terrain, UnitFactory, UnitType};
 
 /// Main encyclopedia entry type
 #[derive(Debug, Clone)]
@@ -71,9 +71,9 @@ pub struct UnitStats {
 
 #[derive(Debug, Clone)]
 pub struct EvolutionInfo {
-    pub previous_form: Option<String>,
+    pub previous_form: Option<UnitType>,
     /// Multiple possible evolution paths
-    pub next_forms: Vec<String>,
+    pub next_forms: Vec<UnitType>,
     pub evolution_level: Option<i32>,
 }
 
@@ -215,12 +215,12 @@ impl UnitEntry {
             println!("╠═══════════════════════════════════════════════════════════════════════╣");
             println!("║ EVOLUTION CHAIN                                                       ║");
             if let Some(prev) = &self.evolution.previous_form {
-                println!("║   ← Previous: {:<58} ║", prev);
+                println!("║   ← Previous: {:<58} ║", prev.as_str());
             }
             if !self.evolution.next_forms.is_empty() {
                 println!("║   → Next Options:                                                  ║");
                 for (idx, next) in self.evolution.next_forms.iter().enumerate() {
-                    println!("║      {}. {:<60} ║", idx + 1, next);
+                    println!("║      {}. {:<60} ║", idx + 1, next.as_str());
                 }
             }
         }

@@ -131,8 +131,8 @@ impl DwarfWarrior {
             "A battle-tested dwarven warrior with formidable defensive capabilities. Masters of mountain warfare, they wield axe and shield with deadly efficiency. Can evolve into elite Veteran Warriors with further experience.".to_string(),
             terrain,
             graphics::SpriteType::DwarfWarrior,
-            Some("Dwarf Young Warrior"),
-            vec!["Dwarf Veteran Warrior"],
+            Some(crate::unit_type::UnitType::DwarfYoungWarrior),
+            vec![crate::unit_type::UnitType::DwarfVeteranWarrior],
             combat_stats,
         );
 

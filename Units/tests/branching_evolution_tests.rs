@@ -19,8 +19,8 @@ fn test_human_knight_branching_evolution() {
         2,
         "Human Knight should have 2 evolution paths"
     );
-    assert!(evolutions.contains(&"Human Knight Commander".to_string()));
-    assert!(evolutions.contains(&"Human Grand Knight".to_string()));
+    assert!(evolutions.contains(&units::UnitType::HumanKnightCommander));
+    assert!(evolutions.contains(&units::UnitType::HumanGrandKnight));
 
     // Add enough XP to level up
     knight.add_experience(100);

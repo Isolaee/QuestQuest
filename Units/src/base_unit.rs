@@ -6,6 +6,7 @@
 
 use crate::attack::Attack;
 use crate::unit_race::{Race, Terrain};
+use crate::unit_type::UnitType;
 use combat::{CombatStats, DamageType};
 use graphics::{HexCoord, SpriteType};
 use items::{Equipment, Item};
@@ -92,9 +93,9 @@ pub struct BaseUnit {
     pub sprite_type: SpriteType,
 
     // Evolution chain
-    pub evolution_previous: Option<&'static str>,
+    pub evolution_previous: Option<UnitType>,
     /// Multiple possible evolution paths (empty if no evolution available)
-    pub evolution_next: Vec<&'static str>,
+    pub evolution_next: Vec<UnitType>,
 
     // Attacks (stored here so level-up methods can update them automatically)
     pub attacks: Vec<Attack>,
@@ -138,8 +139,8 @@ impl BaseUnit {
         description: String,
         terrain: Terrain,
         sprite_type: SpriteType,
-        evolution_previous: Option<&'static str>,
-        evolution_next: Vec<&'static str>,
+        evolution_previous: Option<UnitType>,
+        evolution_next: Vec<UnitType>,
         combat_stats: CombatStats,
     ) -> Self {
         let max_health = combat_stats.health;
@@ -201,8 +202,8 @@ impl BaseUnit {
         experience: i32,
         terrain: Terrain,
         sprite_type: SpriteType,
-        evolution_previous: Option<&'static str>,
-        evolution_next: Vec<&'static str>,
+        evolution_previous: Option<UnitType>,
+        evolution_next: Vec<UnitType>,
         combat_stats: CombatStats,
     ) -> Self {
         let mut base = Self::new(

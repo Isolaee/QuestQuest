@@ -119,7 +119,7 @@ impl OrcYoungSwordsman {
             terrain,
             graphics::SpriteType::OrcWarrior,
             None,
-            vec!["Orc Swordsman"],
+            vec![crate::unit_type::UnitType::OrcSwordsman],
             combat_stats,
         );
 

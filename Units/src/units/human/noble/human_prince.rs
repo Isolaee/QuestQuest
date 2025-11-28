@@ -125,8 +125,8 @@ impl HumanPrince {
             "A skilled human prince with growing leadership abilities. Human Princes are experienced combatants who excel in both offense and defense. With continued training, they will become formidable kings.".to_string(),
             terrain,
             graphics::SpriteType::Unit,
-            Some("Human Noble"),
-            vec!["Human King"],
+            Some(crate::unit_type::UnitType::HumanNoble),
+            vec![crate::unit_type::UnitType::HumanKing],
             combat_stats,
         );
 

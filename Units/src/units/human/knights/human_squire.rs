@@ -125,7 +125,7 @@ impl HumanSquire {
             terrain,
             graphics::SpriteType::Unit,
             None,
-            vec!["Human Knight"],
+            vec![crate::unit_type::UnitType::HumanKnight],
             combat_stats,
         );
 

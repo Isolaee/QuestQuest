@@ -120,7 +120,7 @@ impl DwarfYoungWarrior {
             terrain,
             graphics::SpriteType::DwarfWarrior,
             None,
-            vec!["Dwarf Warrior"],
+            vec![crate::unit_type::UnitType::DwarfWarrior],
             combat_stats,
         );
 

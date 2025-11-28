@@ -40,7 +40,8 @@ fn main() {
     if evolutions.is_empty() {
         println!("  • Can evolve to: None");
     } else {
-        println!("  • Can evolve to: {}", evolutions.join(", "));
+        let evolutions_str: Vec<String> = evolutions.iter().map(|e| format!("{:?}", e)).collect();
+        println!("  • Can evolve to: {}", evolutions_str.join(", "));
     }
 
     let young_warrior_boxed: Box<dyn Unit> = young_warrior;
@@ -110,7 +111,9 @@ fn main() {
         if evolutions.is_empty() {
             println!("  • Evolution: MAX LEVEL (incremental growth)");
         } else {
-            println!("  • Can evolve to: {}", evolutions.join(", "));
+            let evolutions_str: Vec<String> =
+                evolutions.iter().map(|e| format!("{:?}", e)).collect();
+            println!("  • Can evolve to: {}", evolutions_str.join(", "));
         }
     }
 
@@ -130,10 +133,18 @@ fn main() {
     println!("  • HP: {}", enemy2.combat_stats().health);
 
     let enemy2_boxed: Box<dyn Unit> = Box::new(enemy2);
-    let enemy2_unit = GameUnit::new_with_team(enemy2_boxed, Team::Enemy);
+    let mut enemy2_unit = GameUnit::new_with_team(enemy2_boxed, Team::Enemy);
     let enemy2_id = enemy2_unit.id();
 
     // Weaken enemy so Thorin can kill it
+    enemy2_unit.unit_mut().take_damage(110); // Reduce to 15 HP for demo
+    println!(
+        "  (Weakened to {} HP for demo)",
+        enemy2_unit.unit().combat_stats().health
+    );
+
+    world.add_unit(enemy2_unit);
+
     // Award more XP for second evolution
     // Level 3 requires 3² × 50 = 450 XP total
     // Player should now have ~200 XP, needs 250 more
@@ -142,17 +153,25 @@ fn main() {
         player.unit_mut().add_experience(246); // +246 = 446 total, killing Level 2 enemy gives 4 more = 450
     }
 
-    // Attack second enemy
+    // Attack second enemy (multiple times to defeat it)
     println!("Thorin attacks Ugluk...\n");
     if let Err(e) = world.request_combat(player_id, enemy2_id) {
         println!("Attack failed: {}", e);
     } else if let Err(e) = world.execute_pending_combat() {
         println!("Combat execution failed: {}", e);
     }
-    // Attack second enemy
-    println!("\nThorin attacks Ugluk...\n");
-    if let Err(e) = world.request_combat(player_id, enemy2_id) {
-        println!("Attack failed: {}", e);
+
+    // Check if enemy is still alive and attack again if needed
+    if world.get_unit(enemy2_id).is_some() {
+        // End turn and start new turn to allow another attack
+        world.end_current_turn();
+
+        println!("Thorin attacks Ugluk again...\n");
+        if let Err(e) = world.request_combat(player_id, enemy2_id) {
+            println!("Attack failed: {}", e);
+        } else if let Err(e) = world.execute_pending_combat() {
+            println!("Combat execution failed: {}", e);
+        }
     }
 
     // Check final state
@@ -172,11 +191,13 @@ fn main() {
         if evolutions.is_empty() {
             println!("  • Evolution: MAX LEVEL (incremental growth)");
         } else {
-            println!("  • Can evolve to: {}", evolutions.join(", "));
+            let evolutions_str: Vec<String> =
+                evolutions.iter().map(|e| format!("{:?}", e)).collect();
+            println!("  • Can evolve to: {}", evolutions_str.join(", "));
         }
     }
 
-    println!("\n╔══════════════════════════════════════════════════════════╗");
+    println!("\n╔═══════════════════════════════════════════════════════════╗");
     println!("║ Summary                                                   ║");
     println!("╠══════════════════════════════════════════════════════════╣");
     println!("║ ✓ Units automatically evolve when they level up          ║");

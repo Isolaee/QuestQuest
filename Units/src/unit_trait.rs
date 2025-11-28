@@ -6,6 +6,7 @@
 
 use crate::attack::Attack;
 use crate::unit_race::{Race, Terrain};
+use crate::unit_type::UnitType;
 use combat::CombatStats;
 use graphics::HexCoord;
 use graphics::SpriteType;
@@ -579,27 +580,27 @@ pub trait Unit {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # use units::{Unit, UnitFactory, Terrain};
+    /// # use units::{Unit, UnitFactory, Terrain, UnitType};
     /// # use graphics::HexCoord;
     /// # let warrior = UnitFactory::create("Dwarf Warrior", None, None, None).unwrap();
     /// if let Some(prev) = warrior.evolution_previous() {
     ///     println!("Evolved from: {}", prev);
     /// }
     /// ```
-    fn evolution_previous(&self) -> Option<String> {
-        self.base().evolution_previous.map(|s| s.to_string())
+    fn evolution_previous(&self) -> Option<UnitType> {
+        self.base().evolution_previous
     }
 
     /// Get the possible evolution paths for this unit
     ///
-    /// Returns a vector of unit type names that this unit can evolve into.
+    /// Returns a vector of unit types that this unit can evolve into.
     /// Returns empty vector if this is the final form in the evolution chain.
     /// The evolutions are stored in BaseUnit and set during construction.
     ///
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # use units::{Unit, UnitFactory, Terrain};
+    /// # use units::{Unit, UnitFactory, Terrain, UnitType};
     /// # use graphics::HexCoord;
     /// # let young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
     /// let evolutions = young_warrior.evolution_next();
@@ -607,12 +608,8 @@ pub trait Unit {
     ///     println!("Can evolve into: {}", evolution);
     /// }
     /// ```
-    fn evolution_next(&self) -> Vec<String> {
-        self.base()
-            .evolution_next
-            .iter()
-            .map(|s| s.to_string())
-            .collect()
+    fn evolution_next(&self) -> Vec<UnitType> {
+        self.base().evolution_next.clone()
     }
 
     /// Check if this unit has any evolution paths.
@@ -679,7 +676,7 @@ pub trait Unit {
 
         // Create the evolved unit with same name, position, and terrain
         let mut evolved = UnitFactory::create(
-            next_type,
+            next_type.as_str(),
             Some(self.name().to_string()),
             Some(self.position()),
             Some(self.current_terrain()),

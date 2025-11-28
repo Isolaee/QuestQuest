@@ -125,8 +125,8 @@ impl HumanKnight {
             "A heavily armored human knight sworn to protect the innocent. Human Knights are defensive specialists who excel at holding the line and protecting allies. With training, they will become knight commanders.".to_string(),
             terrain,
             graphics::SpriteType::Unit,
-            Some("Human Squire"),
-            vec!["Human Knight Commander", "Human Grand Knight"],
+            Some(crate::unit_type::UnitType::HumanSquire),
+            vec![crate::unit_type::UnitType::HumanKnightCommander, crate::unit_type::UnitType::HumanGrandKnight],
             combat_stats,
         );
 

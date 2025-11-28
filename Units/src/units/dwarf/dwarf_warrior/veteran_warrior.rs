@@ -134,7 +134,7 @@ impl DwarfVeteranWarrior {
             "An elite dwarven warrior who has survived countless battles. Veterans are the pinnacle of dwarven martial prowess, nearly impervious in mountain terrain. Their legendary resilience and devastating attacks make them feared opponents.".to_string(),
             terrain,
             graphics::SpriteType::DwarfWarrior,
-            Some("Dwarf Warrior"),
+            Some(crate::unit_type::UnitType::DwarfWarrior),
             vec![],
             combat_stats,
         );

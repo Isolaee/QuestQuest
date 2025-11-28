@@ -134,7 +134,7 @@ impl HumanGrandKnight {
             "A legendary grand knight of unparalleled skill. Human Grand Knights are the ultimate warriors, combining decades of combat mastery with unbreakable discipline. They inspire their allies and crush their enemies with devastating precision and overwhelming force.".to_string(),
             terrain,
             graphics::SpriteType::Unit,
-            Some("Human Knight"),
+            Some(crate::unit_type::UnitType::HumanKnight),
             vec![], // Final evolution
             combat_stats,
         );
