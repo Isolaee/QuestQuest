@@ -72,7 +72,8 @@ pub struct UnitStats {
 #[derive(Debug, Clone)]
 pub struct EvolutionInfo {
     pub previous_form: Option<String>,
-    pub next_form: Option<String>,
+    /// Multiple possible evolution paths
+    pub next_forms: Vec<String>,
     pub evolution_level: Option<i32>,
 }
 
@@ -100,10 +101,11 @@ impl UnitEntry {
             .ok_or_else(|| format!("Unit type {} not found in registry", type_name))?;
 
         // Get evolution information directly from the unit
+        let evolutions = unit.evolution_next();
         let evolution_info = EvolutionInfo {
             previous_form: unit.evolution_previous(),
-            next_form: unit.evolution_next(),
-            evolution_level: if unit.evolution_next().is_some() {
+            next_forms: evolutions.clone(),
+            evolution_level: if !evolutions.is_empty() {
                 Some(unit.level() + 1)
             } else {
                 None
@@ -209,14 +211,17 @@ impl UnitEntry {
             );
         }
 
-        if self.evolution.previous_form.is_some() || self.evolution.next_form.is_some() {
+        if self.evolution.previous_form.is_some() || !self.evolution.next_forms.is_empty() {
             println!("╠═══════════════════════════════════════════════════════════════════════╣");
             println!("║ EVOLUTION CHAIN                                                       ║");
             if let Some(prev) = &self.evolution.previous_form {
                 println!("║   ← Previous: {:<58} ║", prev);
             }
-            if let Some(next) = &self.evolution.next_form {
-                println!("║   → Next: {:<62} ║", next);
+            if !self.evolution.next_forms.is_empty() {
+                println!("║   → Next Options:                                                  ║");
+                for (idx, next) in self.evolution.next_forms.iter().enumerate() {
+                    println!("║      {}. {:<60} ║", idx + 1, next);
+                }
             }
         }
 

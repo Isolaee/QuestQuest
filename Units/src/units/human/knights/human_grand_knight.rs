@@ -30,11 +30,11 @@ pub struct HumanGrandKnight {
 impl HumanGrandKnight {
     // ===== UNIT PROPERTIES =====
 
-    /// Level 3 - Grand Knight (final evolution)
-    const LEVEL: i32 = 3;
+    /// Level 2 - Grand Knight (branching evolution from Knight)
+    const LEVEL: i32 = 2;
 
     // Evolution chain
-    const PREVIOUS_UNIT_TYPE: Option<&'static str> = Some("Human Knight Commander");
+    const PREVIOUS_UNIT_TYPE: Option<&'static str> = Some("Human Knight");
     const NEXT_UNIT_TYPE: Option<&'static str> = None; // Final evolution
 
     // Base Stats
@@ -134,8 +134,8 @@ impl HumanGrandKnight {
             "A legendary grand knight of unparalleled skill. Human Grand Knights are the ultimate warriors, combining decades of combat mastery with unbreakable discipline. They inspire their allies and crush their enemies with devastating precision and overwhelming force.".to_string(),
             terrain,
             graphics::SpriteType::Unit,
-            Some("Human Knight Commander".to_string()),
-            None, // Final evolution - no next unit
+            Some("Human Knight"),
+            vec![], // Final evolution
             combat_stats,
         );
 

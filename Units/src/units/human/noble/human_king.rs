@@ -133,8 +133,8 @@ impl HumanKing {
             "A legendary human king who has mastered the art of war. Human Kings are supreme commanders who inspire their troops and dominate the battlefield with unmatched skill and authority.".to_string(),
             terrain,
             graphics::SpriteType::Unit,
-            Some("Human Prince".to_string()),
-            None, // Final evolution - no next unit
+            Some("Human Prince"),
+            vec![], // Final evolution - no next unit
             combat_stats,
         );
 

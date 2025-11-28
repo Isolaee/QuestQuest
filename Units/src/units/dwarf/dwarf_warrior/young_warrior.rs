@@ -120,7 +120,7 @@ impl DwarfYoungWarrior {
             terrain,
             graphics::SpriteType::DwarfWarrior,
             None,
-            Some("Dwarf Warrior".to_string()),
+            vec!["Dwarf Warrior"],
             combat_stats,
         );
 

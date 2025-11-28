@@ -119,7 +119,7 @@ impl OrcYoungSwordsman {
             terrain,
             graphics::SpriteType::OrcWarrior,
             None,
-            Some("Orc Swordsman".to_string()),
+            vec!["Orc Swordsman"],
             combat_stats,
         );
 

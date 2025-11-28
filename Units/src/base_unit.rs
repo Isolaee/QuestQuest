@@ -53,7 +53,7 @@ use std::collections::HashMap;
 ///     Terrain::Grasslands,
 ///     SpriteType::Unit,
 ///     None,
-///     None,
+///     vec![],
 ///     stats,
 /// );
 /// ```
@@ -92,8 +92,9 @@ pub struct BaseUnit {
     pub sprite_type: SpriteType,
 
     // Evolution chain
-    pub evolution_previous: Option<String>,
-    pub evolution_next: Option<String>,
+    pub evolution_previous: Option<&'static str>,
+    /// Multiple possible evolution paths (empty if no evolution available)
+    pub evolution_next: Vec<&'static str>,
 
     // Attacks (stored here so level-up methods can update them automatically)
     pub attacks: Vec<Attack>,
@@ -137,8 +138,8 @@ impl BaseUnit {
         description: String,
         terrain: Terrain,
         sprite_type: SpriteType,
-        evolution_previous: Option<String>,
-        evolution_next: Option<String>,
+        evolution_previous: Option<&'static str>,
+        evolution_next: Vec<&'static str>,
         combat_stats: CombatStats,
     ) -> Self {
         let max_health = combat_stats.health;
@@ -200,8 +201,8 @@ impl BaseUnit {
         experience: i32,
         terrain: Terrain,
         sprite_type: SpriteType,
-        evolution_previous: Option<String>,
-        evolution_next: Option<String>,
+        evolution_previous: Option<&'static str>,
+        evolution_next: Vec<&'static str>,
         combat_stats: CombatStats,
     ) -> Self {
         let mut base = Self::new(
@@ -353,7 +354,7 @@ impl BaseUnit {
     /// # use graphics::HexCoord;
     /// # use units::{Race, Terrain};
     /// # let initial_stats = CombatStats::new(100, 10, 4, RangeCategory::Melee, Resistances::new(10, 10, 10, 10, 10, 10));
-    /// let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), "Test warrior".into(), Terrain::Grasslands, graphics::SpriteType::Unit, None, None, initial_stats);
+    /// let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), "Test warrior".into(), Terrain::Grasslands, graphics::SpriteType::Unit, None, vec![], initial_stats);
     /// let new_stats = CombatStats::new(150, 15, 4, RangeCategory::Melee, Resistances::new(15, 15, 15, 15, 15, 15));
     /// unit.apply_level_up_stats(new_stats, true); // Level up and heal to full
     /// ```
@@ -519,7 +520,7 @@ impl BaseUnit {
     /// #     units::Terrain::Grasslands,
     /// #     graphics::SpriteType::Unit,
     /// #     None,
-    /// #     None,
+    /// #     vec![],
     /// #     combat::CombatStats::new(100, 10, 3, combat::RangeCategory::Melee, combat::Resistances::default()),
     /// # );
     /// let sword_attack = BaseUnit::create_melee_attack(

@@ -36,10 +36,12 @@ fn main() {
     println!("  • Type: {}", young_warrior.unit_type());
     println!("  • HP: {}", young_warrior.combat_stats().max_health);
     println!("  • Attack: {}", young_warrior.combat_stats().base_attack);
-    println!(
-        "  • Can evolve to: {}",
-        young_warrior.evolution_next().unwrap_or("None".to_string())
-    );
+    let evolutions = young_warrior.evolution_next();
+    if evolutions.is_empty() {
+        println!("  • Can evolve to: None");
+    } else {
+        println!("  • Can evolve to: {}", evolutions.join(", "));
+    }
 
     let young_warrior_boxed: Box<dyn Unit> = young_warrior;
     let player_unit = GameUnit::new_with_team(young_warrior_boxed, Team::Player);
@@ -104,10 +106,11 @@ fn main() {
         );
         println!("  • Attack: {}", player.unit().combat_stats().base_attack);
         println!("  • XP: {}", player.unit().experience());
-        if let Some(next) = player.unit().evolution_next() {
-            println!("  • Can evolve to: {}", next);
-        } else {
+        let evolutions = player.unit().evolution_next();
+        if evolutions.is_empty() {
             println!("  • Evolution: MAX LEVEL (incremental growth)");
+        } else {
+            println!("  • Can evolve to: {}", evolutions.join(", "));
         }
     }
 
@@ -165,10 +168,11 @@ fn main() {
         );
         println!("  • Attack: {}", player.unit().combat_stats().base_attack);
         println!("  • XP: {}", player.unit().experience());
-        if let Some(next) = player.unit().evolution_next() {
-            println!("  • Can evolve to: {}", next);
-        } else {
+        let evolutions = player.unit().evolution_next();
+        if evolutions.is_empty() {
             println!("  • Evolution: MAX LEVEL (incremental growth)");
+        } else {
+            println!("  • Can evolve to: {}", evolutions.join(", "));
         }
     }
 

@@ -125,8 +125,8 @@ impl HumanKnightCommander {
             "An experienced knight commander who leads through example. Human Knight Commanders are battle-tested warriors who combine superior combat skills with tactical leadership. They excel at coordinating attacks and defending their allies. With continued service, they will become grand knights.".to_string(),
             terrain,
             graphics::SpriteType::Unit,
-            Some("Human Knight".to_string()),
-            Some("Human Grand Knight".to_string()),
+            Some("Human Knight"),
+            vec![],
             combat_stats,
         );
 

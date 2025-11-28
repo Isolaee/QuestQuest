@@ -1848,8 +1848,8 @@ impl GameWorld {
                 if leveled_up {
                     println!("    🎉 {} is leveling up!", attacker_name);
 
-                    // Check if unit can evolve to next form
-                    if let Some(evolved_unit) = attacker.unit().evolve(true) {
+                    // Check if unit can evolve to next form (using first evolution path)
+                    if let Some(evolved_unit) = attacker.unit().evolve(0, true) {
                         let team = attacker.team();
                         let old_type = attacker.unit().unit_type().to_string();
                         let new_type = evolved_unit.unit_type().to_string();
@@ -1907,7 +1907,7 @@ impl GameWorld {
                             println!("    🎉 {} is leveling up!", ally_name);
 
                             // Check if unit can evolve to next form
-                            if let Some(evolved_unit) = ally.unit().evolve(true) {
+                            if let Some(evolved_unit) = ally.unit().evolve(0, true) {
                                 let team = ally.team();
                                 let old_type = ally.unit().unit_type().to_string();
                                 let new_type = evolved_unit.unit_type().to_string();
@@ -1986,8 +1986,8 @@ impl GameWorld {
                 if leveled_up {
                     println!("    🎉 {} is leveling up!", defender_name);
 
-                    // Check if unit can evolve to next form
-                    if let Some(evolved_unit) = defender.unit().evolve(true) {
+                    // Check if unit can evolve to next form (using first evolution path)
+                    if let Some(evolved_unit) = defender.unit().evolve(0, true) {
                         let team = defender.team();
                         let old_type = defender.unit().unit_type().to_string();
                         let new_type = evolved_unit.unit_type().to_string();
@@ -2045,7 +2045,7 @@ impl GameWorld {
                             println!("    🎉 {} is leveling up!", ally_name);
 
                             // Check if unit can evolve to next form
-                            if let Some(evolved_unit) = ally.unit().evolve(true) {
+                            if let Some(evolved_unit) = ally.unit().evolve(0, true) {
                                 let team = ally.team();
                                 let old_type = ally.unit().unit_type().to_string();
                                 let new_type = evolved_unit.unit_type().to_string();

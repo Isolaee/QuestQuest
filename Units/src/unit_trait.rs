@@ -587,14 +587,14 @@ pub trait Unit {
     /// }
     /// ```
     fn evolution_previous(&self) -> Option<String> {
-        self.base().evolution_previous.clone()
+        self.base().evolution_previous.map(|s| s.to_string())
     }
 
-    /// Get the next unit type in the evolution chain (if any)
+    /// Get the possible evolution paths for this unit
     ///
-    /// Returns `Some(unit_type)` if this unit can evolve into another type,
-    /// `None` if this is the final form in the evolution chain.
-    /// The evolution is stored in BaseUnit and set during construction.
+    /// Returns a vector of unit type names that this unit can evolve into.
+    /// Returns empty vector if this is the final form in the evolution chain.
+    /// The evolutions are stored in BaseUnit and set during construction.
     ///
     /// # Examples
     ///
@@ -602,18 +602,23 @@ pub trait Unit {
     /// # use units::{Unit, UnitFactory, Terrain};
     /// # use graphics::HexCoord;
     /// # let young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
-    /// if let Some(next) = young_warrior.evolution_next() {
-    ///     println!("Evolves into: {}", next);
+    /// let evolutions = young_warrior.evolution_next();
+    /// for evolution in evolutions {
+    ///     println!("Can evolve into: {}", evolution);
     /// }
     /// ```
-    fn evolution_next(&self) -> Option<String> {
-        self.base().evolution_next.clone()
+    fn evolution_next(&self) -> Vec<String> {
+        self.base()
+            .evolution_next
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
     }
 
-    /// Check if this unit has a next evolution.
+    /// Check if this unit has any evolution paths.
     ///
     /// Returns `true` if the unit can evolve to a higher form, `false` if it's at max level.
-    /// This is a convenience method that checks if `evolution_next()` returns `Some`.
+    /// This is a convenience method that checks if `evolution_next()` returns a non-empty vector.
     ///
     /// # Examples
     ///
@@ -625,7 +630,7 @@ pub trait Unit {
     /// }
     /// ```
     fn has_next_evolution(&self) -> bool {
-        self.evolution_next().is_some()
+        !self.evolution_next().is_empty()
     }
 
     /// Creates an evolved version of this unit, preserving inventory and equipment.
@@ -660,19 +665,21 @@ pub trait Unit {
     /// # use units::{Unit, UnitFactory};
     /// # let mut young_warrior = UnitFactory::create("Dwarf Young Warrior", None, None, None).unwrap();
     /// young_warrior.add_experience(100);
-    /// if let Some(evolved) = young_warrior.evolve(true) {
+    /// // Choose first evolution path
+    /// if let Some(evolved) = young_warrior.evolve(0, true) {
     ///     println!("Evolved to: {}", evolved.unit_type());
     /// }
     /// ```
-    fn evolve(&self, heal_to_full: bool) -> Option<Box<dyn Unit>> {
+    fn evolve(&self, evolution_index: usize, heal_to_full: bool) -> Option<Box<dyn Unit>> {
         use crate::unit_factory::UnitFactory;
 
-        // Check if this unit can evolve
-        let next_type = self.evolution_next()?;
+        // Check if this unit can evolve and get the specific evolution path
+        let evolutions = self.evolution_next();
+        let next_type = evolutions.get(evolution_index)?;
 
         // Create the evolved unit with same name, position, and terrain
         let mut evolved = UnitFactory::create(
-            &next_type,
+            next_type,
             Some(self.name().to_string()),
             Some(self.position()),
             Some(self.current_terrain()),

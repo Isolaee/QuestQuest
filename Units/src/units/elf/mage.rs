@@ -37,7 +37,7 @@ impl ElfMage {
             terrain,
             graphics::SpriteType::Unit,
             None,
-            None,
+            vec![],
             combat_stats,
         );
 

@@ -137,8 +137,8 @@ impl OrcEliteSwordsman {
             "A battle-hardened orc warrior of exceptional prowess. Elite Swordsmen are veterans of countless conflicts, wielding their blades with deadly precision. Their ferocity in combat is matched only by their tactical cunning.".to_string(),
             terrain,
             graphics::SpriteType::OrcWarrior,
-            Some("Orc Swordsman".to_string()),
-            None,
+            Some("Orc Swordsman"),
+            vec![],
             combat_stats,
         );
 

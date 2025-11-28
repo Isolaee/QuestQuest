@@ -4,50 +4,49 @@ use crate::unit_race::{Race, Terrain};
 use combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use graphics::HexCoord;
 
-/// Level 1 Human Knight
+/// Level 1 Human Squire
 ///
-/// Human Knights are heavily armored warriors who serve as the frontline
-/// defenders of humanity. They are trained in the art of mounted combat
-/// and shield techniques, making them formidable defensive units with
-/// solid offensive capabilities.
+/// Human Squires are apprentice knights in training, learning the basics of combat and chivalry.
+/// They serve as the foundation for future Human Knights, gaining experience and skills necessary
+/// for advancement.
 ///
 /// # Evolution Chain
 /// **Previous**: None (first in chain)
-/// **Current**: Human Knight (Level 1)
-/// **Next**: Human Knight Commander (Level 2)
+/// **Current**: Human Squire (Level 1)
+/// **Next**: Human Knight (Level 2)
 ///
 /// # Stats
-/// - **HP**: 45
-/// - **Attack**: 6
+/// - **HP**: 40
+/// - **Attack**: 5
 /// - **Movement**: 3
 /// - **Range**: Melee
 /// - **XP to Next Level**: 100 (level² × 25, faster leveling for starter units)
-pub struct HumanKnight {
+pub struct HumanSquire {
     base: BaseUnit,
 }
 
-impl HumanKnight {
+impl HumanSquire {
     // ===== UNIT PROPERTIES =====
 
-    /// Level 1 - Knight (Entry level)
+    /// Level 1 - Squire (Entry level)
     const LEVEL: i32 = 1;
 
     // Evolution chain
     const PREVIOUS_UNIT_TYPE: Option<&'static str> = None; // First in chain
-    const NEXT_UNIT_TYPE: &'static str = "Human Knight Commander"; // Evolves to Knight Commander
+    const NEXT_UNIT_TYPE: &'static str = "Human Knight"; // Evolves to Knight
 
     // Base Stats
-    const BASE_HEALTH: i32 = 45;
-    const BASE_ATTACK: u32 = 6;
+    const BASE_HEALTH: i32 = 40;
+    const BASE_ATTACK: u32 = 5;
     const BASE_MOVEMENT: i32 = 3;
     const ATTACK_STRENGTH: u32 = 0;
     const ATTACKS_PER_ROUND: u32 = 1;
 
-    // Resistances - Higher physical resistances due to heavy armor
+    // Resistances - Higher physical resistances due to moderate armor
     const RESISTANCE_BLUNT: u8 = 25;
     const RESISTANCE_PIERCE: u8 = 20;
     const RESISTANCE_FIRE: u8 = 5;
-    const RESISTANCE_DARK: u8 = 15;
+    const RESISTANCE_DARK: u8 = 0;
     const RESISTANCE_SLASH: u8 = 25;
     const RESISTANCE_CRUSH: u8 = 10;
 
@@ -58,14 +57,14 @@ impl HumanKnight {
     const RACE: Race = Race::Human;
 
     // Unit type identifier
-    const UNIT_TYPE: &'static str = "Human Knight";
+    const UNIT_TYPE: &'static str = "Human Squire";
 
     // Experience
     const STARTING_EXPERIENCE: i32 = 0;
 
     // ===== XP PROGRESSION =====
 
-    /// Custom XP formula for Human Knights - faster leveling for starting units
+    /// Custom XP formula for Human Squires - faster leveling for starting units
     /// Formula: level² × 25 (half of default)
     /// - Level 1→2: 100 XP
     /// - Level 2→3: 225 XP
@@ -80,10 +79,10 @@ impl HumanKnight {
     // ===== ATTACK DEFINITIONS ======
 
     /// Heavy sword swing with full armor weight
-    fn armored_strike() -> Attack {
+    fn sword_strike() -> Attack {
         Attack::melee(
-            "Armored Strike",
-            6, // damage
+            "Sword Strike".to_string(),
+            5, // damage
             1, // attack_times
             DamageType::Slash,
         )
@@ -122,11 +121,11 @@ impl HumanKnight {
             position,
             Self::RACE,
             Self::UNIT_TYPE.to_string(),
-            "A heavily armored human knight sworn to protect the innocent. Human Knights are defensive specialists who excel at holding the line and protecting allies. With training, they will become knight commanders.".to_string(),
+            "A moderately armored human squire sworn to protect the innocent. Human Squires are defensive specialists who excel at holding the line and protecting allies. With training, they will become human knights.".to_string(),
             terrain,
             graphics::SpriteType::Unit,
-            Some("Human Squire"),
-            vec!["Human Knight Commander", "Human Grand Knight"],
+            None,
+            vec!["Human Knight"],
             combat_stats,
         );
 
@@ -135,14 +134,14 @@ impl HumanKnight {
         base.experience = Self::STARTING_EXPERIENCE;
 
         // Define available attacks for level 1
-        base.attacks = vec![Self::armored_strike()];
+        base.attacks = vec![Self::sword_strike()];
 
         Self { base }
     }
 }
 
 // Implement the Unit trait with minimal boilerplate
-impl crate::unit_trait::Unit for HumanKnight {
+impl crate::unit_trait::Unit for HumanSquire {
     fn base(&self) -> &BaseUnit {
         &self.base
     }
@@ -162,9 +161,9 @@ impl crate::unit_trait::Unit for HumanKnight {
 }
 
 crate::submit_unit!(
-    HumanKnight,
-    "Human Knight",
-    "A heavily armored human knight sworn to protect the innocent. Human Knights are defensive specialists who excel at holding the line and protecting allies. With training, they will become knight commanders.",
+    HumanSquire,
+    "Human Squire",
+    "A moderately armored human squire sworn to protect the innocent. Human Squires are defensive specialists who excel at holding the line and protecting allies. With training, they will become human knights.",
     Terrain::Grasslands,
     "Human",
     "Knight"

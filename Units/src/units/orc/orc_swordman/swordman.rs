@@ -126,8 +126,8 @@ impl OrcSwordsman {
             "A capable orc warrior with proven combat skills. Swordsmen are the backbone of orc warbands, combining raw strength with battle-tested tactics. Can evolve into Elite Swordsmen through further victories.".to_string(),
             terrain,
             graphics::SpriteType::OrcWarrior,
-            Some("Orc Young Swordsman".to_string()),
-            Some("Orc Elite Swordsman".to_string()),
+            Some("Orc Young Swordsman"),
+            vec!["Orc Elite Swordsman"],
             combat_stats,
         );
 

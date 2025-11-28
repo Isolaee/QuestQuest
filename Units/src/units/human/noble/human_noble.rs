@@ -126,7 +126,7 @@ impl HumanNoble {
             terrain,
             graphics::SpriteType::Unit,
             None,
-            Some("Human Prince".to_string()),
+            vec!["Human Prince"],
             combat_stats,
         );
 

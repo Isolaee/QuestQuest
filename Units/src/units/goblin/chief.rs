@@ -39,7 +39,7 @@ impl GoblinChief {
             terrain,
             graphics::SpriteType::Unit,
             None,
-            None,
+            vec![],
             combat_stats,
         );
 
