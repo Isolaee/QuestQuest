@@ -2,16 +2,32 @@
 
 A complete Rust-based hexagonal grid game engine with comprehensive unit management system, trait-based architecture, advanced rendering layers, and fully documented codebase.
 
-**Last Updated:** October 22, 2025  
+**Last Updated:** November 28, 2025  
 **Documentation Status:** ✅ Comprehensive Rust docs across all crates
 
 ## 🏗️ Project Structure
 
 ```
 QuestQuest/
-├── Combat/             # Combat resolution system (NEW!)
+├── AI/                 # GOAP-based AI planning system (NEW!)
+│   ├── src/
+│   │   ├── lib.rs      # AI system entry point
+│   │   ├── planner.rs  # Forward A* GOAP planner
+│   │   ├── action.rs   # Action templates and instances
+│   │   ├── executor.rs # Action execution
+│   │   ├── goals.rs    # Goal definitions
+│   │   └── world_state.rs # World state representation
+│   └── Cargo.toml
+├── Combat/             # Combat resolution system
 │   ├── src/
 │   │   ├── lib.rs      # Combat mechanics and damage calculation
+│   └── Cargo.toml
+├── Encyclopedia/       # Dynamic runtime encyclopedia system (NEW!)
+│   ├── src/
+│   │   ├── lib.rs      # Encyclopedia entry point
+│   │   ├── encyclopedia.rs # Main encyclopedia system
+│   │   ├── entries.rs  # Entry types (units, terrain, mechanics)
+│   │   └── formatters.rs # Display formatting
 │   └── Cargo.toml
 ├── Graphics/           # Rendering and hexagonal grid system
 │   ├── src/
@@ -37,30 +53,22 @@ QuestQuest/
 │   │       ├── text_renderer.rs # Text rendering system
 │   │       └── ui_panel.rs      # UI panel components
 │   └── Cargo.toml
-├── Units/              # Trait-based unit system (REFACTORED!)
+├── Units/              # Trait-based unit system with abilities
 │   ├── src/
 │   │   ├── lib.rs      # Unit system library entry
-│   │   ├── combat/     # Combat subsystem
-│   │   │   ├── mod.rs
-│   │   │   └── stats.rs      # Combat statistics
-│   │   ├── items/      # Item subsystem
-│   │   │   ├── mod.rs
-│   │   │   ├── consumable.rs # Consumable items
-│   │   │   ├── equipment.rs  # Equipment system
-│   │   │   └── item.rs       # Base item implementation
-│   │   ├── traits/     # Core trait definitions
-│   │   │   ├── mod.rs
-│   │   │   ├── base_unit.rs  # Base unit data structure
-│   │   │   ├── factory.rs    # Unit factory pattern
-│   │   │   └── unit_trait.rs # Main Unit trait
-│   │   ├── units/      # Concrete unit implementations
-│   │   │   ├── mod.rs
-│   │   │   ├── dwarf/        # Dwarf race units
-│   │   │   ├── elf/          # Elf race units
-│   │   │   ├── human/        # Human race units
-│   │   │   └── orc/          # Orc race units
-│   │   ├── unit_class.rs # Character classes
-│   │   └── unit_race.rs  # Character races
+│   │   ├── ability.rs  # Comprehensive ability system (NEW!)
+│   │   ├── attack.rs   # Attack mechanics
+│   │   ├── base_unit.rs # Base unit data structure
+│   │   ├── team.rs     # Team affiliation system
+│   │   ├── unit_factory.rs # Unit creation factory
+│   │   ├── unit_race.rs  # Race definitions and bonuses
+│   │   ├── unit_registry.rs # Unit type registry
+│   │   ├── unit_trait.rs # Main Unit trait
+│   │   └── unit_type.rs  # Unit type enumeration
+│   ├── docs/           # Comprehensive documentation
+│   │   ├── ABILITIES.md       # Full ability system guide
+│   │   ├── ABILITIES_QUICK_REF.md # Quick reference
+│   │   └── ARCHITECTURE.md    # Units crate architecture
 │   ├── tests/          # Comprehensive test suite
 │   │   └── new_system_tests.rs # Tests for trait-based system
 │   └── Cargo.toml
@@ -98,16 +106,22 @@ QuestQuest/
 ### Units Crate (Trait-Based System)
 - **Trait-Based Architecture**: Polymorphic unit system with Unit trait
 - **Factory Pattern**: UnitFactory for creating units by race and class
-- **12 Concrete Unit Types**: 
+- **Comprehensive Ability System**: (NEW!)
+  - **Passive Abilities**: Automatic effects (Always, OnTakeDamage, BelowHealth, etc.)
+  - **Active Abilities**: Player-activated powers with cooldowns and targeting
+  - **Aura Abilities**: Area effects that buff allies or debuff enemies
+  - **Flexible Effects**: Attack/defense bonuses, healing, damage, resistances, movement
+- **Multiple Unit Types**: 
   - Humans: Warrior, Archer, Mage, Paladin
   - Elves: Warrior, Archer, Mage, Paladin
   - Dwarves: Warrior, Archer, Mage, Paladin
-  - Orcs: Warrior, Archer, Mage, Paladin (planned)
+  - Orcs: Warrior, Archer, Mage, Paladin
 - **Combat System**: Separated combat crate with damage types and resistances
 - **Equipment System**: Weapons, armor, and accessories with stat bonuses
 - **Item Management**: Inventory system with consumables and equipment
 - **Character Progression**: Experience-based leveling with stat increases
 - **Race & Class System**: Multiple races and classes with unique bonuses
+- **Team System**: Unit affiliation and team-based mechanics
 
 ### Combat Crate
 - **Damage Types**: Slash, Pierce, Blunt, Crush, Fire, Dark
@@ -115,6 +129,22 @@ QuestQuest/
 - **Combat Resolution**: `resolve_combat()` function for battles
 - **Terrain Bonuses**: Terrain-based hit chance modifiers
 - **Range System**: Melee, Range, and Siege categories
+
+### AI Crate (NEW!)
+- **GOAP Planning**: Goal-Oriented Action Planning system
+- **Forward A* Planner**: Efficient pathfinding through action space
+- **Action Templates**: Reusable action definitions
+- **World State**: Fact-based state representation
+- **Team Planning**: Multi-unit coordination support
+- **Action Execution**: Runtime action execution system
+
+### Encyclopedia Crate (NEW!)
+- **Dynamic Generation**: Runtime-generated game encyclopedia
+- **Unit Entries**: Comprehensive unit information and stats
+- **Terrain Guide**: Terrain types and movement effects
+- **Mechanics Reference**: Combat, experience, equipment documentation
+- **Search & Filter**: Find entries by category, race, or keywords
+- **Formatted Display**: Clean, readable console output
 
 ### Game Crate
 - **World Management**: Game world state with unit tracking
@@ -135,31 +165,59 @@ QuestQuest/
 - ✅ **Multi-Layer Rendering**: Terrain (z=0.0), Units (z=-0.5), Items (z=-0.6)
 - ✅ **Smart Item Positioning**: Items shift to corner when unit occupies same hex
 - ✅ **Trait Polymorphism**: Units as `Box<dyn Unit>` for flexible gameplay
+- ✅ **Ability System**: Passive, Active, and Aura abilities with flexible effects
 - ✅ **Equipment Bonuses**: Weapons and armor modify unit stats
 - ✅ **Damage Type System**: 6 damage types with resistance calculations
 - ✅ **Range Modifiers**: Equipment can extend attack range
+- ✅ **GOAP AI**: Goal-oriented planning for intelligent unit behavior
+- ✅ **Dynamic Encyclopedia**: Runtime-generated comprehensive game documentation
 - ✅ **Serialization**: Full serde support for save/load functionality
-- ✅ **Comprehensive Tests**: 12+ unit tests covering all functionality
+- ✅ **Comprehensive Tests**: 170+ tests across all crates (100% passing)
 - ✅ **Type Safety**: Strong typing throughout with custom types
 - ✅ **Factory Pattern**: Flexible unit creation with UnitFactory
 
 ## 🧪 Test Coverage
 
-**Units Crate Tests: 12 tests, 100% passing** (New trait-based system)
-- **Unit Creation**: Factory pattern validation
-- **Combat Stats**: Attack, defense, and resistance calculations
-- **Experience & Leveling**: XP gain and level progression
-- **Equipment System**: Stat bonuses from items
-- **Combat Resolution**: New combat system with damage types
-- **Damage Types**: Per-class damage type assignments
-- **Resistances**: Per-class resistance calculations
-- **Terrain Effects**: Hit chance modifiers by terrain
-- **Movement**: Position and movement range
-- **Range Categories**: Melee, Range, and Siege classifications
-- **Health Management**: Damage and healing
-- **Inventory**: Item management and equipment slots
+**Total: 170+ tests across all crates, 100% passing**
 
-**Graphics Crate Tests**: Coordinate conversion and rendering validation
+**Units Crate: 79+ tests**
+- Unit creation and factory patterns
+- Ability system (passive, active, aura)
+- Combat stats and calculations
+- Experience and leveling
+- Equipment and inventory
+- Team affiliation
+- Movement and positioning
+- Damage types and resistances
+
+**AI Crate: 9 tests**
+- GOAP planning algorithms
+- Action templates and instances
+- World state management
+- Goal achievement
+
+**Encyclopedia Crate: 7 tests**
+- Entry generation
+- Search and filtering
+- Display formatting
+
+**Combat Crate: Tests**
+- Combat resolution
+- Damage calculations
+- Resistance modifiers
+
+**Graphics Crate: Tests**
+- Coordinate conversion
+- Rendering validation
+
+**Game Crate: Tests**
+- World management
+- Object interactions
+
+**QuestApp: Tests**
+- Game state management
+- Scene transitions
+- User interactions
 
 **All Tests**: `cargo test --workspace` - ✅ 100% passing
 
@@ -228,6 +286,42 @@ Each crate includes:
 
 ### Documentation Coverage by Crate
 
+#### **AI Crate** (`ai`)
+Goal-Oriented Action Planning system for intelligent unit behavior.
+
+**Key Documentation:**
+- `WorldState`: Fact-based world state representation
+- `ActionTemplate`: Reusable action definitions
+- `ActionInstance`: Grounded actions with specific parameters
+- `plan()`: Forward A* GOAP planner
+- `ActionExecutor`: Runtime action execution
+- `Goal`: Goal definitions and achievement conditions
+
+**Core Concepts:**
+- GOAP (Goal-Oriented Action Planning)
+- Forward state-space search
+- Action preconditions and effects
+- Cost-based planning
+- Team coordination
+
+#### **Encyclopedia Crate** (`encyclopedia`)
+Dynamic runtime-generated game encyclopedia.
+
+**Key Documentation:**
+- `Encyclopedia`: Main encyclopedia system
+- `UnitEntry`: Unit statistics and capabilities
+- `TerrainEntry`: Terrain types and effects
+- `MechanicEntry`: Game mechanics documentation
+- Search and filtering system
+- Display formatters
+
+**Core Concepts:**
+- Runtime content generation
+- Automatic unit discovery
+- Comprehensive game documentation
+- Search and navigation
+- Formatted console output
+
 #### **Game Crate** (`game`)
 Manages the game world and all entities within it.
 
@@ -267,23 +361,32 @@ Turn-based combat system with damage types and resistance.
 - Hit chance rolls with terrain modifiers
 
 #### **Units Crate** (`units`)
-Trait-based polymorphic unit system.
+Trait-based polymorphic unit system with comprehensive ability support.
 
 **Key Documentation:**
 - `Unit` trait: Core unit interface
 - `BaseUnit`: Shared unit data structure
 - `UnitFactory`: Factory pattern for unit creation
-- Race-specific implementations (Human, Elf, Dwarf, Orc)
-- Class-specific implementations (Warrior, Archer, Mage, Paladin)
+- `Ability` system: Passive, Active, and Aura abilities
+- `UnitRegistry`: Centralized unit type management
+- `Team`: Unit affiliation system
+- Race implementations (Human, Elf, Dwarf, Orc)
 - Equipment and inventory systems
 - Experience and leveling mechanics
 
 **Core Concepts:**
 - Trait-based polymorphism
+- Three-tier ability system (Passive/Active/Aura)
 - Race and class combinations
 - Equipment stat bonuses
 - Dynamic unit creation
 - Combat stat calculations
+- Team-based mechanics
+
+**Additional Documentation:**
+- `docs/ABILITIES.md`: Complete ability system guide
+- `docs/ABILITIES_QUICK_REF.md`: Quick reference
+- `docs/ARCHITECTURE.md`: Crate architecture
 
 #### **Items Crate** (`items`)
 Equipment and consumable item system.
@@ -366,8 +469,13 @@ target/doc/
 # Main interactive game application (recommended!)
 cargo run -p questapp
 
-# Text-based game mechanics demo
-cargo run --bin example
+# Encyclopedia demo - Browse all units, terrain, and mechanics
+cd Encyclopedia
+cargo run --example encyclopedia_demo
+
+# AI planning demo - See GOAP in action
+cd AI
+cargo run --example [example_name]
 
 # Graphics rendering demo (standalone)
 cd Graphics
@@ -713,13 +821,15 @@ impl GameUnit {
 - **Item System**: items crate for equipment and consumables
 
 ### Workspace Crates
-1. **graphics** - Rendering engine
-2. **units** - Trait-based unit system
-3. **combat** - Combat resolution
-4. **game** - World management
-5. **items** - Item and equipment system
-6. **questapp** - Main application
-7. **questquest** (root) - Workspace examples
+1. **ai** - GOAP-based AI planning system
+2. **encyclopedia** - Dynamic runtime encyclopedia
+3. **graphics** - Rendering engine
+4. **units** - Trait-based unit system with abilities
+5. **combat** - Combat resolution
+6. **game** - World management
+7. **items** - Item and equipment system
+8. **questapp** - Main application
+9. **questquest** (root) - Workspace examples
 
 ## �️ Development Setup
 
@@ -771,17 +881,17 @@ To bypass hooks (not recommended): `git commit --no-verify`
 
 ## 📈 Future Expansion Ideas
 
-- **Pathfinding**: A* algorithm for hexagonal grids
-- **More Units**: Complete Orc race implementation
-- **Status Effects**: Buffs, debuffs, and conditions
+- **Pathfinding**: A* algorithm for hexagonal grids (foundation in AI crate)
+- **AI Integration**: Connect GOAP planner to Game crate for NPC behavior
+- **Status Effects**: Extend ability system with timed buffs/debuffs
 - **More Damage Types**: Expand beyond 6 current types
 - **Save/Load**: Game state persistence (serde already integrated)
-- **AI**: Fine tune computer-controlled unit behavior
+- **Encyclopedia UI**: In-game encyclopedia browser
 - **Advanced Graphics**: Textures for all units, animations, effects
 - **Audio**: Sound effects and music integration
 - **Enhanced UI**: Better unit info display, minimap, tooltips
 - **Map Editor**: Tool for creating custom maps
-- **Campaign Mode**: Story-driven single-player experience
+- **Campaign Mode**: Story-driven single-player experience with GOAP AI
 
 ## 📚 Documentation
 
@@ -792,6 +902,15 @@ To bypass hooks (not recommended): `git commit --no-verify`
 - **README.md** (this file) - Project overview and usage
 
 ## 🎉 Recent Updates
+
+### November 28, 2025 - AI & Encyclopedia Systems
+- ✅ **AI Crate**: GOAP-based planning system with forward A* search
+- ✅ **Encyclopedia Crate**: Dynamic runtime documentation system
+- ✅ **Ability System**: Comprehensive passive, active, and aura abilities
+- ✅ **Unit Registry**: Centralized unit type management
+- ✅ **Team System**: Unit affiliation and team-based mechanics
+- ✅ **Enhanced Documentation**: Units crate docs with ability guides
+- ✅ **Test Suite Expansion**: 170+ tests across all crates
 
 ### October 22, 2025 - Comprehensive Documentation
 - ✅ **Full Rust Doc Coverage**: All public APIs documented
@@ -804,10 +923,11 @@ To bypass hooks (not recommended): `git commit --no-verify`
 - ✅ **README Update**: Expanded with documentation overview and patterns
 
 **Documentation Statistics:**
-- 📖 5 fully documented crates (Game, Combat, Units, Items, Graphics)
-- 💡 100+ documented public types and functions
-- 🔧 50+ documented methods with examples
+- 📖 8 fully documented crates (AI, Encyclopedia, Game, Combat, Units, Items, Graphics, QuestApp)
+- 💡 200+ documented public types and functions
+- 🔧 100+ documented methods with examples
 - 📝 Module-level documentation in all crates
+- 📄 Extended markdown documentation (ABILITIES.md, ARCHITECTURE.md)
 - ✅ Doc tests integrated with test suite
 
 ### October 19, 2025 - Item Rendering System
@@ -830,23 +950,26 @@ To bypass hooks (not recommended): `git commit --no-verify`
 **Maturity Level:** Production-Ready Architecture
 
 ✅ **Complete:**
-- Modular workspace architecture
-- Trait-based unit system
+- Modular workspace architecture (9 crates)
+- Trait-based unit system with abilities
+- GOAP AI planning system
+- Dynamic encyclopedia system
 - Combat resolution system
 - Multi-layer rendering
 - Hexagonal coordinate math
 - Camera and view culling
 - Equipment and inventory
 - **Comprehensive documentation**
-- Test coverage (31+ tests)
+- Test coverage (170+ tests)
 
 🚧 **In Progress / Planned:**
-- AI opponent behavior
-- Pathfinding algorithms
-- Additional unit types
+- AI-Game integration
+- Encyclopedia UI integration
+- Pathfinding with AI planner
 - Save/load system
 - Enhanced UI components
 - Sound and music
+- Advanced ability effects
 
 This project demonstrates a solid foundation for a hex-based strategy game with:
 - ✅ Clean modular architecture
