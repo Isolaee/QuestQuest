@@ -33,8 +33,7 @@ pub use core::{
 pub use math::Vec2;
 pub use movement_animation::{find_path, UnitAnimation};
 pub use rendering::{
-    setup_dynamic_hexagons, AttackOption, CombatConfirmation, EncyclopediaBuilder,
-    EncyclopediaEntry, EncyclopediaLibrary, MenuAction, Renderer,
+    setup_dynamic_hexagons, AttackOption, CombatConfirmation, MenuAction, Renderer,
 };
 pub use ui::{
     AttackDisplayInfo, EncyclopediaCategory, EncyclopediaPanel, UiPanel, UnitDisplayInfo,

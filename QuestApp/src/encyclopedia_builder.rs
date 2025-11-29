@@ -1,12 +1,6 @@
-// EncyclopediaEntry: unified for all encyclopedia/guide data
-pub struct EncyclopediaEntry {
-    pub title: String,
-    pub description: Vec<String>,
-    pub stats: Vec<(String, String)>,
-    pub tips: Vec<String>,
-}
+// === Encyclopedia Content Helpers (moved from main.rs) ===
+use encyclopedia::{Encyclopedia, EncyclopediaEntry, MechanicEntry};
 
-/// Builder for creating encyclopedia entries with convenience methods
 pub struct EncyclopediaBuilder {
     title: String,
     description: Vec<String>,
@@ -23,37 +17,46 @@ impl EncyclopediaBuilder {
             tips: Vec::new(),
         }
     }
-
     pub fn description(mut self, line: impl Into<String>) -> Self {
         self.description.push(line.into());
         self
     }
-
     pub fn stat(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.stats.push((key.into(), value.into()));
         self
     }
-
     pub fn tip(mut self, tip: impl Into<String>) -> Self {
         self.tips.push(tip.into());
         self
     }
-
     pub fn build(self) -> EncyclopediaEntry {
-        EncyclopediaEntry {
-            title: self.title,
-            description: self.description,
-            stats: self.stats,
-            tips: self.tips,
+        // Compose description and details for MechanicEntry
+        let mut details = Vec::new();
+        if !self.stats.is_empty() {
+            details.push("Stats:".to_string());
+            for (k, v) in &self.stats {
+                details.push(format!("  • {}: {}", k, v));
+            }
         }
+        if !self.tips.is_empty() {
+            details.push("Tips:".to_string());
+            for tip in &self.tips {
+                details.push(format!("  • {}", tip));
+            }
+        }
+        EncyclopediaEntry::Mechanic(MechanicEntry {
+            title: self.title,
+            category: "Guide".to_string(),
+            description: self.description.join("\n"),
+            details,
+            examples: Vec::new(),
+        })
     }
 }
 
-/// Pre-built encyclopedia entries for common game elements
 pub struct EncyclopediaLibrary;
 
 impl EncyclopediaLibrary {
-    /// Encyclopedia entry for the combat system
     pub fn combat_system() -> EncyclopediaEntry {
         EncyclopediaBuilder::new("Combat System")
             .description("QuestQuest uses a tactical turn-based combat system.")
@@ -73,8 +76,6 @@ impl EncyclopediaLibrary {
             .tip("Equipment can modify your attack range and damage type")
             .build()
     }
-
-    /// Encyclopedia entry for movement mechanics
     pub fn movement_system() -> EncyclopediaEntry {
         EncyclopediaBuilder::new("Movement System")
             .description("Units move across a hexagonal grid.")
@@ -91,8 +92,6 @@ impl EncyclopediaLibrary {
             .tip("Positioning is key in tactical combat")
             .build()
     }
-
-    /// Encyclopedia entry for character classes
     pub fn character_classes() -> EncyclopediaEntry {
         EncyclopediaBuilder::new("Character Classes")
             .description("Each unit belongs to one of four main classes:")
@@ -121,8 +120,6 @@ impl EncyclopediaLibrary {
             .tip("Mix different classes for tactical advantage")
             .build()
     }
-
-    /// Encyclopedia entry for character races
     pub fn character_races() -> EncyclopediaEntry {
         EncyclopediaBuilder::new("Character Races")
             .description("Four playable races, each with unique traits:")
@@ -147,8 +144,6 @@ impl EncyclopediaLibrary {
             .tip("Terrain bonuses are significant")
             .build()
     }
-
-    /// Encyclopedia entry for the equipment system
     pub fn equipment_system() -> EncyclopediaEntry {
         EncyclopediaBuilder::new("Equipment System")
             .description("Units can equip weapons, armor, and accessories.")
@@ -165,8 +160,6 @@ impl EncyclopediaLibrary {
             .tip("Legendary items provide unique abilities")
             .build()
     }
-
-    /// Encyclopedia entry for terrain types
     pub fn terrain_types() -> EncyclopediaEntry {
         EncyclopediaBuilder::new("Terrain Types")
             .description("Different terrains affect combat and movement:")
@@ -183,8 +176,6 @@ impl EncyclopediaLibrary {
             .tip("Some races excel in specific terrains")
             .build()
     }
-
-    /// Get an encyclopedia entry for a specific unit class
     pub fn unit_class_entry(class_name: &str) -> EncyclopediaEntry {
         match class_name.to_lowercase().as_str() {
             "warrior" => EncyclopediaBuilder::new("Warrior")
@@ -240,4 +231,142 @@ impl EncyclopediaLibrary {
                 .build(),
         }
     }
+}
+
+pub fn format_entry(entry: &EncyclopediaEntry) -> Vec<String> {
+    let mut lines = Vec::new();
+    match entry {
+        EncyclopediaEntry::Mechanic(mech) => {
+            lines.push(format!("╔════════ {} ════════╗", mech.title));
+            lines.push("".to_string());
+            for desc in mech.description.split('\n') {
+                lines.push(desc.to_string());
+            }
+            if !mech.details.is_empty() {
+                lines.push("".to_string());
+                for d in &mech.details {
+                    lines.push(d.clone());
+                }
+            }
+            lines.push("".to_string());
+            lines.push(
+                "╚═══════════════════════════════════════════════════════════════════════╝"
+                    .to_string(),
+            );
+            lines.push("".to_string());
+        }
+        _ => {
+            lines.push("[Non-guide entry formatting not implemented]".to_string());
+        }
+    }
+    lines
+}
+
+pub fn get_units_content_comprehensive(encyclopedia: &Encyclopedia) -> Vec<String> {
+    let mut lines = vec![
+        "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+        "║                        📖 UNIT ENCYCLOPEDIA                            ║".to_string(),
+        "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+        "".to_string(),
+    ];
+    lines.extend(format_entry(&EncyclopediaLibrary::character_classes()));
+    lines.extend(format_entry(&EncyclopediaLibrary::character_races()));
+    for class in ["Warrior", "Archer", "Mage", "Paladin"] {
+        lines.extend(format_entry(&EncyclopediaLibrary::unit_class_entry(class)));
+    }
+    lines.push(
+        "════════════════════════════════════════════════════════════════════════".to_string(),
+    );
+    lines.push("ALL REGISTERED UNITS:".to_string());
+    for unit in encyclopedia.all_units() {
+        lines.push(format!("• {} [{} - {}]", unit.name, unit.race, unit.class));
+        lines.push(format!("  {}", unit.description));
+        lines.push(format!(
+            "  Stats: HP {}/{} | ATK {} | DEF {} | MOV {} | Range {:?}",
+            unit.stats.health,
+            unit.stats.max_health,
+            unit.stats.attack_strength,
+            unit.stats.defense,
+            unit.stats.movement_speed,
+            unit.stats.range_category
+        ));
+        if !unit.attacks.is_empty() {
+            lines.push("  Attacks:".to_string());
+            for atk in &unit.attacks {
+                lines.push(format!(
+                    "    - {} ({} dmg, {} range, {:?})",
+                    atk.name, atk.damage, atk.range, atk.damage_type
+                ));
+            }
+        }
+        if unit.evolution.previous_form.is_some() || !unit.evolution.next_forms.is_empty() {
+            lines.push("  Evolution:".to_string());
+            if let Some(prev) = &unit.evolution.previous_form {
+                lines.push(format!("    ← Previous: {}", prev.as_str()));
+            }
+            for next in &unit.evolution.next_forms {
+                lines.push(format!("    → Next: {}", next.as_str()));
+            }
+        }
+        lines.push("".to_string());
+    }
+    lines
+}
+
+pub fn get_terrain_content_comprehensive(encyclopedia: &Encyclopedia) -> Vec<String> {
+    let mut lines = vec![
+        "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+        "║                       🗺️  TERRAIN GUIDE                                ║".to_string(),
+        "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+        "".to_string(),
+    ];
+    lines.extend(format_entry(&EncyclopediaLibrary::terrain_types()));
+    lines.push(
+        "════════════════════════════════════════════════════════════════════════".to_string(),
+    );
+    lines.push("ALL REGISTERED TERRAINS:".to_string());
+    for terrain in encyclopedia.all_terrain() {
+        lines.push(format!(
+            "• {} (Cost: {})",
+            terrain.terrain_type.name(),
+            terrain.movement_cost
+        ));
+        lines.push(format!("  {}", terrain.description));
+        lines.push("".to_string());
+    }
+    lines
+}
+
+pub fn get_mechanics_content_comprehensive(encyclopedia: &Encyclopedia) -> Vec<String> {
+    let mut lines = vec![
+        "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+        "║                      ⚙️  GAME MECHANICS                                ║".to_string(),
+        "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+        "".to_string(),
+    ];
+    lines.extend(format_entry(&EncyclopediaLibrary::combat_system()));
+    lines.extend(format_entry(&EncyclopediaLibrary::movement_system()));
+    lines.extend(format_entry(&EncyclopediaLibrary::equipment_system()));
+    lines.push(
+        "════════════════════════════════════════════════════════════════════════".to_string(),
+    );
+    lines.push("ALL REGISTERED MECHANICS:".to_string());
+    for mech in encyclopedia.all_mechanics() {
+        lines.push(format!("• {} [{}]", mech.title, mech.category));
+        lines.push(format!("  {}", mech.description));
+        if !mech.details.is_empty() {
+            lines.push("  Details:".to_string());
+            for d in &mech.details {
+                lines.push(format!("    - {}", d));
+            }
+        }
+        if !mech.examples.is_empty() {
+            lines.push("  Examples:".to_string());
+            for ex in &mech.examples {
+                lines.push(format!("    - {}", ex));
+            }
+        }
+        lines.push("".to_string());
+    }
+    lines
 }

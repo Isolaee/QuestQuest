@@ -176,14 +176,15 @@ impl EncyclopediaPanel {
     /// Render the encyclopedia panel
     pub fn render(&mut self, screen_width: f32, screen_height: f32) {
         unsafe {
-            // Enable blending for transparency
+            // Enable blending for transparency (for panel, borders, etc.)
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
-            // Render semi-transparent background overlay
-            self.render_background_overlay(screen_width, screen_height);
+            // Draw a fullscreen opaque brown background
+            gl::ClearColor(0.32, 0.22, 0.13, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
 
-            // Render panel background (light brown - opaque)
+            // Render panel background (light brown - fully opaque, non-transparent)
             self.render_box(
                 self.x,
                 self.y,
@@ -198,7 +199,7 @@ impl EncyclopediaPanel {
                 self.y,
                 self.width,
                 self.height,
-                [0.4, 0.3, 0.2, 1.0],
+                [0.25, 0.18, 0.10, 1.0],
             );
 
             // Unbind VAO before text rendering
@@ -214,83 +215,6 @@ impl EncyclopediaPanel {
             self.render_scroll_indicator(screen_width, screen_height);
 
             gl::Disable(gl::BLEND);
-        }
-    }
-
-    /// Render a fully opaque overlay over the entire screen
-    unsafe fn render_background_overlay(&self, screen_width: f32, screen_height: f32) {
-        // Solid dark brown background to completely block game
-        self.render_box(
-            0.0,
-            0.0,
-            screen_width,
-            screen_height,
-            [0.20, 0.16, 0.12, 1.0],
-        );
-    }
-
-    /// Render the title bar with category tabs
-    unsafe fn render_title_bar(&mut self, screen_width: f32, screen_height: f32) {
-        let title_height = 40.0;
-        let margin = 10.0;
-
-        // Title bar background (medium brown, opaque)
-        self.render_box(
-            self.x,
-            self.y,
-            self.width,
-            title_height,
-            [0.40, 0.33, 0.26, 1.0],
-        );
-
-        // Title bar bottom accent line (decorative book line - golden brown)
-        self.render_box(
-            self.x,
-            self.y + title_height - 2.0,
-            self.width,
-            2.0,
-            [0.5, 0.4, 0.25, 1.0],
-        );
-
-        // Title text (white)
-        let title = "📚 QUESTQUEST ENCYCLOPEDIA";
-        self.text_renderer.render_text(
-            title,
-            self.x + margin,
-            self.y + 12.0,
-            TITLE_TEXT_SIZE,
-            [1.0, 1.0, 1.0, 1.0],
-            screen_width,
-            screen_height,
-        );
-
-        // Category tabs (dynamically numbered 1..n)
-        let tab_y = self.y + title_height + 5.0;
-        let categories = [
-            ("Units", EncyclopediaCategory::Units),
-            ("Terrain", EncyclopediaCategory::Terrain),
-            ("Mechanics", EncyclopediaCategory::Mechanics),
-        ];
-
-        let mut tab_x = self.x + margin;
-        for (i, (label, category)) in categories.iter().enumerate() {
-            let is_active = *category == self.current_category;
-            let color = if is_active {
-                [1.0, 1.0, 1.0, 1.0] // Active tab: pure white
-            } else {
-                [0.8, 0.8, 0.8, 1.0] // Inactive tab: light gray
-            };
-            let tab_label = format!("{}: {}", i + 1, label);
-            self.text_renderer.render_text(
-                &tab_label,
-                tab_x,
-                tab_y,
-                TEXT_SIZE,
-                color,
-                screen_width,
-                screen_height,
-            );
-            tab_x += 120.0;
         }
     }
 
@@ -398,7 +322,7 @@ impl EncyclopediaPanel {
         let screen_size_loc = gl::GetUniformLocation(self.shader_program, c"screenSize".as_ptr());
         let color_loc = gl::GetUniformLocation(self.shader_program, c"color".as_ptr());
 
-        gl::Uniform2f(screen_size_loc, 1920.0, 1080.0);
+        gl::Uniform2f(screen_size_loc, self.width, self.height);
         gl::Uniform4f(color_loc, color[0], color[1], color[2], color[3]);
 
         let vertices: [f32; 12] = [
@@ -450,6 +374,47 @@ impl EncyclopediaPanel {
         self.render_box(x, y, border_width, height, color);
         // Right
         self.render_box(x + width - border_width, y, border_width, height, color);
+    }
+
+    /// Render the title bar of the encyclopedia panel
+    unsafe fn render_title_bar(&mut self, screen_width: f32, screen_height: f32) {
+        let title_bar_height = 45.0;
+        let title_y = self.y;
+
+        // Render title bar background (darker brown)
+        self.render_box(
+            self.x,
+            title_y,
+            self.width,
+            title_bar_height,
+            [0.38, 0.28, 0.16, 1.0],
+        );
+
+        // Render bottom accent line (golden brown)
+        self.render_box(
+            self.x,
+            title_y + title_bar_height - 2.0,
+            self.width,
+            2.0,
+            [0.5, 0.4, 0.25, 1.0],
+        );
+
+        // Render category title text
+        let title = match self.current_category {
+            EncyclopediaCategory::Units => "Units Encyclopedia",
+            EncyclopediaCategory::Terrain => "Terrain Encyclopedia",
+            EncyclopediaCategory::Mechanics => "Game Mechanics Encyclopedia",
+        };
+
+        self.text_renderer.render_text(
+            title,
+            self.x + 20.0,
+            title_y + 13.0,
+            TITLE_TEXT_SIZE,
+            [1.0, 1.0, 1.0, 1.0],
+            screen_width,
+            screen_height,
+        );
     }
 }
 

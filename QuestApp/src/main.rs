@@ -32,6 +32,7 @@
 //! The application uses the winit event loop with glutin for OpenGL context management.
 //! The main [`GameApp`] structure manages the game state, rendering, and event handling.
 
+mod encyclopedia_builder;
 mod game_scene;
 mod main_menu;
 mod scene_manager;
@@ -39,6 +40,7 @@ mod scene_manager;
 // Import the new game scene state management
 use game_scene::{GameSceneState, GameState};
 
+use crate::encyclopedia_builder::EncyclopediaLibrary;
 use encyclopedia::Encyclopedia;
 use game::*;
 use glutin::context::ContextAttributesBuilder;
@@ -49,10 +51,10 @@ use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
 use graphics::math::Vec2;
 use graphics::{
-    find_path, setup_dynamic_hexagons, AttackDisplayInfo, EncyclopediaCategory, EncyclopediaEntry,
-    EncyclopediaLibrary, EncyclopediaPanel, HexCoord, HexGrid, HighlightType, Renderer, UiPanel,
-    UnitAnimation, UnitDisplayInfo,
+    find_path, setup_dynamic_hexagons, AttackDisplayInfo, EncyclopediaCategory, EncyclopediaPanel,
+    HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitAnimation, UnitDisplayInfo,
 };
+
 use main_menu::MainMenuScene;
 use raw_window_handle::HasWindowHandle;
 use scene_manager::{Scene, SceneManager, SceneType};
@@ -562,15 +564,21 @@ impl GameApp {
                         let entry = EncyclopediaLibrary::unit_class_entry(&class_name);
                         self.set_encyclopedia_visible(true);
                         if let Some(panel) = &mut self.encyclopedia_panel {
-                            let mut lines = vec![format!("# {}", entry.title)];
-                            lines.extend(entry.description);
-                            for (k, v) in entry.stats {
-                                lines.push(format!("{}: {}", k, v));
+                            if let encyclopedia::EncyclopediaEntry::Mechanic(mech) = entry {
+                                let mut lines = vec![format!("# {}", mech.title)];
+                                for desc in mech.description.split('\n') {
+                                    lines.push(desc.to_string());
+                                }
+                                if !mech.details.is_empty() {
+                                    lines.push(String::new());
+                                    for d in &mech.details {
+                                        lines.push(d.clone());
+                                    }
+                                }
+                                panel.update_content(lines);
+                            } else {
+                                panel.update_content(vec!["[Not a class guide entry]".to_string()]);
                             }
-                            for tip in entry.tips {
-                                lines.push(format!("Tip: {}", tip));
-                            }
-                            panel.update_content(lines);
                         }
                         println!("📚 Encyclopedia: {} Info", class_name);
                     }
@@ -1391,6 +1399,11 @@ impl GameApp {
 
     /// Updates the encyclopedia panel content based on the current category
     fn update_encyclopedia_content(&mut self) {
+        use crate::encyclopedia_builder::{
+            get_mechanics_content_comprehensive, get_terrain_content_comprehensive,
+            get_units_content_comprehensive,
+        };
+
         let current_category = if let Some(panel) = &self.encyclopedia_panel {
             panel.current_category
         } else {
@@ -1398,9 +1411,11 @@ impl GameApp {
         };
 
         let content = match current_category {
-            EncyclopediaCategory::Units => self.get_units_content_comprehensive(),
-            EncyclopediaCategory::Terrain => self.get_terrain_content_comprehensive(),
-            EncyclopediaCategory::Mechanics => self.get_mechanics_content_comprehensive(),
+            EncyclopediaCategory::Units => get_units_content_comprehensive(&self.encyclopedia),
+            EncyclopediaCategory::Terrain => get_terrain_content_comprehensive(&self.encyclopedia),
+            EncyclopediaCategory::Mechanics => {
+                get_mechanics_content_comprehensive(&self.encyclopedia)
+            }
         };
 
         if let Some(panel) = &mut self.encyclopedia_panel {
@@ -1408,156 +1423,7 @@ impl GameApp {
         }
     }
 
-    /// Helper to format an EncyclopediaEntry into display lines
-    fn format_entry(&self, entry: &EncyclopediaEntry) -> Vec<String> {
-        let mut lines = Vec::new();
-        lines.push(format!("╔════════ {} ════════╗", entry.title));
-        lines.push("".to_string());
-        for desc in &entry.description {
-            lines.push(desc.clone());
-        }
-        if !entry.stats.is_empty() {
-            lines.push("".to_string());
-            lines.push("Stats:".to_string());
-            for (k, v) in &entry.stats {
-                lines.push(format!("  • {}: {}", k, v));
-            }
-        }
-        if !entry.tips.is_empty() {
-            lines.push("".to_string());
-            lines.push("Tips:".to_string());
-            for tip in &entry.tips {
-                lines.push(format!("  • {}", tip));
-            }
-        }
-        lines.push("".to_string());
-        lines.push(
-            "╚═══════════════════════════════════════════════════════════════════════╝".to_string(),
-        );
-        lines.push("".to_string());
-        lines
-    }
-
-    /// Unified Units encyclopedia content: curated overview + all dynamic units
-    fn get_units_content_comprehensive(&self) -> Vec<String> {
-        let mut lines = vec![
-            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
-            "║                        📖 UNIT ENCYCLOPEDIA                            ║"
-                .to_string(),
-            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
-            "".to_string(),
-        ];
-        // Curated overviews
-        lines.extend(self.format_entry(&EncyclopediaLibrary::character_classes()));
-        lines.extend(self.format_entry(&EncyclopediaLibrary::character_races()));
-        for class in ["Warrior", "Archer", "Mage", "Paladin"] {
-            lines.extend(self.format_entry(&EncyclopediaLibrary::unit_class_entry(class)));
-        }
-        // Dynamic entries: all units
-        lines.push(
-            "════════════════════════════════════════════════════════════════════════".to_string(),
-        );
-        lines.push("ALL REGISTERED UNITS:".to_string());
-        for unit in self.encyclopedia.all_units() {
-            lines.push(format!("• {} [{} - {}]", unit.name, unit.race, unit.class));
-            lines.push(format!("  {}", unit.description));
-            lines.push(format!(
-                "  Stats: HP {}/{} | ATK {} | DEF {} | MOV {} | Range {:?}",
-                unit.stats.health,
-                unit.stats.max_health,
-                unit.stats.attack_strength,
-                unit.stats.defense,
-                unit.stats.movement_speed,
-                unit.stats.range_category
-            ));
-            if !unit.attacks.is_empty() {
-                lines.push("  Attacks:".to_string());
-                for atk in &unit.attacks {
-                    lines.push(format!(
-                        "    - {} ({} dmg, {} range, {:?})",
-                        atk.name, atk.damage, atk.range, atk.damage_type
-                    ));
-                }
-            }
-            if unit.evolution.previous_form.is_some() || !unit.evolution.next_forms.is_empty() {
-                lines.push("  Evolution:".to_string());
-                if let Some(prev) = &unit.evolution.previous_form {
-                    lines.push(format!("    ← Previous: {}", prev.as_str()));
-                }
-                for next in &unit.evolution.next_forms {
-                    lines.push(format!("    → Next: {}", next.as_str()));
-                }
-            }
-            lines.push("".to_string());
-        }
-        lines
-    }
-
-    /// Unified Terrain encyclopedia content: curated overview + all dynamic terrain
-    fn get_terrain_content_comprehensive(&self) -> Vec<String> {
-        let mut lines = vec![
-            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
-            "║                       🗺️  TERRAIN GUIDE                                ║"
-                .to_string(),
-            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
-            "".to_string(),
-        ];
-        // Curated overview
-        lines.extend(self.format_entry(&EncyclopediaLibrary::terrain_types()));
-        // Dynamic entries: all terrain
-        lines.push(
-            "════════════════════════════════════════════════════════════════════════".to_string(),
-        );
-        lines.push("ALL REGISTERED TERRAINS:".to_string());
-        for terrain in self.encyclopedia.all_terrain() {
-            lines.push(format!(
-                "• {} (Cost: {})",
-                terrain.terrain_type.name(),
-                terrain.movement_cost
-            ));
-            lines.push(format!("  {}", terrain.description));
-            lines.push("".to_string());
-        }
-        lines
-    }
-
-    /// Unified Mechanics encyclopedia content: curated overview + all dynamic mechanics
-    fn get_mechanics_content_comprehensive(&self) -> Vec<String> {
-        let mut lines = vec![
-            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
-            "║                      ⚙️  GAME MECHANICS                                ║"
-                .to_string(),
-            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
-            "".to_string(),
-        ];
-        // Curated overviews
-        lines.extend(self.format_entry(&EncyclopediaLibrary::combat_system()));
-        lines.extend(self.format_entry(&EncyclopediaLibrary::movement_system()));
-        lines.extend(self.format_entry(&EncyclopediaLibrary::equipment_system()));
-        // Dynamic entries: all mechanics
-        lines.push(
-            "════════════════════════════════════════════════════════════════════════".to_string(),
-        );
-        lines.push("ALL REGISTERED MECHANICS:".to_string());
-        for mech in self.encyclopedia.all_mechanics() {
-            lines.push(format!("• {} [{}]", mech.title, mech.category));
-            lines.push(format!("  {}", mech.description));
-            if !mech.details.is_empty() {
-                lines.push("  Details:".to_string());
-                for d in &mech.details {
-                    lines.push(format!("    - {}", d));
-                }
-            }
-            if !mech.examples.is_empty() {
-                lines.push("  Examples:".to_string());
-                for ex in &mech.examples {
-                    lines.push(format!("    - {}", ex));
-                }
-            }
-            lines.push("".to_string());
-        }
-        lines
-    }
+    // ...existing code...
 
     /// Gets formatted content for the Units category
     #[allow(dead_code)]

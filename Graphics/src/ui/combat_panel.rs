@@ -24,21 +24,11 @@ impl CombatPanel {
 	) {
 		let mut vertices: Vec<f32> = Vec::new();
 
-		// --- 1. Render semi-transparent full-screen overlay ---
-		let overlay_color = [0.0, 0.0, 0.0, 0.7];
-		let overlay_depth = -0.99;
-		let overlay_tex_id = -2.0;
-		let overlay_vertices = [
-			// Triangle 1
-			-1.0,  1.0, overlay_depth, 0.0, 0.0, overlay_tex_id, overlay_color[0], overlay_color[1], overlay_color[2],
-			 1.0,  1.0, overlay_depth, 1.0, 0.0, overlay_tex_id, overlay_color[0], overlay_color[1], overlay_color[2],
-			-1.0, -1.0, overlay_depth, 0.0, 1.0, overlay_tex_id, overlay_color[0], overlay_color[1], overlay_color[2],
-			// Triangle 2
-			 1.0,  1.0, overlay_depth, 1.0, 0.0, overlay_tex_id, overlay_color[0], overlay_color[1], overlay_color[2],
-			 1.0, -1.0, overlay_depth, 1.0, 1.0, overlay_tex_id, overlay_color[0], overlay_color[1], overlay_color[2],
-			-1.0, -1.0, overlay_depth, 0.0, 1.0, overlay_tex_id, overlay_color[0], overlay_color[1], overlay_color[2],
-		];
-		vertices.extend_from_slice(&overlay_vertices);
+		// --- 1. Render non-transparent brown full-screen background using glClear ---
+		unsafe {
+			gl::ClearColor(0.32, 0.22, 0.13, 1.0);
+			gl::Clear(gl::COLOR_BUFFER_BIT);
+		}
 
 		// --- 2. Render dialog background panel ---
 		let to_ndc_x = |x: f32| (x / window_width) * 2.0 - 1.0;
