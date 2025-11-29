@@ -49,9 +49,9 @@ use glutin_winit::DisplayBuilder;
 use graphics::core::hexagon::SpriteType;
 use graphics::math::Vec2;
 use graphics::{
-    find_path, setup_dynamic_hexagons, AttackDisplayInfo, EncyclopediaCategory, EncyclopediaPanel,
-    GuideLibrary, HexCoord, HexGrid, HighlightType, Renderer, UiPanel, UnitAnimation,
-    UnitDisplayInfo,
+    find_path, setup_dynamic_hexagons, AttackDisplayInfo, EncyclopediaCategory, EncyclopediaEntry,
+    EncyclopediaLibrary, EncyclopediaPanel, HexCoord, HexGrid, HighlightType, Renderer, UiPanel,
+    UnitAnimation, UnitDisplayInfo,
 };
 use main_menu::MainMenuScene;
 use raw_window_handle::HasWindowHandle;
@@ -471,16 +471,8 @@ impl GameApp {
                     handled = true;
                 }
 
-                // Priority 2: Check if guide is open, close it
-                if !handled {
-                    if let Some(renderer) = &mut self.renderer {
-                        if renderer.guide_display.active {
-                            renderer.guide_display.hide();
-                            println!("📚 Guide: Closed");
-                            handled = true;
-                        }
-                    }
-                }
+                // Priority 2: Check if guide is open, close it (now handled by encyclopedia_panel)
+                // No-op: All guide/encyclopedia display is now handled by encyclopedia_panel
 
                 // Priority 3: Toggle menu (only if guide/encyclopedia wasn't closed)
                 if !handled {
@@ -552,76 +544,35 @@ impl GameApp {
                     }
                 }
             }
-            // Guide/Encyclopedia Hotkeys (F1-F6)
-            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F1) => {
-                // Show combat system guide
-                if let Some(renderer) = &mut self.renderer {
-                    let guide = GuideLibrary::combat_system();
-                    renderer.guide_display.show(guide);
-                    println!("📚 Guide: Combat System");
-                }
-            }
-            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F2) => {
-                // Show movement system guide
-                if let Some(renderer) = &mut self.renderer {
-                    let guide = GuideLibrary::movement_system();
-                    renderer.guide_display.show(guide);
-                    println!("📚 Guide: Movement System");
-                }
-            }
-            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F3) => {
-                // Show character classes guide
-                if let Some(renderer) = &mut self.renderer {
-                    let guide = GuideLibrary::character_classes();
-                    renderer.guide_display.show(guide);
-                    println!("📚 Guide: Character Classes");
-                }
-            }
-            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F4) => {
-                // Show character races guide
-                if let Some(renderer) = &mut self.renderer {
-                    let guide = GuideLibrary::character_races();
-                    renderer.guide_display.show(guide);
-                    println!("📚 Guide: Character Races");
-                }
-            }
-            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F5) => {
-                // Show equipment system guide
-                if let Some(renderer) = &mut self.renderer {
-                    let guide = GuideLibrary::equipment_system();
-                    renderer.guide_display.show(guide);
-                    println!("📚 Guide: Equipment System");
-                }
-            }
-            winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::F6) => {
-                // Show terrain types guide
-                if let Some(renderer) = &mut self.renderer {
-                    let guide = GuideLibrary::terrain_types();
-                    renderer.guide_display.show(guide);
-                    println!("📚 Guide: Terrain Types");
-                }
-            }
+            // (F1-F6 static encyclopedia hotkeys removed; only dynamic/automatic encyclopedia remains)
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyG) => {
-                // Toggle guide display (hide if already showing)
-                if let Some(renderer) = &mut self.renderer {
-                    renderer.guide_display.toggle();
-                    if renderer.guide_display.active {
-                        println!("📚 Guide: Shown");
-                    } else {
-                        println!("📚 Guide: Hidden");
-                    }
-                }
+                // Toggle encyclopedia panel visibility
+                let new_visible = !self.encyclopedia_visible();
+                self.set_encyclopedia_visible(new_visible);
+                println!(
+                    "📚 Encyclopedia: {}",
+                    if new_visible { "Shown" } else { "Hidden" }
+                );
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::KeyI) => {
-                // Show info for selected unit (class-specific guide)
+                // Show info for selected unit (class-specific encyclopedia entry)
                 if let Some(unit_id) = self.selected_unit() {
                     if let Some(game_unit) = self.game_world.units.get(&unit_id) {
                         let class_name = game_unit.unit().unit_type().to_lowercase();
-                        if let Some(renderer) = &mut self.renderer {
-                            let guide = GuideLibrary::unit_class_guide(&class_name);
-                            renderer.guide_display.show(guide);
-                            println!("📚 Guide: {} Info", class_name);
+                        let entry = EncyclopediaLibrary::unit_class_entry(&class_name);
+                        self.set_encyclopedia_visible(true);
+                        if let Some(panel) = &mut self.encyclopedia_panel {
+                            let mut lines = vec![format!("# {}", entry.title)];
+                            lines.extend(entry.description);
+                            for (k, v) in entry.stats {
+                                lines.push(format!("{}: {}", k, v));
+                            }
+                            for tip in entry.tips {
+                                lines.push(format!("Tip: {}", tip));
+                            }
+                            panel.update_content(lines);
                         }
+                        println!("📚 Encyclopedia: {} Info", class_name);
                     }
                 } else {
                     println!("❌ No unit selected. Select a unit first!");
@@ -778,11 +729,19 @@ impl GameApp {
             }
         }
 
-        // Process hex clicks if no button was clicked
+        // --- Player Control Flow: select if none, else move/attack ---
         if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
-            if let Some(unit_id) = self.selected_unit() {
-                // STATE 1: Unit is already selected
-
+            if self.selected_unit().is_none() {
+                // No unit selected: try to select one
+                if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
+                    self.select_unit(unit_id);
+                    // (Optional: print message)
+                }
+                // If no unit, do nothing
+            } else {
+                // Unit is already selected: run original movement/combat logic
+                let unit_id = self.selected_unit().unwrap();
+                // --- Begin original logic ---
                 // Check if clicking on an enemy within attack range
                 if self.is_within_attack_range(unit_id, hex_coord)
                     && self.has_enemy_unit(unit_id, hex_coord)
@@ -903,11 +862,7 @@ impl GameApp {
                     // Invalid move - clear selection
                     self.clear_selection();
                 }
-            } else {
-                // STATE 2: No unit selected
-                if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
-                    self.select_unit(unit_id); // Enter selection state
-                }
+                // --- End original logic ---
             }
         }
     }
@@ -922,15 +877,20 @@ impl GameApp {
     /// * `x` - Screen X coordinate of the click
     /// * `y` - Screen Y coordinate of the click
     fn handle_right_click(&mut self, x: f64, y: f64) {
-        if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
-            println!("Right-clicked hex {:?}", hex_coord);
-
-            // Check if there's a unit at this hex coordinate
+        // --- Player Control Flow: cancel selection or open menu placeholder ---
+        if self.selected_unit().is_some() {
+            // Cancel selection
+            self.clear_selection();
+            println!("[Right Click] Selection cancelled.");
+        } else if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
+            // No unit selected: open unit menu if unit present (placeholder)
             if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
-                self.select_unit(unit_id);
+                println!(
+                    "[Right Click] Would open unit menu for unit {:?} (feature not implemented)",
+                    unit_id
+                );
             } else {
-                self.clear_selection();
-                println!("No unit found at hex {:?}", hex_coord);
+                // Do nothing if no unit at hex
             }
         }
     }
@@ -1438,9 +1398,9 @@ impl GameApp {
         };
 
         let content = match current_category {
-            EncyclopediaCategory::Units => self.get_units_content(),
-            EncyclopediaCategory::Terrain => self.get_terrain_content(),
-            EncyclopediaCategory::Mechanics => self.get_mechanics_content(),
+            EncyclopediaCategory::Units => self.get_units_content_comprehensive(),
+            EncyclopediaCategory::Terrain => self.get_terrain_content_comprehensive(),
+            EncyclopediaCategory::Mechanics => self.get_mechanics_content_comprehensive(),
         };
 
         if let Some(panel) = &mut self.encyclopedia_panel {
@@ -1448,7 +1408,159 @@ impl GameApp {
         }
     }
 
+    /// Helper to format an EncyclopediaEntry into display lines
+    fn format_entry(&self, entry: &EncyclopediaEntry) -> Vec<String> {
+        let mut lines = Vec::new();
+        lines.push(format!("╔════════ {} ════════╗", entry.title));
+        lines.push("".to_string());
+        for desc in &entry.description {
+            lines.push(desc.clone());
+        }
+        if !entry.stats.is_empty() {
+            lines.push("".to_string());
+            lines.push("Stats:".to_string());
+            for (k, v) in &entry.stats {
+                lines.push(format!("  • {}: {}", k, v));
+            }
+        }
+        if !entry.tips.is_empty() {
+            lines.push("".to_string());
+            lines.push("Tips:".to_string());
+            for tip in &entry.tips {
+                lines.push(format!("  • {}", tip));
+            }
+        }
+        lines.push("".to_string());
+        lines.push(
+            "╚═══════════════════════════════════════════════════════════════════════╝".to_string(),
+        );
+        lines.push("".to_string());
+        lines
+    }
+
+    /// Unified Units encyclopedia content: curated overview + all dynamic units
+    fn get_units_content_comprehensive(&self) -> Vec<String> {
+        let mut lines = vec![
+            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+            "║                        📖 UNIT ENCYCLOPEDIA                            ║"
+                .to_string(),
+            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+            "".to_string(),
+        ];
+        // Curated overviews
+        lines.extend(self.format_entry(&EncyclopediaLibrary::character_classes()));
+        lines.extend(self.format_entry(&EncyclopediaLibrary::character_races()));
+        for class in ["Warrior", "Archer", "Mage", "Paladin"] {
+            lines.extend(self.format_entry(&EncyclopediaLibrary::unit_class_entry(class)));
+        }
+        // Dynamic entries: all units
+        lines.push(
+            "════════════════════════════════════════════════════════════════════════".to_string(),
+        );
+        lines.push("ALL REGISTERED UNITS:".to_string());
+        for unit in self.encyclopedia.all_units() {
+            lines.push(format!("• {} [{} - {}]", unit.name, unit.race, unit.class));
+            lines.push(format!("  {}", unit.description));
+            lines.push(format!(
+                "  Stats: HP {}/{} | ATK {} | DEF {} | MOV {} | Range {:?}",
+                unit.stats.health,
+                unit.stats.max_health,
+                unit.stats.attack_strength,
+                unit.stats.defense,
+                unit.stats.movement_speed,
+                unit.stats.range_category
+            ));
+            if !unit.attacks.is_empty() {
+                lines.push("  Attacks:".to_string());
+                for atk in &unit.attacks {
+                    lines.push(format!(
+                        "    - {} ({} dmg, {} range, {:?})",
+                        atk.name, atk.damage, atk.range, atk.damage_type
+                    ));
+                }
+            }
+            if unit.evolution.previous_form.is_some() || !unit.evolution.next_forms.is_empty() {
+                lines.push("  Evolution:".to_string());
+                if let Some(prev) = &unit.evolution.previous_form {
+                    lines.push(format!("    ← Previous: {}", prev.as_str()));
+                }
+                for next in &unit.evolution.next_forms {
+                    lines.push(format!("    → Next: {}", next.as_str()));
+                }
+            }
+            lines.push("".to_string());
+        }
+        lines
+    }
+
+    /// Unified Terrain encyclopedia content: curated overview + all dynamic terrain
+    fn get_terrain_content_comprehensive(&self) -> Vec<String> {
+        let mut lines = vec![
+            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+            "║                       🗺️  TERRAIN GUIDE                                ║"
+                .to_string(),
+            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+            "".to_string(),
+        ];
+        // Curated overview
+        lines.extend(self.format_entry(&EncyclopediaLibrary::terrain_types()));
+        // Dynamic entries: all terrain
+        lines.push(
+            "════════════════════════════════════════════════════════════════════════".to_string(),
+        );
+        lines.push("ALL REGISTERED TERRAINS:".to_string());
+        for terrain in self.encyclopedia.all_terrain() {
+            lines.push(format!(
+                "• {} (Cost: {})",
+                terrain.terrain_type.name(),
+                terrain.movement_cost
+            ));
+            lines.push(format!("  {}", terrain.description));
+            lines.push("".to_string());
+        }
+        lines
+    }
+
+    /// Unified Mechanics encyclopedia content: curated overview + all dynamic mechanics
+    fn get_mechanics_content_comprehensive(&self) -> Vec<String> {
+        let mut lines = vec![
+            "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
+            "║                      ⚙️  GAME MECHANICS                                ║"
+                .to_string(),
+            "╠═══════════════════════════════════════════════════════════════════════╣".to_string(),
+            "".to_string(),
+        ];
+        // Curated overviews
+        lines.extend(self.format_entry(&EncyclopediaLibrary::combat_system()));
+        lines.extend(self.format_entry(&EncyclopediaLibrary::movement_system()));
+        lines.extend(self.format_entry(&EncyclopediaLibrary::equipment_system()));
+        // Dynamic entries: all mechanics
+        lines.push(
+            "════════════════════════════════════════════════════════════════════════".to_string(),
+        );
+        lines.push("ALL REGISTERED MECHANICS:".to_string());
+        for mech in self.encyclopedia.all_mechanics() {
+            lines.push(format!("• {} [{}]", mech.title, mech.category));
+            lines.push(format!("  {}", mech.description));
+            if !mech.details.is_empty() {
+                lines.push("  Details:".to_string());
+                for d in &mech.details {
+                    lines.push(format!("    - {}", d));
+                }
+            }
+            if !mech.examples.is_empty() {
+                lines.push("  Examples:".to_string());
+                for ex in &mech.examples {
+                    lines.push(format!("    - {}", ex));
+                }
+            }
+            lines.push("".to_string());
+        }
+        lines
+    }
+
     /// Gets formatted content for the Units category
+    #[allow(dead_code)]
     fn get_units_content(&self) -> Vec<String> {
         let mut lines = vec![
             "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
@@ -1483,6 +1595,7 @@ impl GameApp {
     }
 
     /// Gets formatted content for the Terrain category
+    #[allow(dead_code)]
     fn get_terrain_content(&self) -> Vec<String> {
         let mut lines = vec![
             "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),
@@ -1507,6 +1620,7 @@ impl GameApp {
     }
 
     /// Gets formatted content for the Mechanics category
+    #[allow(dead_code)]
     fn get_mechanics_content(&self) -> Vec<String> {
         let mut lines = vec![
             "╔═══════════════════════════════════════════════════════════════════════╗".to_string(),

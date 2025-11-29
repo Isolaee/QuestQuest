@@ -264,25 +264,25 @@ impl EncyclopediaPanel {
             screen_height,
         );
 
-        // Category tabs
+        // Category tabs (dynamically numbered 1..n)
         let tab_y = self.y + title_height + 5.0;
         let categories = [
-            ("1: Units", EncyclopediaCategory::Units),
-            ("2: Terrain", EncyclopediaCategory::Terrain),
-            ("3: Mechanics", EncyclopediaCategory::Mechanics),
+            ("Units", EncyclopediaCategory::Units),
+            ("Terrain", EncyclopediaCategory::Terrain),
+            ("Mechanics", EncyclopediaCategory::Mechanics),
         ];
 
         let mut tab_x = self.x + margin;
-        for (label, category) in &categories {
+        for (i, (label, category)) in categories.iter().enumerate() {
             let is_active = *category == self.current_category;
             let color = if is_active {
                 [1.0, 1.0, 1.0, 1.0] // Active tab: pure white
             } else {
                 [0.8, 0.8, 0.8, 1.0] // Inactive tab: light gray
             };
-
+            let tab_label = format!("{}: {}", i + 1, label);
             self.text_renderer.render_text(
-                label,
+                &tab_label,
                 tab_x,
                 tab_y,
                 TEXT_SIZE,

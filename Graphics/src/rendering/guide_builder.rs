@@ -1,14 +1,20 @@
-use super::GuideEntry;
+// EncyclopediaEntry: unified for all encyclopedia/guide data
+pub struct EncyclopediaEntry {
+    pub title: String,
+    pub description: Vec<String>,
+    pub stats: Vec<(String, String)>,
+    pub tips: Vec<String>,
+}
 
-/// Builder for creating guide entries with convenience methods
-pub struct GuideBuilder {
+/// Builder for creating encyclopedia entries with convenience methods
+pub struct EncyclopediaBuilder {
     title: String,
     description: Vec<String>,
     stats: Vec<(String, String)>,
     tips: Vec<String>,
 }
 
-impl GuideBuilder {
+impl EncyclopediaBuilder {
     pub fn new(title: impl Into<String>) -> Self {
         Self {
             title: title.into(),
@@ -33,8 +39,8 @@ impl GuideBuilder {
         self
     }
 
-    pub fn build(self) -> GuideEntry {
-        GuideEntry {
+    pub fn build(self) -> EncyclopediaEntry {
+        EncyclopediaEntry {
             title: self.title,
             description: self.description,
             stats: self.stats,
@@ -43,13 +49,13 @@ impl GuideBuilder {
     }
 }
 
-/// Pre-built guide entries for common game elements
-pub struct GuideLibrary;
+/// Pre-built encyclopedia entries for common game elements
+pub struct EncyclopediaLibrary;
 
-impl GuideLibrary {
-    /// Guide entry for the combat system
-    pub fn combat_system() -> GuideEntry {
-        GuideBuilder::new("Combat System")
+impl EncyclopediaLibrary {
+    /// Encyclopedia entry for the combat system
+    pub fn combat_system() -> EncyclopediaEntry {
+        EncyclopediaBuilder::new("Combat System")
             .description("QuestQuest uses a tactical turn-based combat system.")
             .description("Combat is resolved using attack, defense, and damage types.")
             .description("")
@@ -68,9 +74,9 @@ impl GuideLibrary {
             .build()
     }
 
-    /// Guide entry for movement mechanics
-    pub fn movement_system() -> GuideEntry {
-        GuideBuilder::new("Movement System")
+    /// Encyclopedia entry for movement mechanics
+    pub fn movement_system() -> EncyclopediaEntry {
+        EncyclopediaBuilder::new("Movement System")
             .description("Units move across a hexagonal grid.")
             .description("Each unit has a movement range based on their class.")
             .description("")
@@ -86,9 +92,9 @@ impl GuideLibrary {
             .build()
     }
 
-    /// Guide entry for character classes
-    pub fn character_classes() -> GuideEntry {
-        GuideBuilder::new("Character Classes")
+    /// Encyclopedia entry for character classes
+    pub fn character_classes() -> EncyclopediaEntry {
+        EncyclopediaBuilder::new("Character Classes")
             .description("Each unit belongs to one of four main classes:")
             .description("")
             .description("Warrior - Melee combat specialist")
@@ -116,9 +122,9 @@ impl GuideLibrary {
             .build()
     }
 
-    /// Guide entry for character races
-    pub fn character_races() -> GuideEntry {
-        GuideBuilder::new("Character Races")
+    /// Encyclopedia entry for character races
+    pub fn character_races() -> EncyclopediaEntry {
+        EncyclopediaBuilder::new("Character Races")
             .description("Four playable races, each with unique traits:")
             .description("")
             .description("Human - Balanced and versatile")
@@ -142,9 +148,9 @@ impl GuideLibrary {
             .build()
     }
 
-    /// Guide entry for the equipment system
-    pub fn equipment_system() -> GuideEntry {
-        GuideBuilder::new("Equipment System")
+    /// Encyclopedia entry for the equipment system
+    pub fn equipment_system() -> EncyclopediaEntry {
+        EncyclopediaBuilder::new("Equipment System")
             .description("Units can equip weapons, armor, and accessories.")
             .description("Equipment provides stat bonuses and special effects.")
             .description("")
@@ -160,9 +166,9 @@ impl GuideLibrary {
             .build()
     }
 
-    /// Guide entry for terrain types
-    pub fn terrain_types() -> GuideEntry {
-        GuideBuilder::new("Terrain Types")
+    /// Encyclopedia entry for terrain types
+    pub fn terrain_types() -> EncyclopediaEntry {
+        EncyclopediaBuilder::new("Terrain Types")
             .description("Different terrains affect combat and movement:")
             .description("")
             .description("• Grasslands - Open, no bonuses")
@@ -178,10 +184,10 @@ impl GuideLibrary {
             .build()
     }
 
-    /// Get a guide entry for a specific unit class
-    pub fn unit_class_guide(class_name: &str) -> GuideEntry {
+    /// Get an encyclopedia entry for a specific unit class
+    pub fn unit_class_entry(class_name: &str) -> EncyclopediaEntry {
         match class_name.to_lowercase().as_str() {
-            "warrior" => GuideBuilder::new("Warrior")
+            "warrior" => EncyclopediaBuilder::new("Warrior")
                 .description("Frontline melee combat specialist")
                 .description("Warriors excel at close-quarters combat.")
                 .stat("Primary Role", "Tank / Melee DPS")
@@ -193,7 +199,7 @@ impl GuideLibrary {
                 .tip("Use terrain for defensive bonuses")
                 .tip("Equip heavy armor for survivability")
                 .build(),
-            "archer" => GuideBuilder::new("Archer")
+            "archer" => EncyclopediaBuilder::new("Archer")
                 .description("Long-range precision attacker")
                 .description("Archers strike from a distance with deadly accuracy.")
                 .stat("Primary Role", "Ranged DPS")
@@ -205,7 +211,7 @@ impl GuideLibrary {
                 .tip("Use high ground for range bonuses")
                 .tip("Focus on eliminating enemy mages first")
                 .build(),
-            "mage" => GuideBuilder::new("Mage")
+            "mage" => EncyclopediaBuilder::new("Mage")
                 .description("Powerful magic user with area effects")
                 .description("Mages deal devastating magical damage.")
                 .stat("Primary Role", "Magic DPS")
@@ -217,7 +223,7 @@ impl GuideLibrary {
                 .tip("Mages ignore armor with magic damage")
                 .tip("Save mana for critical moments")
                 .build(),
-            "paladin" => GuideBuilder::new("Paladin")
+            "paladin" => EncyclopediaBuilder::new("Paladin")
                 .description("Holy warrior with healing abilities")
                 .description("Paladins combine combat prowess with divine magic.")
                 .stat("Primary Role", "Tank / Support")
@@ -229,7 +235,7 @@ impl GuideLibrary {
                 .tip("Use holy damage against dark enemies")
                 .tip("Position near allies to provide support")
                 .build(),
-            _ => GuideBuilder::new("Unknown Class")
+            _ => EncyclopediaBuilder::new("Unknown Class")
                 .description("No information available for this class.")
                 .build(),
         }
