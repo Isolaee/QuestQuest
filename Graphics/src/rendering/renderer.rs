@@ -1,5 +1,6 @@
 use crate::core::{HexGrid, Hexagon};
 use crate::rendering::{TextureManager, VertexBuffer};
+use crate::ui::combat_panel::CombatPanel;
 use crate::ui::TextRenderer;
 // use crate::rendering::guide_display::*;
 // ...existing code...
@@ -566,7 +567,8 @@ impl Renderer {
             // LAYER 3.5: Render text overlays on tiles (after disabling depth test)
             self.render_tile_text_overlays(&visible_hexagons, hex_grid);
 
-            self.render_guide_layer();
+            // Guide/encyclopedia rendering moved into UI modules (handled elsewhere)
+            // previously: self.render_guide_layer();
 
             // LAYER 5: Render menu (topmost UI layer, no depth test)
             self.render_menu_layer();
@@ -575,7 +577,28 @@ impl Renderer {
             self.render_effects_layer();
 
             // LAYER 7: Render combat log (combat information layer, no depth test)
-            self.render_combat_log_layer();
+            // Delegate combat rendering to UI's CombatPanel (geometry + text)
+            CombatPanel::render_layer(
+                self.window_width,
+                self.window_height,
+                &self.combat_log_display,
+                &mut self.text_renderer,
+                |vertices: &[f32]| {
+                    // Ensure shader program and VAO are bound, then upload vertices and draw
+                    gl::UseProgram(self.shader_program);
+                    gl::BindVertexArray(self.vao);
+                    gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
+                    gl::BufferData(
+                        gl::ARRAY_BUFFER,
+                        std::mem::size_of_val(vertices) as GLsizeiptr,
+                        vertices.as_ptr() as *const _,
+                        gl::DYNAMIC_DRAW,
+                    );
+
+                    let vertex_count = (vertices.len() / 9) as GLsizei; // 9 floats per vertex
+                    gl::DrawArrays(gl::TRIANGLES, 0, vertex_count);
+                },
+            );
         }
     }
 
@@ -657,7 +680,7 @@ impl Renderer {
         gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<f32>()) as isize,
+            std::mem::size_of_val(vertices.as_slice()) as isize,
             vertices.as_ptr() as *const _,
             gl::DYNAMIC_DRAW,
         );
@@ -728,7 +751,7 @@ impl Renderer {
         gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+            std::mem::size_of_val(vertices.as_slice()) as GLsizeiptr,
             vertices.as_ptr() as *const _,
             gl::DYNAMIC_DRAW,
         );
@@ -802,7 +825,7 @@ impl Renderer {
         gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+            std::mem::size_of_val(vertices.as_slice()) as GLsizeiptr,
             vertices.as_ptr() as *const _,
             gl::DYNAMIC_DRAW,
         );
@@ -958,7 +981,7 @@ impl Renderer {
         gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+            std::mem::size_of_val(vertices.as_slice()) as GLsizeiptr,
             vertices.as_ptr() as *const _,
             gl::DYNAMIC_DRAW,
         );
@@ -968,11 +991,6 @@ impl Renderer {
             let vertex_offset = (i * 8) as GLint;
             gl::DrawArrays(gl::TRIANGLE_FAN, vertex_offset, 8);
         }
-    }
-
-    /// Render the guide/encyclopedia UI overlay
-    unsafe fn render_guide_layer(&mut self) {
-        // self.guide_display.render(&self.vertex_buffer, &mut self.text_renderer, self.window_width, self.window_height);
     }
 
     /// Render the menu UI overlay
@@ -1220,7 +1238,7 @@ impl Renderer {
         gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
         gl::BufferData(
             gl::ARRAY_BUFFER,
-            (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+            std::mem::size_of_val(vertices.as_slice()) as GLsizeiptr,
             vertices.as_ptr() as *const _,
             gl::DYNAMIC_DRAW,
         );
@@ -1313,321 +1331,5 @@ impl Renderer {
         }
     }
 
-    unsafe fn render_combat_log_layer(&mut self) {
-        // Layer 7: Combat log display
-        if self.combat_log_display.active {
-            // If there's a pending combat confirmation, show the dialog
-            if let Some(ref confirmation) = self.combat_log_display.pending_combat {
-                self.render_combat_confirmation_dialog(confirmation);
-                // Clone confirmation to avoid borrow checker issues
-                let confirmation_clone = confirmation.clone();
-                self.render_combat_dialog_text(&confirmation_clone);
-            } else {
-                // Otherwise, show the combat log entries
-                self.render_combat_log_entries();
-            }
-        }
-    }
-
-    unsafe fn render_combat_confirmation_dialog(&self, confirmation: &CombatConfirmation) {
-        // TODO: Implement combat confirmation dialog rendering here
-        // This is a stub to keep the code compiling. The original CombatPanel::draw and upload_and_draw do not exist.
-        let _ = confirmation;
-        // Example: draw a placeholder rectangle or log a message
-    }
-
-    unsafe fn render_combat_dialog_text(&mut self, confirmation: &CombatConfirmation) {
-        let (dialog_x, dialog_y) = self.combat_log_display.position;
-        let (dialog_width, _dialog_height) = self.combat_log_display.size;
-        let window_width = self.window_width;
-        let window_height = self.window_height;
-
-        // Title
-        let title = "COMBAT!";
-        let title_size = 30.0;
-        let title_x = dialog_x + (dialog_width - title.len() as f32 * title_size * 0.6) / 2.0;
-        let title_y = dialog_y + 10.0;
-        self.text_renderer.render_text(
-            title,
-            title_x,
-            title_y,
-            title_size,
-            [1.0, 0.9, 0.4, 1.0], // Gold color
-            window_width,
-            window_height,
-        );
-
-        // Attacker stats (left panel)
-        let title_height = 50.0;
-        let sprite_area_height = 120.0;
-        let attacker_x = dialog_x + 40.0;
-        let mut attacker_y = dialog_y + title_height + sprite_area_height + 20.0;
-        let text_size = 16.0;
-        let line_height = 25.0;
-
-        self.text_renderer.render_text(
-            "ATTACKER",
-            attacker_x,
-            attacker_y,
-            18.0,
-            [0.6, 0.8, 1.0, 1.0], // Light blue
-            window_width,
-            window_height,
-        );
-        attacker_y += line_height + 5.0;
-
-        self.text_renderer.render_text(
-            &confirmation.attacker_name,
-            attacker_x,
-            attacker_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-        attacker_y += line_height;
-
-        let hp_text = format!(
-            "HP: {}/{}",
-            confirmation.attacker_hp, confirmation.attacker_max_hp
-        );
-        self.text_renderer.render_text(
-            &hp_text,
-            attacker_x,
-            attacker_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-        attacker_y += line_height;
-
-        let atk_text = format!("ATK: {}", confirmation.attacker_attack);
-        self.text_renderer.render_text(
-            &atk_text,
-            attacker_x,
-            attacker_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-        attacker_y += line_height;
-
-        let def_text = format!("DEF: {}", confirmation.attacker_defense);
-        self.text_renderer.render_text(
-            &def_text,
-            attacker_x,
-            attacker_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-        attacker_y += line_height;
-
-        let atkr_text = format!("{}/round", confirmation.attacker_attacks_per_round);
-        self.text_renderer.render_text(
-            &atkr_text,
-            attacker_x,
-            attacker_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-
-        // Defender stats (right panel)
-        let defender_x = dialog_x + dialog_width / 2.0 + 40.0;
-        let mut defender_y = dialog_y + title_height + sprite_area_height + 20.0;
-
-        self.text_renderer.render_text(
-            "DEFENDER",
-            defender_x,
-            defender_y,
-            18.0,
-            [1.0, 0.7, 0.7, 1.0], // Light red
-            window_width,
-            window_height,
-        );
-        defender_y += line_height + 5.0;
-
-        self.text_renderer.render_text(
-            &confirmation.defender_name,
-            defender_x,
-            defender_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-        defender_y += line_height;
-
-        let hp_text = format!(
-            "HP: {}/{}",
-            confirmation.defender_hp, confirmation.defender_max_hp
-        );
-        self.text_renderer.render_text(
-            &hp_text,
-            defender_x,
-            defender_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-        defender_y += line_height;
-
-        let atk_text = format!("ATK: {}", confirmation.defender_attack);
-        self.text_renderer.render_text(
-            &atk_text,
-            defender_x,
-            defender_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-        defender_y += line_height;
-
-        let def_text = format!("DEF: {}", confirmation.defender_defense);
-        self.text_renderer.render_text(
-            &def_text,
-            defender_x,
-            defender_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-        defender_y += line_height;
-
-        let atkr_text = format!("{}/round", confirmation.defender_attacks_per_round);
-        self.text_renderer.render_text(
-            &atkr_text,
-            defender_x,
-            defender_y,
-            text_size,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-
-        // Attack option labels for attacker (left column)
-        if !confirmation.attacker_attacks.is_empty() {
-            let (dialog_x, dialog_y) = self.combat_log_display.position;
-            let (dialog_width, _dialog_height) = self.combat_log_display.size;
-            let attack_box_height = 30.0;
-            let attack_box_spacing = 5.0;
-            let title_height = 50.0;
-            let sprite_area_height = 120.0;
-            let text_line_height = 25.0;
-            let panel_padding = 15.0;
-            let panel_height = text_line_height * 6.0 + panel_padding * 2.0;
-            let panel_y = dialog_y + title_height + sprite_area_height + 10.0;
-            let attack_section_y = panel_y + panel_height + 10.0;
-            let panel_margin = 30.0;
-            let panel_spacing = 20.0;
-            let _panel_width = (dialog_width - 2.0 * panel_margin - panel_spacing) / 2.0;
-            let attacker_x = dialog_x + panel_margin;
-
-            for (i, attack) in confirmation.attacker_attacks.iter().enumerate() {
-                let attack_y =
-                    attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
-                let attack_x = attacker_x + 10.0;
-                let attack_text_y = attack_y + (attack_box_height - 14.0) / 2.0 + 5.0;
-
-                // Check if this attack is selected
-                let is_selected = self.combat_log_display.selected_attack_index == Some(i);
-
-                // Attack name and damage combined - brighter color if selected
-                let attack_text = format!("{} ({}x{})", attack.name, attack.damage, attack.range);
-                let text_color = if is_selected {
-                    [1.0, 1.0, 1.0, 1.0] // White for selected
-                } else {
-                    [1.0, 1.0, 0.8, 1.0] // Light yellow for unselected
-                };
-
-                self.text_renderer.render_text(
-                    &attack_text,
-                    attack_x,
-                    attack_text_y,
-                    14.0,
-                    text_color,
-                    window_width,
-                    window_height,
-                );
-            }
-        }
-
-        // Attack option labels for defender (right column)
-        if !confirmation.defender_attacks.is_empty() {
-            let (dialog_x, dialog_y) = self.combat_log_display.position;
-            let (dialog_width, _dialog_height) = self.combat_log_display.size;
-            let attack_box_height = 30.0;
-            let attack_box_spacing = 5.0;
-            let title_height = 50.0;
-            let sprite_area_height = 120.0;
-            let text_line_height = 25.0;
-            let panel_padding = 15.0;
-            let panel_height = text_line_height * 6.0 + panel_padding * 2.0;
-            let panel_y = dialog_y + title_height + sprite_area_height + 10.0;
-            let attack_section_y = panel_y + panel_height + 10.0;
-            let panel_margin = 30.0;
-            let panel_spacing = 20.0;
-            let panel_width = (dialog_width - 2.0 * panel_margin - panel_spacing) / 2.0;
-            let defender_x = dialog_x + panel_margin + panel_width + panel_spacing;
-
-            for (i, attack) in confirmation.defender_attacks.iter().enumerate() {
-                let attack_y =
-                    attack_section_y + (i as f32) * (attack_box_height + attack_box_spacing);
-                let attack_x = defender_x + 10.0;
-                let attack_text_y = attack_y + (attack_box_height - 14.0) / 2.0 + 5.0;
-
-                // Attack name and damage combined
-                let attack_text = format!("{} ({}x{})", attack.name, attack.damage, attack.range);
-                self.text_renderer.render_text(
-                    &attack_text,
-                    attack_x,
-                    attack_text_y,
-                    14.0,
-                    [1.0, 1.0, 0.8, 1.0], // Light yellow
-                    window_width,
-                    window_height,
-                );
-            }
-        }
-
-        // Button labels
-        let ok_btn = &self.combat_log_display.ok_button;
-        let ok_label_x = ok_btn.position.0 + (ok_btn.size.0 - 2.0 * 12.0 * 0.6) / 2.0; // Center "OK"
-        let ok_label_y = ok_btn.position.1 + (ok_btn.size.1 - 20.0) / 2.0 + 5.0;
-        self.text_renderer.render_text(
-            "OK",
-            ok_label_x,
-            ok_label_y,
-            20.0,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-
-        let cancel_btn = &self.combat_log_display.cancel_button;
-        let cancel_label_x = cancel_btn.position.0 + (cancel_btn.size.0 - 6.0 * 12.0 * 0.6) / 2.0; // Center "Cancel"
-        let cancel_label_y = cancel_btn.position.1 + (cancel_btn.size.1 - 20.0) / 2.0 + 5.0;
-        self.text_renderer.render_text(
-            "Cancel",
-            cancel_label_x,
-            cancel_label_y,
-            20.0,
-            [1.0, 1.0, 1.0, 1.0],
-            window_width,
-            window_height,
-        );
-    }
-
-    unsafe fn render_combat_log_entries(&self) {
-        // TODO: Render combat log entries as scrollable text
-        // For now, this is empty - will show combat history after fights
-    }
+    // Combat rendering moved into `ui::combat_panel::CombatPanel`
 }
