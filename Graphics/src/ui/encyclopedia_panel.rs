@@ -143,7 +143,8 @@ impl EncyclopediaPanel {
         gl::GenVertexArrays(1, &mut vao);
         gl::GenBuffers(1, &mut vbo);
 
-        Ok((shader_program, vao, vbo))
+        // Return in the order (vao, vbo, shader_program) so callers get the correct handles
+        Ok((vao, vbo, shader_program))
     }
 
     /// Update the content to display based on current category
@@ -180,9 +181,12 @@ impl EncyclopediaPanel {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
-            // Draw a fullscreen opaque brown background
-            gl::ClearColor(0.32, 0.22, 0.13, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+            // Draw the panel as an overlay on-top of the game scene.
+            // IMPORTANT: do NOT clear the framebuffer here (that would erase the already-rendered game).
+            // Disable depth testing and depth writes so the panel doesn't modify the depth buffer
+            // (we want it to lay on top of the scene). Text is rendered after the boxes so it appears above.
+            gl::Disable(gl::DEPTH_TEST);
+            gl::DepthMask(gl::FALSE);
 
             // Render panel background (light brown - fully opaque, non-transparent)
             self.render_box(
@@ -191,6 +195,8 @@ impl EncyclopediaPanel {
                 self.width,
                 self.height,
                 [0.45, 0.38, 0.30, 1.0],
+                screen_width,
+                screen_height,
             );
 
             // Render border (worn book edge - darker brown, opaque)
@@ -200,6 +206,8 @@ impl EncyclopediaPanel {
                 self.width,
                 self.height,
                 [0.25, 0.18, 0.10, 1.0],
+                screen_width,
+                screen_height,
             );
 
             // Unbind VAO before text rendering
@@ -213,6 +221,10 @@ impl EncyclopediaPanel {
 
             // Render scroll indicator
             self.render_scroll_indicator(screen_width, screen_height);
+
+            // Restore depth write and depth test state for subsequent rendering.
+            gl::DepthMask(gl::TRUE);
+            gl::Enable(gl::DEPTH_TEST);
 
             gl::Disable(gl::BLEND);
         }
@@ -232,6 +244,8 @@ impl EncyclopediaPanel {
             self.width - 10.0,
             content_height + 10.0,
             [0.55, 0.48, 0.40, 1.0],
+            screen_width,
+            screen_height,
         );
 
         let start_line = self.scroll_offset as usize;
@@ -278,10 +292,20 @@ impl EncyclopediaPanel {
             self.width,
             footer_height,
             [0.42, 0.35, 0.28, 1.0],
+            screen_width,
+            screen_height,
         );
 
         // Footer top accent line (decorative book line - golden brown)
-        self.render_box(self.x, footer_y, self.width, 2.0, [0.5, 0.4, 0.25, 1.0]);
+        self.render_box(
+            self.x,
+            footer_y,
+            self.width,
+            2.0,
+            [0.5, 0.4, 0.25, 1.0],
+            screen_width,
+            screen_height,
+        );
 
         if self.max_scroll > 0 {
             let indicator_text = format!(
@@ -316,13 +340,28 @@ impl EncyclopediaPanel {
     }
 
     /// Render a filled box
-    unsafe fn render_box(&self, x: f32, y: f32, width: f32, height: f32, color: [f32; 4]) {
+    #[allow(clippy::too_many_arguments)]
+    unsafe fn render_box(
+        &self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: [f32; 4],
+        screen_width: f32,
+        screen_height: f32,
+    ) {
         gl::UseProgram(self.shader_program);
 
-        let screen_size_loc = gl::GetUniformLocation(self.shader_program, c"screenSize".as_ptr());
-        let color_loc = gl::GetUniformLocation(self.shader_program, c"color".as_ptr());
+        // Use proper CStrings for uniform names
+        let screen_name = std::ffi::CString::new("screenSize").unwrap();
+        let color_name = std::ffi::CString::new("color").unwrap();
 
-        gl::Uniform2f(screen_size_loc, self.width, self.height);
+        let screen_size_loc = gl::GetUniformLocation(self.shader_program, screen_name.as_ptr());
+        let color_loc = gl::GetUniformLocation(self.shader_program, color_name.as_ptr());
+
+        // Provide actual screen dimensions so the vertex shader can convert correctly
+        gl::Uniform2f(screen_size_loc, screen_width, screen_height);
         gl::Uniform4f(color_loc, color[0], color[1], color[2], color[3]);
 
         let vertices: [f32; 12] = [
@@ -363,17 +402,58 @@ impl EncyclopediaPanel {
     }
 
     /// Render a border around a box
-    unsafe fn render_border(&self, x: f32, y: f32, width: f32, height: f32, color: [f32; 4]) {
+    #[allow(clippy::too_many_arguments)]
+    unsafe fn render_border(
+        &self,
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        color: [f32; 4],
+        screen_width: f32,
+        screen_height: f32,
+    ) {
         let border_width = 2.0;
-
         // Top
-        self.render_box(x, y, width, border_width, color);
+        self.render_box(
+            x,
+            y,
+            width,
+            border_width,
+            color,
+            screen_width,
+            screen_height,
+        );
         // Bottom
-        self.render_box(x, y + height - border_width, width, border_width, color);
+        self.render_box(
+            x,
+            y + height - border_width,
+            width,
+            border_width,
+            color,
+            screen_width,
+            screen_height,
+        );
         // Left
-        self.render_box(x, y, border_width, height, color);
+        self.render_box(
+            x,
+            y,
+            border_width,
+            height,
+            color,
+            screen_width,
+            screen_height,
+        );
         // Right
-        self.render_box(x + width - border_width, y, border_width, height, color);
+        self.render_box(
+            x + width - border_width,
+            y,
+            border_width,
+            height,
+            color,
+            screen_width,
+            screen_height,
+        );
     }
 
     /// Render the title bar of the encyclopedia panel
@@ -388,6 +468,8 @@ impl EncyclopediaPanel {
             self.width,
             title_bar_height,
             [0.38, 0.28, 0.16, 1.0],
+            screen_width,
+            screen_height,
         );
 
         // Render bottom accent line (golden brown)
@@ -397,6 +479,8 @@ impl EncyclopediaPanel {
             self.width,
             2.0,
             [0.5, 0.4, 0.25, 1.0],
+            screen_width,
+            screen_height,
         );
 
         // Render category title text
