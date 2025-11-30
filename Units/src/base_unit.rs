@@ -5,9 +5,9 @@
 //! bonuses, and level progression.
 
 use crate::attack::Attack;
+use crate::combat::{CombatStats, DamageType};
 use crate::unit_race::{Race, Terrain};
 use crate::unit_type::UnitType;
-use combat::{CombatStats, DamageType};
 use graphics::{HexCoord, SpriteType};
 use items::{Equipment, Item};
 use serde::{Deserialize, Serialize};
@@ -36,25 +36,7 @@ use std::collections::HashMap;
 /// - `inventory`: Items in the unit's backpack
 /// - `cached_*`: Pre-calculated values for performance
 ///
-/// # Examples
-///
-/// ```rust,no_run
-/// use units::{BaseUnit, Race};
-/// use combat::{CombatStats, RangeCategory, Resistances};
-/// use graphics::HexCoord;
-///
-/// let stats = CombatStats::new(100, 10, 5, RangeCategory::Melee, Resistances::default());
-/// let unit = BaseUnit::new(
-///     "Warrior".to_string(),
-///     HexCoord::new(0, 0),
-///     Race::Human,
-///     "Human Warrior".to_string(),
-///     "A versatile warrior".to_string(),
-///     None,
-///     vec![],
-///     stats,
-/// );
-/// ```
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct BaseUnit {
     // Identity
@@ -93,6 +75,7 @@ pub struct BaseUnit {
 
     // Attacks (stored here so level-up methods can update them automatically)
     pub attacks: Vec<Attack>,
+    pub attacked_this_round: bool,
 
     // Abilities
     pub abilities: Vec<crate::ability::Ability>,
@@ -208,7 +191,8 @@ impl BaseUnit {
             sprite_type,
             evolution_previous,
             evolution_next,
-            attacks: Vec::new(),   // Will be set by unit constructor
+            attacks: Vec::new(), // Will be set by unit constructor
+            attacked_this_round: false,
             abilities: Vec::new(), // Will be set by unit constructor
             ability_state: crate::ability::AbilityState::new(),
         }
@@ -402,18 +386,6 @@ impl BaseUnit {
     /// * `new_stats` - The new base combat stats for the leveled-up unit
     /// * `heal_to_full` - Whether to restore the unit to full health after leveling up
     ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use units::BaseUnit;
-    /// # use combat::{CombatStats, RangeCategory, Resistances};
-    /// # use graphics::HexCoord;
-    /// # use units::Race;
-    /// # let initial_stats = CombatStats::new(100, 10, 4, RangeCategory::Melee, Resistances::new(10, 10, 10, 10, 10, 10));
-    /// let mut unit = BaseUnit::new("Test".into(), HexCoord::new(0,0), Race::Human, "Warrior".into(), "Test warrior".into(), None, vec![], initial_stats);
-    /// let new_stats = CombatStats::new(150, 15, 4, RangeCategory::Melee, Resistances::new(15, 15, 15, 15, 15, 15));
-    /// unit.apply_level_up_stats(new_stats, true); // Level up and heal to full
-    /// ```
     pub fn apply_level_up_stats(&mut self, new_stats: CombatStats, heal_to_full: bool) {
         // Store current health percentage before updating stats
         let current_health_percentage = if heal_to_full {
@@ -561,29 +533,6 @@ impl BaseUnit {
     /// # Returns
     ///
     /// A new melee `Attack` with range 1
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use units::BaseUnit;
-    /// # use combat::DamageType;
-    /// # let base = BaseUnit::new(
-    /// #     "Test".to_string(),
-    /// #     graphics::HexCoord::new(0, 0),
-    /// #     units::Race::Human,
-    /// #     "Warrior".to_string(),
-    /// #     "Test".to_string(),
-    /// #     None,
-    /// #     vec![],
-    /// #     combat::CombatStats::new(100, 10, 3, combat::RangeCategory::Melee, combat::Resistances::default()),
-    /// # );
-    /// let sword_attack = BaseUnit::create_melee_attack(
-    ///     "Sword Slash",
-    ///     15,
-    ///     1,
-    ///     DamageType::Slash
-    /// );
-    /// ```
     pub fn create_melee_attack(
         name: impl Into<String>,
         damage: u32,
@@ -609,20 +558,6 @@ impl BaseUnit {
     /// # Returns
     ///
     /// A new ranged `Attack` with the specified range
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use units::BaseUnit;
-    /// # use combat::DamageType;
-    /// let bow_attack = BaseUnit::create_ranged_attack(
-    ///     "Bow Shot",
-    ///     12,
-    ///     1,
-    ///     DamageType::Pierce,
-    ///     5
-    /// );
-    /// ```
     pub fn create_ranged_attack(
         name: impl Into<String>,
         damage: u32,

@@ -1,7 +1,7 @@
 //! Tests for the unit abilities system
 
-use combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use graphics::HexCoord;
+use units::combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use units::{ability::*, Attack, BaseUnit, Race, Unit};
 
 // Test unit wrapper that implements Unit trait

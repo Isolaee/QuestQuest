@@ -103,17 +103,17 @@ pub struct GameWorld {
     /// All terrain tiles in the world, indexed by hex coordinate
     pub terrain: HashMap<HexCoord, TerrainTile>,
 
+    /// Radius of the hex map (distance from center to edge)
+    pub world_radius: i32,
+
+    /// Cumulative game time in seconds
+    pub game_time: f32,
+
     /// All units in the world, indexed by UUID
     pub units: HashMap<Uuid, GameUnit>,
 
     /// All interactive objects in the world, indexed by UUID
     pub interactive_objects: HashMap<Uuid, InteractiveObject>,
-
-    /// World size as radius from center (e.g., 10 means coordinates from -10 to +10)
-    world_radius: i32,
-
-    /// Current game time in seconds, used for cooldowns and time-based mechanics
-    pub game_time: f32,
 
     /// Pending combat awaiting player confirmation
     pub pending_combat: Option<PendingCombat>,
@@ -138,10 +138,10 @@ impl GameWorld {
 
         let mut world = Self {
             terrain: HashMap::new(),
-            units: HashMap::new(),
-            interactive_objects: HashMap::new(),
             world_radius,
             game_time: 0.0,
+            units: HashMap::new(),
+            interactive_objects: HashMap::new(),
             pending_combat: None,
             ai_event_queue: Arc::new(Mutex::new(Vec::new())),
             turn_system,

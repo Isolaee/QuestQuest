@@ -1,5 +1,5 @@
 use crate::unit::Unit;
-use combat::CombatResult;
+use crate::combat::CombatResult;
 
 /// Calculate if an attack hits based on defender's terrain-based defense
 fn calculate_hit(attacker: &Unit, defender: &Unit) -> bool {

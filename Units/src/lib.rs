@@ -29,6 +29,7 @@ pub mod unit_type; // Type-safe unit identifiers
 pub mod units; // Concrete unit implementations
 
 // Re-export commonly used types
+pub use crate::combat::{CombatAction, CombatResult, CombatStats};
 pub use ability::{
     Ability, AbilityId, AbilityState, ActiveAbility, ActiveEffect, ActiveEffectInstance,
     AuraAbility, AuraEffect, AuraTarget, BuffStat, PassiveAbility, PassiveEffect, PassiveTrigger,
@@ -36,7 +37,6 @@ pub use ability::{
 };
 pub use attack::Attack;
 pub use base_unit::BaseUnit;
-pub use combat::{CombatAction, CombatResult, CombatStats};
 pub use items::{ConsumableEffect, Equipment, Item, ItemProperties, ItemType, RangeType};
 pub use team::Team;
 pub use unit_factory::UnitFactory;

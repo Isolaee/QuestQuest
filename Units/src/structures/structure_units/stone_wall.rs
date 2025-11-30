@@ -5,13 +5,13 @@
 //! vulnerable to siege weapons.
 
 use crate::attack::Attack;
+use crate::combat::Resistances;
 use crate::structures::structure_stats::StructureStats;
 use crate::structures::structure_trait::{Structure, StructureId};
 use crate::structures::structure_type::StructureType;
 use crate::team::Team;
 use crate::unit_race::Terrain;
 use crate::unit_trait::UnitId;
-use combat::Resistances;
 use graphics::HexCoord;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;

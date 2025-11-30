@@ -271,7 +271,7 @@ pub enum ActiveEffect {
     /// Deal direct damage
     Damage {
         amount: u32,
-        damage_type: combat::DamageType,
+        damage_type: crate::combat::DamageType,
     },
     /// Heal target
     Heal { amount: i32 },
@@ -307,7 +307,7 @@ pub enum ActiveEffect {
     DamageOverTime {
         damage_per_turn: u32,
         duration: u32,
-        damage_type: combat::DamageType,
+        damage_type: crate::combat::DamageType,
     },
     /// Heal over time
     HealOverTime { heal_per_turn: i32, duration: u32 },
@@ -416,7 +416,7 @@ pub enum AuraEffect {
     /// Damage per turn
     DamageOverTime {
         damage: u32,
-        damage_type: combat::DamageType,
+        damage_type: crate::combat::DamageType,
     },
     /// Reduce damage taken
     DamageReduction { percent: u8 },

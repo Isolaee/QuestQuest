@@ -20,41 +20,15 @@
 //! 4. Hit chance is rolled for each attack
 //! 5. Damage is calculated with resistance modifiers
 //! 6. Combat continues until all attacks are exhausted or a unit is defeated
-//!
-//! ## Examples
-//!
-//! ```
-//! use combat::{CombatStats, DamageType, RangeCategory, Resistances, resolve_combat};
-//!
-//! // Create combatants
-//! let mut attacker = CombatStats::new(
-//!     100,  // max health
-//!     15,   // base attack
-//!     5,    // movement speed
-//!     RangeCategory::Melee,
-//!     Resistances::default()
-//! );
-//!
-//! let mut defender = CombatStats::new(
-//!     80,
-//!     12,
-//!     4,
-//!     RangeCategory::Melee,
-//!     Resistances::default()
-//! );
-//!
-//! // Resolve combat; avoid asserting exact values because results are randomized.
-//! let result = resolve_combat(&mut attacker, &mut defender, DamageType::Slash);
-//! assert!(result.attacker_casualties <= 1);
-//! assert!(result.defender_casualties <= 1);
-//! ```
 
-mod combat_action;
 mod combat_resolver;
-mod combat_result;
-mod combat_stats;
 
-pub use combat_action::CombatAction;
 pub use combat_resolver::resolve_combat;
-pub use combat_result::CombatResult;
-pub use combat_stats::{CombatStats, DamageType, RangeCategory, Resistances};
+
+// Re-export core combat types from the `units` crate to avoid duplicating
+// type definitions. The `units` crate owns the `combat` module which contains
+// `CombatStats`, `DamageType`, `RangeCategory`, `Resistances`, `CombatResult`,
+// and `CombatAction`.
+pub use units::combat::{
+    CombatAction, CombatResult, CombatStats, DamageType, RangeCategory, Resistances,
+};
