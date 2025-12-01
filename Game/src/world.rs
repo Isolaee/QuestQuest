@@ -1946,7 +1946,7 @@ impl GameWorld {
 
         // Update all units
         for unit in self.units.values_mut() {
-            unit.update(delta_time);
+            unit.update();
         }
 
         // NOTE: AI logic has been moved to run_ai_for_current_team() which is called

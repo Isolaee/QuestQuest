@@ -1,8 +1,29 @@
-//! Minimal GOAP skeleton for QuestQuest
+//! # AI Crate - Enemy AI and Planning Logic
 //!
-//! This crate provides a tiny, dependency-free GOAP planner prototype intended
-//! for integration into the `Game` crate later. It focuses on a simple WorldState
-//! model, Action templates/instances, and a forward A* planner with bounded search.
+//! The `ai` crate provides Goal-Oriented Action Planning (GOAP) for non-player units.
+//! It contains no game state - instead, it provides planning algorithms that generate
+//! action sequences based on input world state.
+//!
+//! ## Architecture Role
+//!
+//! - **Pure Planning Logic**: Generates action plans, contains no game state
+//! - **Consumed by**: `Game/ScenarioWorld` which calls `plan_for_team()`
+//! - **Not Responsible For**: Unit state, combat resolution, turn management, UI
+//!
+//! ## Separation of Concerns
+//!
+//! - `AI` crate: "What should the AI do?" (planning algorithms)
+//! - `Combat` crate: "How is combat resolved?" (combat logic)
+//! - `Game/ScenarioWorld`: "Execute AI actions" (state updates)
+//! - `QuestApp`: "Show AI actions" (presentation)
+//!
+//! ## Features
+//!
+//! This crate provides a minimal GOAP planner with:
+//! - Simple WorldState model for representing game state
+//! - Action templates/instances for possible actions
+//! - Forward A* planner with bounded search
+//! - Team-based planning for coordinated AI behavior
 
 // Crate root: small re-exporting module to hold AI building blocks split across files.
 pub mod action;

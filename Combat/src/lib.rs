@@ -1,8 +1,21 @@
-//! # Combat Crate
+//! # Combat Crate - Combat Resolution Logic
 //!
-//! The `combat` crate provides a comprehensive turn-based combat system for QuestQuest.
-//! It handles combat statistics, damage calculations, resistance modifiers, and combat
-//! resolution with detailed turn-by-turn mechanics.
+//! The `combat` crate is responsible for all combat resolution logic in QuestQuest.
+//! It contains no game state - instead, it provides pure functions that calculate
+//! combat outcomes based on input stats.
+//!
+//! ## Architecture Role
+//!
+//! - **Pure Logic**: Contains only combat resolution algorithms, no state
+//! - **Consumed by**: `Game/ScenarioWorld` which calls `resolve_combat()`
+//! - **Not Responsible For**: Unit state, turn management, AI decisions, UI display
+//!
+//! ## Separation of Concerns
+//!
+//! - `Combat` crate: "How is combat resolved?" (pure logic)
+//! - `Game/ScenarioWorld`: "When does combat happen?" (game state)
+//! - `AI` crate: "Should I attack?" (decision making)
+//! - `QuestApp`: "Show combat confirmation" (presentation)
 //!
 //! ## Features
 //!
@@ -14,12 +27,13 @@
 //!
 //! ## Combat Flow
 //!
-//! 1. Attacker and defender stats are prepared
-//! 2. Combat is resolved using `resolve_combat()`
+//! 1. Attacker and defender stats are prepared by caller (ScenarioWorld)
+//! 2. Combat is resolved using `resolve_combat()` (pure function)
 //! 3. Attacks alternate between combatants based on `attacks_per_round`
 //! 4. Hit chance is rolled for each attack
 //! 5. Damage is calculated with resistance modifiers
 //! 6. Combat continues until all attacks are exhausted or a unit is defeated
+//! 7. Results returned to caller for state updates
 
 mod combat_resolver;
 

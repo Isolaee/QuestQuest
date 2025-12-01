@@ -1,24 +1,46 @@
-[
-  {"HexCoord": {"q": 0, "r": 0}, "SpriteType": "Grasslands", "Unit": null, "Item": null, "Structure": null},
-  
-  {"HexCoord": {"q": 1, "r": -1}, "SpriteType": "Hills", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 1, "r": 0}, "SpriteType": "Forest", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 0, "r": 1}, "SpriteType": "Hills", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": -1, "r": 1}, "SpriteType": "Mountain", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": -1, "r": 0}, "SpriteType": "Swamp", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 0, "r": -1}, "SpriteType": "Forest2", "Unit": null, "Item": null, "Structure": null},
-  
-  {"HexCoord": {"q": 2, "r": 0}, "SpriteType": "Forest", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 2, "r": -1}, "SpriteType": "Grasslands", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 1, "r": -1}, "SpriteType": "Hills", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 1, "r": 1}, "SpriteType": "Forest2", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 0, "r": 2}, "SpriteType": "Swamp", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": -1, "r": 2}, "SpriteType": "Mountain", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": -2, "r": 2}, "SpriteType": "Hills", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": -2, "r": 1}, "SpriteType": "Forest", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": -2, "r": 0}, "SpriteType": "Grasslands", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": -1, "r": -1}, "SpriteType": "Forest2", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 0, "r": -2}, "SpriteType": "Mountain", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 1, "r": -2}, "SpriteType": "Hills", "Unit": null, "Item": null, "Structure": null},
-  {"HexCoord": {"q": 2, "r": -2}, "SpriteType": "Swamp", "Unit": null, "Item": null, "Structure": null}
-]
+{
+  "Scenario": {
+    "Name": "Training Ground Skirmish",
+    "Description": "A small battle between human forces and orc raiders"
+  },
+  "Teams": [
+    {
+      "Name": "Player",
+      "IsPlayerControlled": true,
+      "Goal": "Defeat all enemy units"
+    },
+    {
+      "Name": "Enemy",
+      "IsPlayerControlled": false,
+      "Goal": "Defeat all player units"
+    },
+    {
+      "Name": "Neutral",
+      "IsPlayerControlled": false,
+      "Goal": "Survive"
+    }
+  ],
+  "Map": [
+    {"HexCoord": {"q": 0, "r": 0}, "SpriteType": "Grasslands", "Unit": ["Human Squire", "Player"], "Item": null, "Structure": null},
+    
+    {"HexCoord": {"q": 1, "r": -1}, "SpriteType": "Hills", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": 1, "r": 0}, "SpriteType": "Forest", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": 0, "r": 1}, "SpriteType": "Hills", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": -1, "r": 1}, "SpriteType": "Mountain", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": -1, "r": 0}, "SpriteType": "Swamp", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": 0, "r": -1}, "SpriteType": "Forest2", "Unit": null, "Item": null, "Structure": null},
+    
+    {"HexCoord": {"q": 2, "r": 0}, "SpriteType": "Forest", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": 2, "r": -1}, "SpriteType": "Grasslands", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": 1, "r": 1}, "SpriteType": "Forest2", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": 0, "r": 2}, "SpriteType": "Swamp", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": -1, "r": 2}, "SpriteType": "Mountain", "Unit": ["Orc Swordsman", "Enemy"], "Item": null, "Structure": null},
+    {"HexCoord": {"q": -2, "r": 2}, "SpriteType": "Hills", "Unit": ["Orc Young Swordsman", "Enemy"], "Item": null, "Structure": null},
+    {"HexCoord": {"q": -2, "r": 1}, "SpriteType": "Forest", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": -2, "r": 0}, "SpriteType": "Grasslands", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": -1, "r": -1}, "SpriteType": "Forest2", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": 0, "r": -2}, "SpriteType": "Mountain", "Unit": null, "Item": null, "Structure": null},
+    {"HexCoord": {"q": 1, "r": -2}, "SpriteType": "Hills", "Unit": ["Dwarf Warrior", "Player"], "Item": null, "Structure": null},
+    {"HexCoord": {"q": 2, "r": -2}, "SpriteType": "Swamp", "Unit": null, "Item": null, "Structure": null}
+  ]
+}

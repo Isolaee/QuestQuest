@@ -38,7 +38,7 @@ pub mod states;
 
 pub use states::combat::CombatState;
 pub use states::encyclopedia::EncyclopediaState;
-pub use states::exploring::{ExploringContext, ExploringState};
+pub use states::exploring::ExploringState;
 pub use states::pickup::PickupState;
 pub use states::GameState;
 
