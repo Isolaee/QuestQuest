@@ -5,10 +5,10 @@
 //! structure management, occupation, and combat.
 
 use crate::attack::Attack;
+use crate::combat::Resistances;
 use crate::team::Team;
 use crate::unit_race::Terrain;
 use crate::unit_trait::UnitId;
-use combat::Resistances;
 use graphics::HexCoord;
 use uuid::Uuid;
 

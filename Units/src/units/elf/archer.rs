@@ -1,7 +1,7 @@
 use crate::attack::Attack;
 use crate::base_unit::BaseUnit;
+use crate::combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use crate::unit_race::{Race, Terrain};
-use combat::{CombatStats, DamageType, RangeCategory, Resistances};
 use graphics::HexCoord;
 
 pub struct ElfArcher {

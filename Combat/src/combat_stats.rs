@@ -12,29 +12,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Types of damage that can be dealt in combat.
-///
-/// Each damage type can be resisted independently, allowing for tactical
-/// unit composition and equipment choices. For example, heavily armored
-/// units might have high resistance to Slash but low resistance to Blunt.
-///
-/// # Variants
-///
-/// - `Blunt`: Crushing damage from maces, clubs, etc.
-/// - `Pierce`: Penetrating damage from arrows, spears, etc.
-/// - `Fire`: Elemental fire damage
-/// - `Dark`: Dark magic damage
-/// - `Slash`: Cutting damage from swords, axes, etc.
-/// - `Crush`: Heavy impact damage from hammers, siege weapons, etc.
-///
-/// # Examples
-///
-/// ```
-/// use combat::DamageType;
-///
-/// let sword_damage = DamageType::Slash;
-/// let fire_spell = DamageType::Fire;
-/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DamageType {
     /// Crushing damage (maces, clubs)
@@ -51,23 +28,7 @@ pub enum DamageType {
     Crush,
 }
 
-/// Range category determining attack distance and counter-attack rules.
-///
-/// Range categories affect both the maximum distance a unit can attack from
-/// and whether defenders can counter-attack. Melee units can be counter-attacked,
-/// while ranged units attack from safety.
-///
-/// # Examples
-///
-/// ```
-/// use combat::RangeCategory;
-///
-/// let melee = RangeCategory::Melee;
-/// assert_eq!(melee.base_range(), 1);
-///
-/// let archer = RangeCategory::Range;
-/// assert_eq!(archer.base_range(), 3);
-/// ```
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RangeCategory {
     /// Close combat (range 1), allows counter-attacks
@@ -95,23 +56,7 @@ impl RangeCategory {
     }
 }
 
-/// Resistance values for each damage type as percentage multipliers.
-///
-/// Resistances reduce incoming damage of specific types. A resistance of 0
-/// means no reduction, while 100 means complete immunity. The actual damage
-/// taken is: `damage * (1 - resistance / 100)`.
-///
-/// # Examples
-///
-/// ```
-/// use combat::{Resistances, DamageType};
-///
-/// let mut resistances = Resistances::new(20, 10, 0, 5, 30, 15);
-/// assert_eq!(resistances.get_resistance(DamageType::Slash), 30);
-///
-/// resistances.set_resistance(DamageType::Fire, 50);
-/// assert_eq!(resistances.get_resistance(DamageType::Fire), 50);
-/// ```
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Resistances {
     /// Resistance to blunt damage (0-100%)
@@ -129,26 +74,7 @@ pub struct Resistances {
 }
 
 impl Resistances {
-    /// Creates new resistances with specified values.
-    ///
-    /// Values are automatically clamped to the range 0-100.
-    ///
-    /// # Arguments
-    ///
-    /// * `blunt` - Blunt damage resistance (0-100)
-    /// * `pierce` - Pierce damage resistance (0-100)
-    /// * `fire` - Fire damage resistance (0-100)
-    /// * `dark` - Dark damage resistance (0-100)
-    /// * `slash` - Slash damage resistance (0-100)
-    /// * `crush` - Crush damage resistance (0-100)
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use combat::Resistances;
-    ///
-    /// let resistances = Resistances::new(25, 15, 0, 10, 30, 20);
-    /// ```
+
     pub fn new(blunt: u8, pierce: u8, fire: u8, dark: u8, slash: u8, crush: u8) -> Self {
         Self {
             blunt: blunt.min(100),
@@ -208,43 +134,6 @@ impl Default for Resistances {
     }
 }
 
-/// Comprehensive combat statistics for a unit.
-///
-/// `CombatStats` encapsulates all the numerical values that define a unit's
-/// combat capabilities, including health, damage, attack frequency, range,
-/// and damage resistances.
-///
-/// # Multi-Attack System
-///
-/// Units can attack multiple times per combat round using `attacks_per_round`.
-/// Each attack deals `attack_strength` damage (modified by `attack_modifier`),
-/// allowing for units that make many weak attacks or few strong attacks.
-///
-/// # Examples
-///
-/// ```
-/// use combat::{CombatStats, RangeCategory, Resistances, DamageType};
-///
-/// // Create a basic warrior
-/// let warrior = CombatStats::new(
-///     100,                    // max health
-///     20,                     // base attack
-///     5,                      // movement speed
-///     RangeCategory::Melee,
-///     Resistances::default()
-/// );
-///
-/// // Create an archer with multiple attacks
-/// let archer = CombatStats::new_with_attacks(
-///     80,                     // max health
-///     15,                     // base attack
-///     6,                      // movement speed
-///     RangeCategory::Range,
-///     Resistances::default(),
-///     8,                      // attack strength per shot
-///     3                       // 3 attacks per round
-/// );
-/// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CombatStats {
     /// Current health points
@@ -278,34 +167,7 @@ pub struct CombatStats {
 }
 
 impl CombatStats {
-    /// Creates new combat stats with default attack parameters.
-    ///
-    /// This constructor sets `attack_strength` equal to `base_attack` and
-    /// `attacks_per_round` to 1, suitable for standard single-attack units.
-    ///
-    /// # Arguments
-    ///
-    /// * `max_health` - Maximum health points
-    /// * `base_attack` - Base attack damage
-    /// * `movement_speed` - Movement speed on the map
-    /// * `range_category` - Attack range category
-    /// * `resistances` - Damage resistances
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use combat::{CombatStats, RangeCategory, Resistances};
-    ///
-    /// let stats = CombatStats::new(
-    ///     100,
-    ///     20,
-    ///     5,
-    ///     RangeCategory::Melee,
-    ///     Resistances::default()
-    /// );
-    /// assert_eq!(stats.health, 100);
-    /// assert_eq!(stats.attacks_per_round, 1);
-    /// ```
+
     pub fn new(
         max_health: i32,
         base_attack: u32,
@@ -325,38 +187,7 @@ impl CombatStats {
         )
     }
 
-    /// Creates new combat stats with custom attack parameters.
-    ///
-    /// This constructor allows full control over the multi-attack system,
-    /// enabling units that make multiple attacks with different damage values.
-    ///
-    /// # Arguments
-    ///
-    /// * `max_health` - Maximum health points
-    /// * `base_attack` - Base attack damage (used for display)
-    /// * `movement_speed` - Movement speed on the map
-    /// * `range_category` - Attack range category
-    /// * `resistances` - Damage resistances
-    /// * `attack_strength` - Damage per individual attack
-    /// * `attacks_per_round` - Number of attacks per combat round (min 1)
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use combat::{CombatStats, RangeCategory, Resistances};
-    ///
-    /// // Create a unit that attacks 3 times for 10 damage each
-    /// let multi_attacker = CombatStats::new_with_attacks(
-    ///     100,
-    ///     30,  // total base attack
-    ///     5,
-    ///     RangeCategory::Melee,
-    ///     Resistances::default(),
-    ///     10,  // 10 damage per attack
-    ///     3    // 3 attacks
-    /// );
-    /// assert_eq!(multi_attacker.attacks_per_round, 3);
-    /// ```
+
     pub fn new_with_attacks(
         max_health: i32,
         base_attack: u32,

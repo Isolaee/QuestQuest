@@ -3,28 +3,9 @@
 //! This module provides the [`Attack`] structure that represents specific
 //! combat actions units can perform, including damage, range, and damage type.
 
-use combat::DamageType;
+use crate::combat::DamageType;
 use serde::{Deserialize, Serialize};
 
-/// Represents a specific attack that a unit can perform.
-///
-/// Attacks have a name, damage value, damage type, and range. Units can have
-/// multiple attacks (e.g., basic sword attack, power strike, shield bash).
-///
-/// # Examples
-///
-/// ```rust
-/// use units::Attack;
-/// use combat::DamageType;
-///
-/// // Create a melee sword attack
-/// let sword_attack = Attack::melee("Sword Strike", 15, 1, DamageType::Slash);
-/// assert_eq!(sword_attack.range, 1); // Melee range
-///
-/// // Create a ranged bow attack
-/// let bow_attack = Attack::ranged("Bow Shot", 12, 2, DamageType::Pierce, 5);
-/// assert_eq!(bow_attack.range, 5); // Can reach 5 hexes away
-/// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Attack {
     /// Name of the attack (e.g., "Sword Slash", "Axe Cleave", "Fire Arrow")

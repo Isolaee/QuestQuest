@@ -105,7 +105,7 @@ pub trait GameObject {
     /// # Arguments
     ///
     /// * `_delta_time` - Time elapsed since last update in seconds
-    fn update(&mut self, _delta_time: f32) {}
+    fn update(&mut self) {}
 
     /// Handles interaction with another game object.
     ///
@@ -489,9 +489,8 @@ impl GameObject for GameUnit {
         self.get_unit_sprite()
     }
 
-    fn update(&mut self, delta_time: f32) {
+    fn update(&mut self) {
         // Update any time-based mechanics
-        self.last_action_time += delta_time;
     }
 
     fn interact(&mut self, other: &mut dyn GameObject) -> bool {

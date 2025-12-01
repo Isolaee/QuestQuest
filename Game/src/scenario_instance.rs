@@ -1,92 +1,52 @@
-//! # Game World Module
+//! # ScenarioWorld - Game State Manager
 //!
-//! This module provides the `GameWorld` structure that manages all game entities,
-//! terrain, and combat in a hex-based grid system. It serves as the central state
-//! management system for the game.
+//! `ScenarioWorld` is the single source of truth for game state and the coordinator
+//! between different game systems. It maintains all world state (units, terrain,
+//! objects) and delegates specialized operations to appropriate crates:
 //!
-//! ## Core Features
+//! ## Architecture Responsibilities
 //!
-//! - **Terrain Management**: Procedural terrain generation and querying
-//! - **Unit Management**: Add, remove, move, and query units across the world
-//! - **Combat System**: Combat initiation, confirmation dialogs, and resolution
-//! - **Interactive Objects**: Manage pickups, quest objects, and NPCs
-//! - **Collision Detection**: Movement validation considering terrain and units
+//! ### Core State Management
+//! - Stores all units, terrain, and interactive objects
+//! - Manages turn-based gameplay system
+//! - Tracks pending combat for player confirmation
+//! - Maintains movement and action state per unit
 //!
-//! ## Combat Flow
+//! ### System Coordination
+//! - **Combat Resolution**: Delegates to `Combat` crate via `execute_pending_combat()`
+//! - **AI Planning**: Delegates to `AI` crate via `run_ai_for_current_team()`
+//! - **Presentation Layer**: Provides query methods for rendering (QuestApp)
 //!
-//! 1. Player attempts to move onto enemy unit's position
-//! 2. Combat confirmation dialog is created (`PendingCombat`)
-//! 3. Player selects attack and confirms
-//! 4. Combat is executed with damage calculations and counter-attacks
-//! 5. Defeated units are removed from the world
+//! ### Key Methods
+//! - `move_unit()`: Handles unit movement and initiates combat requests
+//! - `execute_pending_combat()`: Delegates combat resolution to Combat crate
+//! - `run_ai_for_current_team()`: Delegates AI planning to AI crate
+//! - `all_legal_moves()`: Queries legal moves for UI display
+//! - `extract_detailed_world_state()`: Exports state for AI planning
+//!
+//! ## Design Pattern
+//!
+//! ScenarioWorld acts as a **Facade** and **Mediator**:
+//! - Provides a unified interface to complex subsystems (Combat, AI)
+//! - Coordinates interactions between presentation layer and game logic
+//! - Ensures single source of truth for game state
 
 use crate::objects::*;
+use crate::world::PendingCombat;
 use ai::{
     ActionInstance as AiActionInstance, FactValue as AiFactValue, Goal as AiGoal,
     WorldState as AiWorldState,
 };
-use graphics::{HexCoord, SpriteType};
+use graphics::HexCoord;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-// Weight applied to expected damage when converting to a negative cost (higher -> more aggressive)
+// Local constants used by AI action cost calculations (match world.rs defaults)
 const ATTACK_EXPECTED_UTILITY_WEIGHT: f32 = 1.0;
-// Minimum action cost to avoid non-positive costs which may confuse planner ordering
 const MIN_ACTION_COST: f32 = 0.01;
 
-/// Information about a unit's attack for display in combat dialogs.
-///
-/// Used to present attack options to the player before combat begins.
-#[derive(Clone, Debug)]
-pub struct AttackInfo {
-    /// Display name of the attack
-    pub name: String,
-    /// Base damage value
-    pub damage: u32,
-    /// Attack range (1 for melee, higher for ranged)
-    pub range: i32,
-}
-
-#[derive(Clone, Debug)]
-pub struct PendingCombat {
-    /// UUID of the attacking unit
-    pub attacker_id: Uuid,
-    /// UUID of the defending unit
-    pub defender_id: Uuid,
-    /// Display name of the attacker
-    pub attacker_name: String,
-    /// Current hit points of the attacker
-    pub attacker_hp: u32,
-    /// Maximum hit points of the attacker
-    pub attacker_max_hp: u32,
-    /// Attack stat of the attacker
-    pub attacker_attack: u32,
-    /// Defense stat of the attacker
-    pub attacker_defense: u32,
-    /// Number of attacks the attacker makes per combat round
-    pub attacker_attacks_per_round: u32,
-    /// Available attacks for the attacker to choose from
-    pub attacker_attacks: Vec<AttackInfo>,
-    /// Display name of the defender
-    pub defender_name: String,
-    /// Current hit points of the defender
-    pub defender_hp: u32,
-    /// Maximum hit points of the defender
-    pub defender_max_hp: u32,
-    /// Attack stat of the defender
-    pub defender_attack: u32,
-    /// Defense stat of the defender
-    pub defender_defense: u32,
-    /// Number of attacks the defender makes per combat round
-    pub defender_attacks_per_round: u32,
-    /// Available attacks for the defender
-    pub defender_attacks: Vec<AttackInfo>,
-    /// Index of the attack selected by the player (0-based)
-    pub selected_attack_index: usize,
-}
-
-/// Events emitted by the AI executor for the game to react to.
+/// Game event emitted by AI executors for tracking actions
 #[derive(Clone, Debug)]
 pub enum GameEvent {
     ActionStarted {
@@ -99,15 +59,14 @@ pub enum GameEvent {
     },
 }
 
-pub struct GameWorld {
+/// ScenarioWorld: Single source of truth for game state
+///
+/// Coordinates between Combat crate (combat resolution), AI crate (enemy AI),
+/// and QuestApp (presentation/controls). All game state mutations go through
+/// this structure to maintain consistency.
+pub struct ScenarioWorld {
     /// All terrain tiles in the world, indexed by hex coordinate
     pub terrain: HashMap<HexCoord, TerrainTile>,
-
-    /// Radius of the hex map (distance from center to edge)
-    pub world_radius: i32,
-
-    /// Cumulative game time in seconds
-    pub game_time: f32,
 
     /// All units in the world, indexed by UUID
     pub units: HashMap<Uuid, GameUnit>,
@@ -128,76 +87,48 @@ pub struct GameWorld {
     last_known_team: Option<Team>,
 }
 
-impl GameWorld {
-    pub fn new(world_radius: i32) -> Self {
+impl ScenarioWorld {
+    pub fn new(map_json: String) -> Self {
+        let terrain: HashMap<HexCoord, TerrainTile>;
+        let units: HashMap<Uuid, GameUnit>;
+        let interactive_objects: HashMap<Uuid, InteractiveObject>;
+
+        // Parse the map JSON
+        match ScenarioWorld::parse_map_json(&map_json) {
+            Ok(parsed) => {
+                terrain = parsed.terrain;
+                units = ScenarioWorld::populate_units(parsed.units);
+
+                // Combine items and structures into interactive_objects
+                let mut items = ScenarioWorld::populate_items(parsed.items);
+                let structures = ScenarioWorld::populate_structures(parsed.structures);
+                items.extend(structures);
+                interactive_objects = items;
+            }
+            Err(e) => {
+                eprintln!("Failed to parse map JSON: {}", e);
+                terrain = HashMap::new();
+                units = HashMap::new();
+                interactive_objects = HashMap::new();
+            }
+        }
+
+        // Create a standard turn system for all scenarios
         let mut turn_system = crate::turn_system::TurnSystem::new();
-        // By default, only Player team is player-controlled
         turn_system.set_team_control(Team::Player, true);
         turn_system.set_team_control(Team::Enemy, false);
         turn_system.set_team_control(Team::Neutral, false);
 
-        let mut world = Self {
-            terrain: HashMap::new(),
-            world_radius,
-            game_time: 0.0,
-            units: HashMap::new(),
-            interactive_objects: HashMap::new(),
+        Self {
+            terrain,
+            units,
+            interactive_objects,
             pending_combat: None,
             ai_event_queue: Arc::new(Mutex::new(Vec::new())),
             turn_system,
             last_known_team: None,
-        };
-
-        // Populate terrain so movement costs are available by default
-        world.generate_terrain();
-
-        world
-    }
-
-    pub fn generate_terrain(&mut self) {
-        for q in -self.world_radius..=self.world_radius {
-            for r in -self.world_radius..=self.world_radius {
-                // Skip hexes that are too far from center
-                let coord = HexCoord::new(q, r);
-                if coord.distance(HexCoord::new(0, 0)) <= self.world_radius {
-                    // Generate terrain based on coordinate
-                    let sprite_type = self.generate_terrain_type(coord);
-                    let terrain = TerrainTile::new(coord, sprite_type);
-                    self.terrain.insert(coord, terrain);
-                }
-            }
         }
     }
-
-    /// Extract a minimal AI world state for the given team.
-    ///
-    /// Prototype: encode unit positions and alive flags as simple string facts.
-    pub fn extract_world_state_for_team(&self, team: Team) -> AiWorldState {
-        let mut ws = AiWorldState::new();
-
-        for (id, unit) in &self.units {
-            // fact keys: "Unit:{id}:At" => "q,r" string
-            let pos = unit.position();
-            let key_pos = format!("Unit:{}:At", id);
-            ws.insert(
-                key_pos.clone(),
-                AiFactValue::Str(format!("{},{}", pos.q, pos.r)),
-            );
-
-            // alive flag
-            let alive_key = format!("Unit:{}:Alive", id);
-            ws.insert(alive_key, AiFactValue::Bool(true));
-        }
-
-        // Additionally include a team marker
-        ws.insert(
-            "CurrentTeam".to_string(),
-            AiFactValue::Str(format!("{:?}", team)),
-        );
-
-        ws
-    }
-
     /// Extract detailed world state with comprehensive tactical information.
     ///
     /// This enhanced version includes health states, movement capabilities, attack ranges,
@@ -447,81 +378,11 @@ impl GameWorld {
 
         threat
     }
-
-    /// Generate simple grounded actions for all units of `team`.
-    ///
-    /// Prototype actions:
-    /// - Move to adjacent hex (precond: At=id_pos)
-    /// - Attack adjacent enemy (precond: At=id_pos, EnemyAt=other_pos)
     pub fn generate_team_actions(&self, team: Team) -> Vec<AiActionInstance> {
         let mut out: Vec<AiActionInstance> = Vec::new();
 
-        // Dijkstra-like reachable calculation using integer costs
-        fn compute_reachable(
-            world: &GameWorld,
-            unit_id: Uuid,
-            start: HexCoord,
-            max_cost: i32,
-        ) -> HashMap<HexCoord, i32> {
-            use std::cmp::Reverse;
-            use std::collections::BinaryHeap;
-
-            let mut dist: HashMap<HexCoord, i32> = HashMap::new();
-            // Use primitive tuple in heap so ordering is defined
-            let mut heap: BinaryHeap<(Reverse<i32>, (i32, i32))> = BinaryHeap::new();
-
-            dist.insert(start, 0);
-            heap.push((Reverse(0), (start.q, start.r)));
-
-            while let Some((Reverse(cost), (cq, cr))) = heap.pop() {
-                let coord = HexCoord::new(cq, cr);
-                if let Some(&best) = dist.get(&coord) {
-                    if cost > best {
-                        continue;
-                    }
-                }
-
-                for nb in coord.neighbors().iter() {
-                    // Skip out-of-bounds
-                    if nb.distance(HexCoord::new(0, 0)) > world.world_radius {
-                        continue;
-                    }
-                    // Skip impassable terrain
-                    if let Some(terrain) = world.get_terrain(*nb) {
-                        if terrain.blocks_movement() {
-                            continue;
-                        }
-                    }
-                    // Skip occupied tiles by other units
-                    let units_there = world.get_units_at_position(*nb);
-                    let occupied_by_other = units_there.iter().any(|u| u.id() != unit_id);
-                    if occupied_by_other {
-                        continue;
-                    }
-
-                    let step_cost = world.get_movement_cost(*nb);
-                    let new_cost = cost + step_cost;
-                    if new_cost > max_cost {
-                        continue;
-                    }
-
-                    match dist.get(nb) {
-                        None => {
-                            dist.insert(*nb, new_cost);
-                            heap.push((Reverse(new_cost), (nb.q, nb.r)));
-                        }
-                        Some(&c) => {
-                            if new_cost < c {
-                                dist.insert(*nb, new_cost);
-                                heap.push((Reverse(new_cost), (nb.q, nb.r)));
-                            }
-                        }
-                    }
-                }
-            }
-
-            dist
-        }
+        // Reachable calculation moved to `scenario_helpers.rs` as
+        // a private `GameWorld::compute_reachable` helper.
 
         for (id, unit) in &self.units {
             if unit.team() != team {
@@ -532,7 +393,7 @@ impl GameWorld {
             let pos = unit.position();
             let moves_left = unit.moves_left();
 
-            let reachable = compute_reachable(self, *id, pos, moves_left);
+            let reachable = self.compute_reachable(*id, pos, moves_left);
 
             // Ground Move actions for each reachable tile (excluding start)
             for (tile, cost) in &reachable {
@@ -650,12 +511,19 @@ impl GameWorld {
 
         out
     }
-
-    /// Run the AI planner for the current team if the current team is AI-controlled.
+    /// Runs AI planning for the current team.
     ///
-    /// This prototype: when it's an AI team's turn, plan sequentially for each unit,
-    /// execute move actions (via `move_unit`) or request combat (via `request_combat`),
-    /// then end the turn.
+    /// # Architecture
+    ///
+    /// This method coordinates AI planning by:
+    /// 1. Extracting world state for AI crate via `extract_detailed_world_state()`
+    /// 2. Generating possible actions via `generate_team_actions()`
+    /// 3. Delegating planning to AI crate via `plan_for_team()`
+    /// 4. Executing planned actions (movement, combat) via ScenarioWorld methods
+    ///
+    /// The AI crate provides planning logic, while ScenarioWorld handles execution.
+    ///
+    /// # Only runs for AI-controlled teams
     pub fn run_ai_for_current_team(&mut self) {
         let current_team = self.turn_system.current_team();
         println!(
@@ -680,7 +548,7 @@ impl GameWorld {
         }
 
         // Prepare AI world state and actions
-        let ws = self.extract_world_state_for_team(current_team);
+        let ws = self.extract_detailed_world_state(current_team);
         println!("🤖 [AI DEBUG] World state extracted");
 
         let actions = self.generate_team_actions(current_team);
@@ -982,24 +850,6 @@ impl GameWorld {
         self.end_current_turn();
     }
 
-    /// Generates terrain type based on hex coordinate position.
-    ///
-    /// Uses coordinate-based pseudo-random generation to ensure consistent
-    /// terrain across multiple calls.
-    ///
-    /// # Arguments
-    ///
-    /// * `coord` - Hex coordinate to generate terrain for
-    ///
-    /// # Returns
-    ///
-    /// A sprite type representing the terrain at this position
-    fn generate_terrain_type(&self, coord: HexCoord) -> SpriteType {
-        // Use coordinate-based seeding for consistent terrain generation
-        let seed = coord.q * 73 + coord.r * 37 + coord.q * coord.r * 17;
-        SpriteType::random_terrain(seed)
-    }
-
     pub fn add_unit(&mut self, unit: GameUnit) -> Uuid {
         let id = unit.id();
         self.units.insert(id, unit);
@@ -1156,769 +1006,6 @@ impl GameWorld {
         &self.terrain
     }
 
-    /// Checks if a position is valid for movement.
-    ///
-    /// Validates movement based on:
-    /// - World boundaries
-    /// - Terrain blocking (e.g., mountains)
-    /// - Unit blocking (allied units block, enemy units allow combat)
-    /// - Interactive object blocking
-    ///
-    /// # Arguments
-    ///
-    /// * `position` - Hex coordinate to validate
-    /// * `unit_id` - Optional UUID of the moving unit (for team checking)
-    ///
-    /// # Returns
-    ///
-    /// `true` if the position is valid for movement, `false` otherwise
-    pub fn is_position_valid_for_movement(
-        &self,
-        position: HexCoord,
-        unit_id: Option<Uuid>,
-    ) -> bool {
-        // Check if position is within world bounds
-        if position.distance(HexCoord::new(0, 0)) > self.world_radius {
-            return false;
-        }
-
-        // Check terrain blocking
-        if let Some(terrain) = self.get_terrain(position) {
-            if terrain.blocks_movement() {
-                return false;
-            }
-        }
-
-        // Check if another unit is blocking
-        // Allow movement onto enemy units (for combat), but not allied units
-        for unit in self.units.values() {
-            if unit.position() == position {
-                if let Some(moving_unit_id) = unit_id {
-                    if unit.id() != moving_unit_id {
-                        // There's another unit at this position
-                        // Check if it's an enemy (allow) or ally (block)
-                        if let Some(moving_unit) = self.units.get(&moving_unit_id) {
-                            if moving_unit.team() == unit.team() {
-                                // Same team - block movement
-                                return false;
-                            }
-                            // Different team - allow movement (combat will be initiated)
-                        } else {
-                            // Moving unit not found - block to be safe
-                            return false;
-                        }
-                    }
-                } else {
-                    return false; // A unit is blocking and no exception
-                }
-            }
-        }
-
-        // Check interactive objects that block movement
-        for object in self.interactive_objects.values() {
-            if object.position() == position && object.blocks_movement() {
-                return false;
-            }
-        }
-
-        true
-    }
-
-    pub fn move_unit(&mut self, unit_id: Uuid, new_position: HexCoord) -> Result<(), String> {
-        // Check if game has started
-        if !self.turn_system.is_game_started() {
-            return Err("Game has not started yet".to_string());
-        }
-
-        // Check if it's this unit's team's turn
-        if let Some(unit) = self.units.get(&unit_id) {
-            let unit_team = unit.team();
-            if !self.turn_system.is_team_turn(unit_team) {
-                return Err(format!("Not {:?}'s turn", unit_team));
-            }
-        } else {
-            return Err("Unit not found".to_string());
-        }
-
-        // Check if there's an enemy unit at the target position
-        let units_at_target: Vec<Uuid> = self
-            .get_units_at_position(new_position)
-            .iter()
-            .map(|u| u.id())
-            .collect();
-
-        let target_unit_id = units_at_target.first().copied();
-
-        if let Some(target_id) = target_unit_id {
-            // There's a unit at the target position - check if it's an enemy
-            let moving_unit_team = self.units.get(&unit_id).map(|u| u.team());
-            let target_unit_team = self.units.get(&target_id).map(|u| u.team());
-
-            if let (Some(mover_team), Some(target_team)) = (moving_unit_team, target_unit_team) {
-                if mover_team != target_team {
-                    // Enemy units - request combat confirmation!
-                    return self.request_combat(unit_id, target_id);
-                } else {
-                    // Same team - can't move there
-                    return Err("Cannot move onto allied unit".to_string());
-                }
-            }
-        }
-
-        // No enemy at target - check normal movement validation
-        if !self.is_position_valid_for_movement(new_position, Some(unit_id)) {
-            return Err("Position is blocked or invalid".to_string());
-        }
-
-        // Determine movement cost for the target tile (integer)
-        let movement_cost = self.get_movement_cost(new_position);
-
-        if let Some(unit) = self.units.get_mut(&unit_id) {
-            // Ensure the unit has enough movement points left
-            if !unit.consume_moves(movement_cost) {
-                return Err("Not enough movement points".to_string());
-            }
-
-            // Perform move
-            unit.set_position(new_position);
-            // Mark unit as having acted (moved) this turn
-            self.turn_system.mark_unit_acted(unit_id);
-            Ok(())
-        } else {
-            Err("Unit not found".to_string())
-        }
-    }
-
-    /// Initiates combat confirmation between two units.
-    ///
-    /// Creates a `PendingCombat` structure containing all necessary information
-    /// for the combat confirmation dialog. The player can then review stats,
-    /// select an attack, and either execute or cancel the combat.
-    ///
-    /// # Arguments
-    ///
-    /// * `attacker_id` - UUID of the attacking unit
-    /// * `defender_id` - UUID of the defending unit
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if combat request was created, `Err(String)` if either unit not found
-    pub fn request_combat(&mut self, attacker_id: Uuid, defender_id: Uuid) -> Result<(), String> {
-        // Get unit info for confirmation dialog
-        let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
-        let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
-
-        // If the attacker has already attacked this game turn, silently do
-        // nothing: don't create a pending combat confirmation. Returning Ok
-        // without setting `pending_combat` keeps the call-site behavior simple
-        // (UI/AI won't see a pending combat and will not open the dialog).
-        if attacker.unit().combat_stats().attacked_this_turn {
-            // Intentionally silent: no pending combat is created and callers
-            // should observe that `pending_combat` is still None.
-            return Ok(());
-        }
-
-        let attacker_stats = attacker.unit().combat_stats();
-        let defender_stats = defender.unit().combat_stats();
-
-        // Get attacker's available attacks
-        let attacker_attacks = attacker
-            .unit()
-            .get_attacks()
-            .iter()
-            .map(|attack| AttackInfo {
-                name: attack.name.clone(),
-                damage: attack.damage,
-                range: attack.range,
-            })
-            .collect();
-
-        // Get defender attacks
-        let defender_attacks = defender
-            .unit()
-            .get_attacks()
-            .iter()
-            .map(|attack| AttackInfo {
-                name: attack.name.clone(),
-                damage: attack.damage,
-                range: attack.range,
-            })
-            .collect();
-
-        let pending = PendingCombat {
-            attacker_id,
-            defender_id,
-            attacker_name: attacker.name(),
-            attacker_hp: attacker_stats.health as u32,
-            attacker_max_hp: attacker_stats.max_health as u32,
-            attacker_attack: attacker_stats.get_total_attack(),
-            attacker_defense: attacker_stats.resistances.slash as u32, // Use slash resistance as defense for display
-            attacker_attacks_per_round: attacker_stats.attacks_per_round,
-            attacker_attacks,
-            defender_name: defender.name(),
-            defender_hp: defender_stats.health as u32,
-            defender_max_hp: defender_stats.max_health as u32,
-            defender_attack: defender_stats.get_total_attack(),
-            defender_defense: defender_stats.resistances.slash as u32,
-            defender_attacks_per_round: defender_stats.attacks_per_round,
-            defender_attacks,
-            selected_attack_index: 0, // Default to first attack, will be updated by UI
-        };
-
-        self.pending_combat = Some(pending);
-        Ok(())
-    }
-
-    /// Executes the pending combat after player confirmation.
-    ///
-    /// Retrieves the pending combat data, extracts the selected attack,
-    /// and initiates the full combat sequence. The pending combat is
-    /// consumed by this operation.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(())` if combat was executed successfully
-    /// - `Err(String)` if no pending combat exists or combat execution fails
-    pub fn execute_pending_combat(&mut self) -> Result<(), String> {
-        let pending = self.pending_combat.take().ok_or("No pending combat")?;
-        let selected_attack_idx = pending.selected_attack_index;
-        self.initiate_combat(
-            pending.attacker_id,
-            pending.defender_id,
-            selected_attack_idx,
-        )
-    }
-
-    /// Cancels the pending combat without executing it.
-    ///
-    /// Clears the pending combat state, allowing the player to cancel
-    /// an attack and take a different action.
-    pub fn cancel_pending_combat(&mut self) {
-        self.pending_combat = None;
-    }
-
-    /// Executes combat between two units with the selected attack.
-    ///
-    /// This is the core combat resolution method. It:
-    /// 1. Applies the attacker's selected attack multiple times based on attacks_per_round
-    /// 2. Calculates damage with resistance modifiers
-    /// 3. Allows defender to counter-attack if in melee range
-    /// 4. Removes defeated units and moves attacker to defender's position if victorious
-    ///
-    /// Combat results are printed to console with formatted output.
-    ///
-    /// # Arguments
-    ///
-    /// * `attacker_id` - UUID of the attacking unit
-    /// * `defender_id` - UUID of the defending unit
-    /// * `selected_attack_idx` - Index of the attack chosen by the player
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if combat executed successfully, `Err(String)` on error
-    fn initiate_combat(
-        &mut self,
-        attacker_id: Uuid,
-        defender_id: Uuid,
-        selected_attack_idx: usize,
-    ) -> Result<(), String> {
-        // Get unit info and selected attack before combat
-        let (attacker_name, defender_name, attacker_pos, defender_pos, selected_attack) = {
-            let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
-            let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
-
-            // Debug: print all attacks
-            let attacks = attacker.unit().get_attacks();
-            println!("🔍 Unit has {} attacks:", attacks.len());
-            for (i, atk) in attacks.iter().enumerate() {
-                println!("  [{}] {} - {} damage", i, atk.name, atk.damage);
-            }
-            println!("🎯 Selected attack index: {}", selected_attack_idx);
-
-            // Get the selected attack
-            let attack = attacker
-                .unit()
-                .get_attacks()
-                .get(selected_attack_idx)
-                .ok_or("Selected attack not found")?
-                .clone();
-
-            (
-                attacker.name(),
-                defender.name(),
-                attacker.position(),
-                defender.position(),
-                attack,
-            )
-        };
-
-        println!("\n╔════════════════════════════════════════╗");
-        println!("║          ⚔️  COMBAT INITIATED  ⚔️          ║");
-        println!("╠════════════════════════════════════════╣");
-        println!("║  Attacker: {:<28} ║", attacker_name);
-        println!("║  Defender: {:<28} ║", defender_name);
-        println!("║  Attack:   {:<28} ║", selected_attack.name);
-        println!("╚════════════════════════════════════════╝\n");
-
-        // Get combat stats for calculations
-        let (attacker_stats, defender_stats) = {
-            let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
-            let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
-
-            (
-                attacker.unit().combat_stats().clone(),
-                defender.unit().combat_stats().clone(),
-            )
-        };
-
-        // Prevent starting combat if the attacker already attacked this game turn
-        if let Some(attacker_unit) = self.units.get(&attacker_id) {
-            if attacker_unit.unit().combat_stats().attacked_this_turn {
-                println!("⛔ Combat canceled: attacker has already attacked this turn");
-                return Err("Attacker has already attacked this turn".to_string());
-            }
-        }
-
-        // Calculate how many times the attacker can use this attack
-        let attacker_attacks_per_round = attacker_stats.attacks_per_round;
-
-        // Attacker performs all their attacks with the selected attack
-        let mut total_attacker_damage = 0;
-        println!(
-            "⚔️  {} attacks {} times with {}:",
-            attacker_name, attacker_attacks_per_round, selected_attack.name
-        );
-
-        for i in 1..=attacker_attacks_per_round {
-            if let Some(defender) = self.units.get(&defender_id) {
-                if defender.unit().combat_stats().health == 0 {
-                    break; // Defender already dead
-                }
-            }
-
-            // Calculate damage with resistance
-            let defender_resistance = defender_stats
-                .resistances
-                .get_resistance(selected_attack.damage_type);
-            let resistance_multiplier = 1.0 - (defender_resistance as f32 / 100.0);
-            let damage = ((selected_attack.damage as f32 * resistance_multiplier) as u32).max(1);
-
-            // Apply damage to defender
-            if let Some(defender) = self.units.get_mut(&defender_id) {
-                defender.unit_mut().take_damage(damage);
-                total_attacker_damage += damage;
-
-                let damage_type_str = match selected_attack.damage_type {
-                    combat::DamageType::Slash => "⚔️ ",
-                    combat::DamageType::Pierce => "🗡️ ",
-                    combat::DamageType::Blunt => "🔨",
-                    combat::DamageType::Crush => "🔨",
-                    combat::DamageType::Fire => "🔥",
-                    combat::DamageType::Dark => "🌑",
-                };
-
-                println!(
-                    "  {}Attack {}/{}: {} damage",
-                    damage_type_str, i, attacker_attacks_per_round, damage
-                );
-            }
-        }
-
-        // Mark attacker as having attacked this turn (after performing all attack instances)
-        if let Some(attacker_unit) = self.units.get_mut(&attacker_id) {
-            attacker_unit
-                .unit_mut()
-                .combat_stats_mut()
-                .attacked_this_turn = true;
-        }
-
-        println!("\n📊 Total damage dealt: {}", total_attacker_damage);
-
-        // Check if defender is still alive for counter-attack
-        let defender_alive = self
-            .units
-            .get(&defender_id)
-            .map(|u| u.unit().combat_stats().health > 0)
-            .unwrap_or(false);
-
-        if defender_alive {
-            // Calculate actual distance between units
-            let combat_distance = attacker_pos.distance(defender_pos);
-
-            // Defender can counter-attack if combat happened at melee range (distance 1)
-            if combat_distance == 1 {
-                // Get defender's melee attack (range 1)
-                let defender_melee_attack = {
-                    let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
-                    defender
-                        .unit()
-                        .get_attacks()
-                        .iter()
-                        .find(|a| a.range == 1) // Find melee attack
-                        .cloned()
-                };
-
-                if let Some(defender_attack) = defender_melee_attack {
-                    let defender_attacks_per_round = defender_stats.attacks_per_round;
-
-                    println!(
-                        "\n🛡️  {} counter-attacks {} times with {}:",
-                        defender_name, defender_attacks_per_round, defender_attack.name
-                    );
-
-                    let mut total_defender_damage = 0;
-                    for i in 1..=defender_attacks_per_round {
-                        if let Some(attacker) = self.units.get(&attacker_id) {
-                            if attacker.unit().combat_stats().health == 0 {
-                                break; // Attacker already dead
-                            }
-                        }
-
-                        // Calculate damage with resistance
-                        let attacker_resistance = attacker_stats
-                            .resistances
-                            .get_resistance(defender_attack.damage_type);
-                        let resistance_multiplier = 1.0 - (attacker_resistance as f32 / 100.0);
-                        let damage =
-                            ((defender_attack.damage as f32 * resistance_multiplier) as u32).max(1);
-
-                        // Apply damage to attacker
-                        if let Some(attacker) = self.units.get_mut(&attacker_id) {
-                            attacker.unit_mut().take_damage(damage);
-                            total_defender_damage += damage;
-
-                            let damage_type_str = match defender_attack.damage_type {
-                                combat::DamageType::Slash => "⚔️ ",
-                                combat::DamageType::Pierce => "🗡️ ",
-                                combat::DamageType::Blunt => "🔨",
-                                combat::DamageType::Crush => "🔨",
-                                combat::DamageType::Fire => "🔥",
-                                combat::DamageType::Dark => "🌑",
-                            };
-
-                            println!(
-                                "  {}Attack {}/{}: {} damage",
-                                damage_type_str, i, defender_attacks_per_round, damage
-                            );
-                        }
-                    }
-
-                    println!(
-                        "\n📊 Total counter-attack damage: {}",
-                        total_defender_damage
-                    );
-                    // Mark defender as having attacked this turn (after performing counters)
-                    if let Some(defender_unit) = self.units.get_mut(&defender_id) {
-                        defender_unit
-                            .unit_mut()
-                            .combat_stats_mut()
-                            .attacked_this_turn = true;
-                    }
-                } else {
-                    println!(
-                        "\n🛡️  {} has no melee weapon to counter-attack!",
-                        defender_name
-                    );
-                }
-            } else {
-                println!(
-                    "\n🏹 Combat at range {} - no counter-attack possible",
-                    combat_distance
-                );
-            }
-        }
-
-        // Check final status and remove defeated units
-        let defender_still_alive = self
-            .units
-            .get(&defender_id)
-            .map(|u| u.unit().combat_stats().health > 0)
-            .unwrap_or(false);
-
-        if !defender_still_alive {
-            println!("\n💀 {} has been defeated!", defender_name);
-
-            // Calculate and distribute experience
-            let defender_level = self
-                .units
-                .get(&defender_id)
-                .map(|u| u.unit().level())
-                .unwrap_or(1);
-
-            let killer_xp = defender_level * defender_level;
-            let ally_xp = 2 * defender_level;
-
-            println!("\n✨ Experience Distribution:");
-
-            // Award XP to killer
-            if let Some(attacker) = self.units.get_mut(&attacker_id) {
-                let leveled_up = attacker.unit_mut().add_experience(killer_xp);
-                println!("  {} gains {} XP (killer bonus)", attacker_name, killer_xp);
-                if leveled_up {
-                    println!("    🎉 {} is leveling up!", attacker_name);
-
-                    // Check if unit can evolve to next form (using first evolution path)
-                    if let Some(evolved_unit) = attacker.unit().evolve(0, true) {
-                        let team = attacker.team();
-                        let old_type = attacker.unit().unit_type().to_string();
-                        let new_type = evolved_unit.unit_type().to_string();
-                        let new_level = evolved_unit.level();
-
-                        // Replace the unit with its evolution
-                        let mut new_game_unit =
-                            crate::objects::GameUnit::new_with_team(evolved_unit, team);
-                        new_game_unit.set_id(attacker_id); // Preserve the same ID
-                        new_game_unit.reset_moves_to_max();
-                        self.units.insert(attacker_id, new_game_unit);
-
-                        println!(
-                            "    ✨ Evolved from {} to {} (Level {})!",
-                            old_type, new_type, new_level
-                        );
-                    } else {
-                        // No evolution available - incremental level up
-                        attacker.unit_mut().perform_level_up_incremental(true);
-                        println!(
-                            "    ✨ Level {} (+2 HP, +1 attack)!",
-                            attacker.unit().level()
-                        );
-                    }
-                }
-            }
-
-            // Award XP to adjacent allies
-            let attacker_team = self
-                .units
-                .get(&attacker_id)
-                .map(|u| u.team())
-                .unwrap_or(Team::Player);
-
-            for neighbor_coord in attacker_pos.neighbors().iter() {
-                // Get all units at this adjacent position
-                let units_at_neighbor: Vec<Uuid> = self
-                    .units
-                    .iter()
-                    .filter(|(id, unit)| {
-                        **id != attacker_id
-                            && unit.position() == *neighbor_coord
-                            && unit.team() == attacker_team
-                    })
-                    .map(|(id, _)| *id)
-                    .collect();
-
-                // Award XP to each ally
-                for ally_id in units_at_neighbor {
-                    if let Some(ally) = self.units.get_mut(&ally_id) {
-                        let ally_name = ally.unit().name().to_string();
-                        let leveled_up = ally.unit_mut().add_experience(ally_xp);
-                        println!("  {} gains {} XP (adjacent ally)", ally_name, ally_xp);
-                        if leveled_up {
-                            println!("    🎉 {} is leveling up!", ally_name);
-
-                            // Check if unit can evolve to next form
-                            if let Some(evolved_unit) = ally.unit().evolve(0, true) {
-                                let team = ally.team();
-                                let old_type = ally.unit().unit_type().to_string();
-                                let new_type = evolved_unit.unit_type().to_string();
-                                let new_level = evolved_unit.level();
-
-                                // Replace the unit with its evolution
-                                let mut new_game_unit =
-                                    crate::objects::GameUnit::new_with_team(evolved_unit, team);
-                                new_game_unit.set_id(ally_id); // Preserve the same ID
-                                new_game_unit.reset_moves_to_max();
-                                self.units.insert(ally_id, new_game_unit);
-
-                                println!(
-                                    "    ✨ Evolved from {} to {} (Level {})!",
-                                    old_type, new_type, new_level
-                                );
-                            } else {
-                                // No evolution available - incremental level up
-                                ally.unit_mut().perform_level_up_incremental(true);
-                                println!(
-                                    "    ✨ Level {} (+2 HP, +1 attack)!",
-                                    ally.unit().level()
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Remove defeated unit
-            self.units.remove(&defender_id);
-
-            // Move attacker to defender's position
-            if let Some(attacker) = self.units.get_mut(&attacker_id) {
-                attacker.set_position(defender_pos);
-                println!(
-                    "\n📍 {} moves to ({}, {})",
-                    attacker_name, defender_pos.q, defender_pos.r
-                );
-            }
-        } else {
-            // Show remaining HP
-            if let Some(defender) = self.units.get(&defender_id) {
-                let hp = defender.unit().combat_stats().health;
-                let max_hp = defender.unit().combat_stats().max_health;
-                println!("\n❤️  {} HP: {}/{}", defender_name, hp, max_hp);
-            }
-        }
-
-        // Check if attacker survived
-        let attacker_alive = self
-            .units
-            .get(&attacker_id)
-            .map(|u| u.unit().combat_stats().health > 0)
-            .unwrap_or(false);
-
-        if !attacker_alive {
-            println!("\n💀 {} has been defeated!", attacker_name);
-
-            // Calculate and distribute experience (defender killed attacker)
-            let attacker_level = self
-                .units
-                .get(&attacker_id)
-                .map(|u| u.unit().level())
-                .unwrap_or(1);
-
-            let killer_xp = attacker_level * attacker_level;
-            let ally_xp = 2 * attacker_level;
-
-            println!("\n✨ Experience Distribution:");
-
-            // Award XP to defender (killer)
-            if let Some(defender) = self.units.get_mut(&defender_id) {
-                let leveled_up = defender.unit_mut().add_experience(killer_xp);
-                println!("  {} gains {} XP (killer bonus)", defender_name, killer_xp);
-                if leveled_up {
-                    println!("    🎉 {} is leveling up!", defender_name);
-
-                    // Check if unit can evolve to next form (using first evolution path)
-                    if let Some(evolved_unit) = defender.unit().evolve(0, true) {
-                        let team = defender.team();
-                        let old_type = defender.unit().unit_type().to_string();
-                        let new_type = evolved_unit.unit_type().to_string();
-                        let new_level = evolved_unit.level();
-
-                        // Replace the unit with its evolution
-                        let mut new_game_unit =
-                            crate::objects::GameUnit::new_with_team(evolved_unit, team);
-                        new_game_unit.set_id(defender_id); // Preserve the same ID
-                        new_game_unit.reset_moves_to_max();
-                        self.units.insert(defender_id, new_game_unit);
-
-                        println!(
-                            "    ✨ Evolved from {} to {} (Level {})!",
-                            old_type, new_type, new_level
-                        );
-                    } else {
-                        // No evolution available - incremental level up
-                        defender.unit_mut().perform_level_up_incremental(true);
-                        println!(
-                            "    ✨ Level {} (+2 HP, +1 attack)!",
-                            defender.unit().level()
-                        );
-                    }
-                }
-            }
-
-            // Award XP to adjacent allies of defender
-            let defender_team = self
-                .units
-                .get(&defender_id)
-                .map(|u| u.team())
-                .unwrap_or(Team::Enemy);
-
-            for neighbor_coord in defender_pos.neighbors().iter() {
-                // Get all units at this adjacent position
-                let units_at_neighbor: Vec<Uuid> = self
-                    .units
-                    .iter()
-                    .filter(|(id, unit)| {
-                        **id != defender_id
-                            && unit.position() == *neighbor_coord
-                            && unit.team() == defender_team
-                    })
-                    .map(|(id, _)| *id)
-                    .collect();
-
-                // Award XP to each ally
-                for ally_id in units_at_neighbor {
-                    if let Some(ally) = self.units.get_mut(&ally_id) {
-                        let ally_name = ally.unit().name().to_string();
-                        let leveled_up = ally.unit_mut().add_experience(ally_xp);
-                        println!("  {} gains {} XP (adjacent ally)", ally_name, ally_xp);
-                        if leveled_up {
-                            println!("    🎉 {} is leveling up!", ally_name);
-
-                            // Check if unit can evolve to next form
-                            if let Some(evolved_unit) = ally.unit().evolve(0, true) {
-                                let team = ally.team();
-                                let old_type = ally.unit().unit_type().to_string();
-                                let new_type = evolved_unit.unit_type().to_string();
-                                let new_level = evolved_unit.level();
-
-                                // Replace the unit with its evolution
-                                let mut new_game_unit =
-                                    crate::objects::GameUnit::new_with_team(evolved_unit, team);
-                                new_game_unit.set_id(ally_id); // Preserve the same ID
-                                new_game_unit.reset_moves_to_max();
-                                self.units.insert(ally_id, new_game_unit);
-
-                                println!(
-                                    "    ✨ Evolved from {} to {} (Level {})!",
-                                    old_type, new_type, new_level
-                                );
-                            } else {
-                                // No evolution available - incremental level up
-                                ally.unit_mut().perform_level_up_incremental(true);
-                                println!(
-                                    "    ✨ Level {} (+2 HP, +1 attack)!",
-                                    ally.unit().level()
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Remove defeated unit
-            self.units.remove(&attacker_id);
-        } else {
-            // Show remaining HP
-            if let Some(attacker) = self.units.get(&attacker_id) {
-                let hp = attacker.unit().combat_stats().health;
-                let max_hp = attacker.unit().combat_stats().max_health;
-                println!("❤️  {} HP: {}/{}", attacker_name, hp, max_hp);
-            }
-        }
-
-        println!("\n╚════════════════════════════════════════╝\n");
-        Ok(())
-    }
-
-    /// Returns the movement cost for a position.
-    ///
-    /// Used for pathfinding and action point calculations.
-    ///
-    /// # Arguments
-    ///
-    /// * `position` - Hex coordinate to query
-    ///
-    /// # Returns
-    ///
-    /// Movement cost as f32, or `f32::INFINITY` for invalid/missing terrain
-    pub fn get_movement_cost(&self, position: HexCoord) -> i32 {
-        if let Some(terrain) = self.get_terrain(position) {
-            terrain.movement_cost()
-        } else {
-            // Invalid terrain treated as very high cost to block movement
-            i32::MAX
-        }
-    }
-
     /// Updates the world state (called each frame).
     ///
     /// Advances game time, updates all units, and processes interactions
@@ -1926,14 +1013,11 @@ impl GameWorld {
     ///
     /// # Arguments
     ///
-    /// * `delta_time` - Time elapsed since last update in seconds
-    pub fn update(&mut self, delta_time: f32) {
-        self.game_time += delta_time;
-
+    /// * `delta_time` - Time elapsed since last update in seconds (currently unused)
+    pub fn update(&mut self, _delta_time: f32) {
         // Update turn system (handles AI turn auto-pass)
         // Remember previous team so we can detect changes made by TurnSystem::update
         let prev_team = self.last_known_team;
-        self.turn_system.update(delta_time);
 
         // If the turn system auto-advanced the team (AI timeout or similar), reset moves for the new team
         if self.turn_system.is_game_started() {
@@ -1946,7 +1030,7 @@ impl GameWorld {
 
         // Update all units
         for unit in self.units.values_mut() {
-            unit.update();
+            unit.update(); // TODO: Consider using delta_time parameter if needed
         }
 
         // NOTE: AI logic has been moved to run_ai_for_current_team() which is called
@@ -2006,23 +1090,6 @@ impl GameWorld {
             }
         }
     }
-
-    /// Returns the current game time in seconds.
-    ///
-    /// Game time is used for cooldowns, time-based events, and other
-    /// temporal mechanics.
-    pub fn game_time(&self) -> f32 {
-        self.game_time
-    }
-
-    /// Returns the world radius.
-    ///
-    /// The radius defines the maximum distance from the center (0,0) that
-    /// is considered part of the game world.
-    pub fn world_radius(&self) -> i32 {
-        self.world_radius
-    }
-
     // ===== Turn System Methods =====
 
     /// Starts the game and begins turn-based gameplay
@@ -2053,12 +1120,476 @@ impl GameWorld {
         self.last_known_team = Some(current_team);
     }
 
+    /// Returns all legal move positions for a unit.
+    ///
+    /// Calculates all hexes the unit can reach this turn based on:
+    /// - Unit's remaining movement points
+    /// - Terrain passability and costs
+    /// - Other unit positions (blocking)
+    ///
+    /// This method first computes reachable positions, then validates each
+    /// through `can_move_to` to ensure consistency with movement rules.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit to query
+    ///
+    /// # Returns
+    ///
+    /// Vector of `(HexCoord, i32)` pairs where each entry is a legal destination
+    /// and its movement cost. Returns empty vector if unit not found.
+    pub fn all_legal_moves(&self, unit_id: Uuid) -> Vec<(HexCoord, i32)> {
+        // Get the unit
+        let Some(unit) = self.units.get(&unit_id) else {
+            return Vec::new();
+        };
+
+        let current_position = unit.position();
+        let moves_left = unit.moves_left();
+
+        // Calculate all reachable tiles using Dijkstra pathfinding
+        let reachable = self.compute_reachable(unit_id, current_position, moves_left);
+
+        // Validate each position through can_move_to to ensure consistency
+        let mut legal_moves: Vec<(HexCoord, i32)> = Vec::new();
+
+        for (coord, _cost) in reachable {
+            // Use can_move_to to validate the move
+            if let Ok(validated_cost) = self.can_move_to(unit_id, coord) {
+                legal_moves.push((coord, validated_cost));
+            }
+        }
+
+        // Sort by cost for consistent ordering (optional but helpful for debugging/UI)
+        legal_moves.sort_by_key(|(_, cost)| *cost);
+
+        legal_moves
+    }
+
+    /// Checks if a unit can move to the specified position.
+    ///
+    /// Validates movement based on:
+    /// - Terrain passability and movement cost
+    /// - Unit's remaining movement points
+    /// - Position occupancy by other units
+    /// - Distance from unit's current position (must be reachable via pathfinding)
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit attempting to move
+    /// * `target_position` - Destination hex coordinate
+    ///
+    /// # Returns
+    ///
+    /// `Ok(cost)` with the movement cost if the move is valid, `Err(String)` otherwise
+    pub fn can_move_to(&self, unit_id: Uuid, target_position: HexCoord) -> Result<i32, String> {
+        // Get the unit
+        let unit = self.units.get(&unit_id).ok_or("Unit not found")?;
+
+        let current_position = unit.position();
+
+        // Can't move to current position (although it's technically valid, return 0 cost)
+        if current_position == target_position {
+            return Ok(0);
+        }
+
+        // Check if target terrain exists and is passable
+        let target_terrain = self
+            .get_terrain(target_position)
+            .ok_or("Target position out of bounds")?;
+
+        if target_terrain.blocks_movement() {
+            return Err("Target position is impassable".to_string());
+        }
+
+        // Check if target position is occupied by a friendly unit
+        // (Enemy units are allowed - combat will be initiated)
+        let moving_unit_team = unit.team();
+        let units_at_target = self.get_units_at_position(target_position);
+        for target_unit in units_at_target.iter() {
+            if target_unit.id() != unit_id && target_unit.team() == moving_unit_team {
+                return Err("Target position is occupied by friendly unit".to_string());
+            }
+        }
+
+        // Calculate reachable tiles using Dijkstra pathfinding
+        let moves_left = unit.moves_left();
+        let reachable = self.compute_reachable(unit_id, current_position, moves_left);
+
+        // Check if target is reachable within movement budget
+        match reachable.get(&target_position) {
+            Some(&cost) => Ok(cost),
+            None => Err(format!(
+                "Target position not reachable (requires more than {} movement)",
+                moves_left
+            )),
+        }
+    }
+
+    /// Moves a unit to a new position.
+    ///
+    /// Validates the move using `can_move_to`, then updates the unit's position
+    /// and consumes the appropriate movement points based on terrain costs.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit to move
+    /// * `new_position` - Destination hex coordinate
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if move succeeded, `Err(String)` with reason if it failed
+    pub fn move_unit(&mut self, unit_id: Uuid, new_position: HexCoord) -> Result<(), String> {
+        // Check if there's an enemy unit at the target position
+        let moving_unit_team = self.units.get(&unit_id).ok_or("Unit not found")?.team();
+
+        let units_at_target = self.get_units_at_position(new_position);
+        if let Some(target_unit) = units_at_target.first() {
+            // There's a unit at the target position
+            if target_unit.team() != moving_unit_team {
+                // It's an enemy - initiate combat instead of moving
+                return self.request_combat(unit_id, target_unit.id());
+            } else {
+                // It's a friendly unit - can't move there
+                return Err("Target position is occupied by friendly unit".to_string());
+            }
+        }
+
+        // No unit at target, proceed with normal movement validation
+        let movement_cost = self.can_move_to(unit_id, new_position)?;
+
+        // Get mutable reference to the unit
+        let unit = self.units.get_mut(&unit_id).ok_or("Unit not found")?;
+
+        // Consume movement points
+        if !unit.consume_moves(movement_cost) {
+            return Err("Not enough movement points".to_string());
+        }
+
+        // Update position
+        unit.set_position(new_position);
+
+        Ok(())
+    }
+
+    /// Initiates combat confirmation between two units.
+    ///
+    /// Creates a `PendingCombat` structure containing all necessary information
+    /// for the combat confirmation dialog. The player can then review stats,
+    /// select an attack, and either execute or cancel the combat.
+    ///
+    /// # Arguments
+    ///
+    /// * `attacker_id` - UUID of the attacking unit
+    /// * `defender_id` - UUID of the defending unit
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if combat request was created, `Err(String)` if either unit not found
+    pub fn request_combat(&mut self, attacker_id: Uuid, defender_id: Uuid) -> Result<(), String> {
+        // Get unit info for confirmation dialog
+        let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
+        let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+
+        // If the attacker has already attacked this game turn, silently do
+        // nothing: don't create a pending combat confirmation. Returning Ok
+        // without setting `pending_combat` keeps the call-site behavior simple
+        // (UI/AI won't see a pending combat and will not open the dialog).
+        if attacker.unit().combat_stats().attacked_this_turn {
+            return Ok(());
+        }
+
+        let attacker_stats = attacker.unit().combat_stats();
+        let defender_stats = defender.unit().combat_stats();
+
+        // Get attacker's available attacks
+        let attacker_attacks = attacker
+            .unit()
+            .get_attacks()
+            .iter()
+            .map(|attack| crate::world::AttackInfo {
+                name: attack.name.clone(),
+                damage: attack.damage,
+                range: attack.range,
+            })
+            .collect();
+
+        // Get defender attacks
+        let defender_attacks = defender
+            .unit()
+            .get_attacks()
+            .iter()
+            .map(|attack| crate::world::AttackInfo {
+                name: attack.name.clone(),
+                damage: attack.damage,
+                range: attack.range,
+            })
+            .collect();
+
+        let pending = PendingCombat {
+            attacker_id,
+            defender_id,
+            attacker_name: attacker.name(),
+            attacker_hp: attacker_stats.health as u32,
+            attacker_max_hp: attacker_stats.max_health as u32,
+            attacker_attack: attacker_stats.get_total_attack(),
+            attacker_defense: attacker_stats.resistances.slash as u32,
+            attacker_attacks_per_round: attacker_stats.attacks_per_round,
+            attacker_attacks,
+            defender_name: defender.name(),
+            defender_hp: defender_stats.health as u32,
+            defender_max_hp: defender_stats.max_health as u32,
+            defender_attack: defender_stats.get_total_attack(),
+            defender_defense: defender_stats.resistances.slash as u32,
+            defender_attacks_per_round: defender_stats.attacks_per_round,
+            defender_attacks,
+            selected_attack_index: 0,
+        };
+
+        self.pending_combat = Some(pending);
+        Ok(())
+    }
+
+    /// Executes the pending combat after player confirmation.
+    ///
+    /// Retrieves the pending combat data, extracts the selected attack,
+    /// and initiates the full combat sequence using the combat crate's
+    /// resolve_combat function. The pending combat is consumed by this operation.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if combat was executed successfully
+    /// - `Err(String)` if no pending combat exists or combat execution fails
+    pub fn execute_pending_combat(&mut self) -> Result<(), String> {
+        let pending = self.pending_combat.take().ok_or("No pending combat")?;
+        let selected_attack_idx = pending.selected_attack_index;
+        self.initiate_combat(
+            pending.attacker_id,
+            pending.defender_id,
+            selected_attack_idx,
+        )
+    }
+
+    /// Cancels the pending combat confirmation.
+    ///
+    /// Clears the pending combat state, allowing the player to take other actions.
+    pub fn cancel_pending_combat(&mut self) {
+        self.pending_combat = None;
+    }
+
+    /// Executes combat between two units with the selected attack.
+    ///
+    /// ScenarioWorld detects when two units want to fight and passes them
+    /// to the Combat crate's resolve_combat function which handles all combat logic.
+    ///
+    /// This method:
+    /// 1. Extracts the two units who want to fight
+    /// 2. Passes them to combat::resolve_combat with the selected attack's damage type
+    /// 3. Combat crate handles hit rolls, damage calculation, resistances, and counter-attacks
+    /// 4. Processes the combat result (removes defeated units, moves winner to defender's position)
+    ///
+    /// # Arguments
+    ///
+    /// * `attacker_id` - UUID of the attacking unit
+    /// * `defender_id` - UUID of the defending unit
+    /// * `selected_attack_idx` - Index of the attack chosen by the player
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if combat executed successfully, `Err(String)` on error
+    fn initiate_combat(
+        &mut self,
+        attacker_id: Uuid,
+        defender_id: Uuid,
+        selected_attack_idx: usize,
+    ) -> Result<(), String> {
+        // Get unit info and selected attack before combat
+        let (attacker_name, defender_name, defender_pos, selected_attack) = {
+            let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
+            let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+
+            // Prevent starting combat if the attacker already attacked this game turn
+            if attacker.unit().combat_stats().attacked_this_turn {
+                println!("⛔ Combat canceled: attacker has already attacked this turn");
+                return Err("Attacker has already attacked this turn".to_string());
+            }
+
+            let attack = attacker
+                .unit()
+                .get_attacks()
+                .get(selected_attack_idx)
+                .ok_or("Selected attack not found")?
+                .clone();
+
+            (
+                attacker.name(),
+                defender.name(),
+                defender.position(),
+                attack,
+            )
+        };
+
+        println!("\n╔════════════════════════════════════════╗");
+        println!("║          ⚔️  COMBAT INITIATED  ⚔️          ║");
+        println!("╠════════════════════════════════════════╣");
+        println!("║  Attacker: {:<28} ║", attacker_name);
+        println!("║  Defender: {:<28} ║", defender_name);
+        println!("║  Attack:   {:<28} ║", selected_attack.name);
+        println!("╚════════════════════════════════════════╝\n");
+
+        // Execute combat: ScenarioWorld detects two units want to fight
+        // and executes the combat logic
+        let mut attacker_damage = 0;
+        let mut defender_damage = 0;
+        let mut attacker_hit = false;
+        let mut defender_hit = false;
+
+        // Get combat stats before battle
+        let (attacker_hit_chance, defender_hit_chance, defender_counter_attack) = {
+            let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
+            let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+
+            let attacker_hit_chance = attacker.unit().combat_stats().terrain_hit_chance;
+            let defender_hit_chance = defender.unit().combat_stats().terrain_hit_chance;
+            let counter = if selected_attack.range == 1 && !defender.unit().get_attacks().is_empty()
+            {
+                Some(defender.unit().get_attacks()[0].clone())
+            } else {
+                None
+            };
+
+            (attacker_hit_chance, defender_hit_chance, counter)
+        };
+
+        // Attacker's turn
+        {
+            let hit_roll: u8 = rand::random::<u8>() % 100;
+
+            if hit_roll < attacker_hit_chance {
+                attacker_hit = true;
+
+                let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+                let resistance = defender
+                    .unit()
+                    .combat_stats()
+                    .resistances
+                    .get_resistance(selected_attack.damage_type);
+                let resistance_multiplier = 1.0 - (resistance as f32 / 100.0);
+                let final_damage =
+                    ((selected_attack.damage as f32 * resistance_multiplier) as i32).max(1);
+
+                let defender = self
+                    .units
+                    .get_mut(&defender_id)
+                    .ok_or("Defender not found")?;
+                defender.unit_mut().take_damage(final_damage as u32);
+                attacker_damage = final_damage as u32;
+            }
+
+            // Mark attacker as having attacked
+            let attacker = self
+                .units
+                .get_mut(&attacker_id)
+                .ok_or("Attacker not found")?;
+            attacker.unit_mut().combat_stats_mut().attacked_this_turn = true;
+        }
+
+        // Defender counter-attack (only if melee range and defender is alive)
+        if let Some(counter_attack) = defender_counter_attack {
+            let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+            if defender.unit().is_alive() {
+                let hit_roll: u8 = rand::random::<u8>() % 100;
+
+                if hit_roll < defender_hit_chance {
+                    defender_hit = true;
+
+                    let attacker = self.units.get(&attacker_id).ok_or("Attacker not found")?;
+                    let resistance = attacker
+                        .unit()
+                        .combat_stats()
+                        .resistances
+                        .get_resistance(counter_attack.damage_type);
+                    let resistance_multiplier = 1.0 - (resistance as f32 / 100.0);
+                    let final_damage =
+                        ((counter_attack.damage as f32 * resistance_multiplier) as i32).max(1);
+
+                    let attacker = self
+                        .units
+                        .get_mut(&attacker_id)
+                        .ok_or("Attacker not found")?;
+                    attacker.unit_mut().take_damage(final_damage as u32);
+                    defender_damage = final_damage as u32;
+                }
+            }
+        }
+
+        // Process combat results
+        println!("⚔️  Combat Results:");
+        if attacker_hit {
+            println!("   ✓ {} hit for {} damage", attacker_name, attacker_damage);
+        } else {
+            println!("   ✗ {} missed", attacker_name);
+        }
+
+        if selected_attack.range > 1 {
+            println!("   ⚠ {} could not counter-attack (ranged)", defender_name);
+        } else if defender_hit {
+            println!(
+                "   ✓ {} counter-attacked for {} damage",
+                defender_name, defender_damage
+            );
+        } else {
+            println!("   ✗ {} missed counter-attack", defender_name);
+        }
+
+        // Check if defender was defeated
+        let defender_defeated = {
+            let defender = self.units.get(&defender_id).ok_or("Defender not found")?;
+            !defender.unit().is_alive()
+        };
+
+        if defender_defeated {
+            println!("💀 {} was defeated!", defender_name);
+            self.remove_unit(defender_id);
+
+            // Move attacker to defender's position
+            if let Some(attacker) = self.units.get_mut(&attacker_id) {
+                attacker.set_position(defender_pos);
+                println!("➡️  {} moves to {:?}", attacker_name, defender_pos);
+            }
+        }
+
+        // Check if attacker was defeated (rare but possible via counter-attack)
+        let attacker_defeated = {
+            self.units
+                .get(&attacker_id)
+                .is_some_and(|a| !a.unit().is_alive())
+        };
+        if attacker_defeated {
+            println!("💀 {} was defeated by counter-attack!", attacker_name);
+            self.remove_unit(attacker_id);
+        }
+
+        println!("╚════════════════════════════════════════╝\n");
+
+        Ok(())
+    }
+
     /// Resets movement points for all units belonging to a given team.
     fn reset_moves_for_team(&mut self, team: Team) {
         for unit in self.units.values_mut() {
             if unit.team() == team {
                 unit.reset_moves_to_max();
             }
+        }
+    }
+
+    /// Return the movement cost for a given hex coordinate.
+    pub fn get_movement_cost(&self, position: HexCoord) -> i32 {
+        if let Some(terrain) = self.get_terrain(position) {
+            terrain.movement_cost()
+        } else {
+            i32::MAX
         }
     }
 
@@ -2087,17 +1618,6 @@ impl GameWorld {
         self.turn_system.ai_turn_time_remaining()
     }
 
-    /// Checks if a unit can act (not already acted and correct team turn)
-    pub fn can_unit_act(&self, unit_id: Uuid) -> bool {
-        if let Some(unit) = self.units.get(&unit_id) {
-            let is_team_turn = self.turn_system.is_team_turn(unit.team());
-            let has_not_acted = !self.turn_system.has_unit_acted(unit_id);
-            is_team_turn && has_not_acted
-        } else {
-            false
-        }
-    }
-
     /// Sets whether a team is player-controlled
     pub fn set_team_control(&mut self, team: Team, is_player_controlled: bool) {
         self.turn_system
@@ -2107,11 +1627,5 @@ impl GameWorld {
     /// Sets the AI turn delay
     pub fn set_ai_turn_delay(&mut self, delay: f32) {
         self.turn_system.set_ai_turn_delay(delay);
-    }
-}
-
-impl Default for GameWorld {
-    fn default() -> Self {
-        Self::new(10) // Default world radius of 10
     }
 }

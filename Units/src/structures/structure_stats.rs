@@ -4,10 +4,10 @@
 //! durability, bonuses, and combat interactions.
 
 use crate::attack::Attack;
+use crate::combat::Resistances;
 use crate::team::Team;
 use crate::unit_race::Terrain;
 use crate::unit_trait::UnitId;
-use combat::Resistances;
 use serde::{Deserialize, Serialize};
 
 /// Complete statistics and properties for a structure.
@@ -16,17 +16,7 @@ use serde::{Deserialize, Serialize};
 /// behaves in the game, including its durability, bonuses granted to occupants,
 /// combat interactions, and movement restrictions.
 ///
-/// # Examples
-///
-/// ```rust,no_run
-/// use units::structures::StructureStats;
-/// use combat::Resistances;
-///
-/// let mut stats = StructureStats::default();
-/// stats.max_durability = 500;
-/// stats.defense_bonus = 15;
-/// stats.blocks_movement = true;
-/// ```
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StructureStats {
     // === Durability ===

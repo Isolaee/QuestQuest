@@ -383,6 +383,7 @@ dependencies = [
  "items",
  "rand",
  "serde",
+ "units",
  "uuid",
 ]
 
@@ -716,8 +717,11 @@ dependencies = [
  "glutin-winit",
  "graphics",
  "items",
+ "log",
+ "rand",
  "raw-window-handle",
  "serde",
+ "serde_json",
  "units",
  "uuid",
  "winit",
@@ -2358,7 +2362,6 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 name = "units"
 version = "0.1.0"
 dependencies = [
- "combat",
  "criterion",
  "graphics",
  "inventory",

@@ -3,8 +3,8 @@
 //! This module provides utilities for managing unit occupation of structures,
 //! including applying bonuses to occupying units.
 
+use crate::combat::{CombatStats, Resistances};
 use crate::unit_trait::UnitId;
-use combat::{CombatStats, Resistances};
 
 /// Helper struct for managing structure occupation bonuses.
 #[derive(Clone, Debug, Default)]

@@ -32,12 +32,16 @@
 //! ```
 
 pub mod objects;
+pub mod scenario_helpers;
+pub mod scenario_instance;
 pub mod turn_system;
 pub mod world;
 
 pub use objects::*;
 pub use turn_system::*;
 pub use world::*;
+// `scenario_instance` module is available as `game::scenario_instance`.
+// Avoid re-exporting its types at the crate root to prevent name collisions.
 
 // Re-export commonly used types from dependencies
 pub use graphics::{HexCoord, SpriteType, Vec2};

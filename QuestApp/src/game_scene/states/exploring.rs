@@ -6,8 +6,7 @@
 //! - View unit information
 //! - Initiate combat with enemy units
 
-use super::GameState;
-use game::{GameObject, GameWorld};
+use game::GameWorld;
 use graphics::{HexCoord, HexGrid, Renderer, UiPanel};
 use uuid::Uuid;
 
@@ -104,26 +103,6 @@ impl ExploringState {
     ///
     /// # Returns
     ///
-    /// Always returns `None` to stay in the exploring state
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// use questapp::game_scene::states::exploring::ExploringState;
-    /// use uuid::Uuid;
-    ///
-    /// let mut exploring = ExploringState::new();
-    /// let unit_id = Uuid::new_v4();
-    ///
-    /// // exploring.select_unit(unit_id, &mut context);
-    /// // assert_eq!(exploring.selected_unit(), Some(unit_id));
-    /// ```
-    pub fn select_unit(&mut self, unit_id: Uuid, ctx: &mut ExploringContext) -> Option<GameState> {
-        self.selected_unit = Some(unit_id);
-        self.update_movement_range(ctx);
-        None // Stay in exploring state
-    }
-
     /// Deselects the currently selected unit
     ///
     /// Clears both the selected unit and its movement range. This is typically
@@ -145,110 +124,34 @@ impl ExploringState {
         self.movement_range.clear();
     }
 
-    /// Updates the movement range for the currently selected unit
+    /// Sets the selected unit directly without calculating movement range
     ///
-    /// Recalculates which hexes the selected unit can reach based on its
-    /// current position and remaining movement points.
+    /// Use this when you need to set the selection without having a GameWorld context.
+    /// Typically followed by a call to `set_movement_range()`.
     ///
     /// # Arguments
     ///
-    /// * `ctx` - Context containing the game world
-    ///
-    /// # Behavior
-    ///
-    /// - If no unit is selected, clears the movement range
-    /// - Otherwise, uses breadth-first search to calculate reachable hexes
-    fn update_movement_range(&mut self, ctx: &ExploringContext) {
-        self.movement_range.clear();
-
-        if let Some(unit_id) = self.selected_unit {
-            if let Some(unit) = ctx.game_world.get_unit(unit_id) {
-                let start_pos = unit.position();
-                let movement_points = unit.moves_left();
-
-                // Calculate reachable hexes using pathfinding
-                self.movement_range =
-                    self.calculate_reachable_hexes(start_pos, movement_points, ctx.game_world);
-            }
+    /// * `unit_id` - The unit to select, or None to deselect
+    pub fn set_selected_unit(&mut self, unit_id: Option<Uuid>) {
+        self.selected_unit = unit_id;
+        if unit_id.is_none() {
+            self.movement_range.clear();
         }
+    }
+
+    /// Sets the movement range directly
+    ///
+    /// Use this when you've calculated the movement range externally (e.g., using
+    /// ScenarioWorld::all_legal_moves) and want to update the state.
+    ///
+    /// # Arguments
+    ///
+    /// * `range` - Vector of reachable hex coordinates
+    pub fn set_movement_range(&mut self, range: Vec<HexCoord>) {
+        self.movement_range = range;
     }
 
     /// Calculates all hexes reachable within the given movement points
-    ///
-    /// Uses a breadth-first search algorithm to find all hexes that can be
-    /// reached from the start position within the movement cost budget.
-    ///
-    /// # Arguments
-    ///
-    /// * `start` - Starting hex coordinate
-    /// * `max_cost` - Maximum movement points available
-    /// * `world` - Reference to the game world for terrain costs and obstacles
-    ///
-    /// # Returns
-    ///
-    /// A vector of all reachable hex coordinates (excluding the start hex)
-    ///
-    /// # Algorithm
-    ///
-    /// 1. Start at the unit's position with cost 0
-    /// 2. For each hex, check all 6 neighbors
-    /// 3. Calculate movement cost considering terrain
-    /// 4. Skip impassable terrain (cost = i32::MAX)
-    /// 5. Skip if total cost exceeds max_cost
-    /// 6. Skip occupied hexes (via is_position_valid_for_movement)
-    /// 7. Add valid neighbors to the queue
-    /// 8. Track visited hexes to avoid recalculation
-    fn calculate_reachable_hexes(
-        &self,
-        start: HexCoord,
-        max_cost: i32,
-        world: &GameWorld,
-    ) -> Vec<HexCoord> {
-        use std::collections::{HashMap, VecDeque};
-
-        let mut reachable = Vec::new();
-        let mut visited: HashMap<HexCoord, i32> = HashMap::new();
-        let mut queue = VecDeque::new();
-
-        queue.push_back((start, 0));
-        visited.insert(start, 0);
-
-        while let Some((pos, cost)) = queue.pop_front() {
-            if cost > 0 {
-                reachable.push(pos);
-            }
-
-            for neighbor in pos.neighbors() {
-                let move_cost = world.get_movement_cost(neighbor);
-                if move_cost == i32::MAX {
-                    continue; // Impassable
-                }
-
-                let new_cost = cost + move_cost;
-                if new_cost > max_cost {
-                    continue;
-                }
-
-                if let Some(&existing_cost) = visited.get(&neighbor) {
-                    if new_cost >= existing_cost {
-                        continue;
-                    }
-                }
-
-                // Check if position is valid for movement
-                if !world.is_position_valid_for_movement(neighbor, self.selected_unit) {
-                    continue;
-                }
-
-                visited.insert(neighbor, new_cost);
-                queue.push_back((neighbor, new_cost));
-            }
-        }
-
-        reachable
-    }
-
-    /// Returns the UUID of the currently selected unit
     ///
     /// # Returns
     ///

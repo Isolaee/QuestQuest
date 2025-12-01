@@ -3,6 +3,27 @@
 //! This is the main interactive game application that brings together the graphics,
 //! units, combat, and game systems into a playable game with a windowed interface.
 //!
+//! ## Architecture
+//!
+//! QuestApp follows a clear separation of concerns:
+//!
+//! - **Game/ScenarioWorld**: Core game state, turn management, world state queries
+//! - **Combat crate**: Combat resolution logic (damage calculation, hit chances)
+//! - **AI crate**: Enemy AI planning and decision-making (non-player logic)
+//! - **QuestApp**: Player controls, scene management, UI rendering, and event handling
+//!
+//! This module is responsible for:
+//! - Handling player input (keyboard, mouse)
+//! - Managing game scenes (main menu, game, etc.)
+//! - Rendering graphics (terrain, units, UI panels)
+//! - Displaying combat confirmation dialogs (execution delegated to ScenarioWorld)
+//! - Synchronizing visual state with game state
+//!
+//! **NOT responsible for**:
+//! - Combat logic (handled by Combat crate via ScenarioWorld)
+//! - AI decision making (handled by AI crate via ScenarioWorld)
+//! - Game rules and turn management (handled by ScenarioWorld)
+//!
 //! ## Features
 //!
 //! - **Real-time rendering** with OpenGL 4.x
@@ -42,6 +63,7 @@ use game_scene::{GameSceneState, GameState};
 
 use crate::encyclopedia_builder::EncyclopediaLibrary;
 use encyclopedia::Encyclopedia;
+use game::scenario_instance::ScenarioWorld;
 use game::*;
 use glutin::context::ContextAttributesBuilder;
 use glutin::display::GetGlDisplay;
@@ -86,8 +108,16 @@ const SCREEN_HEIGHT: f32 = 1080.0;
 
 /// Main game application structure.
 ///
-/// `GameApp` manages the entire game state, including the OpenGL window,
-/// rendering context, game world, unit selection, and user input handling.
+/// `GameApp` is the presentation layer that handles user interaction, rendering,
+/// and scene management. The game logic, combat resolution, and AI planning are
+/// delegated to `ScenarioWorld`, `Combat` crate, and `AI` crate respectively.
+///
+/// # Architecture Responsibilities
+///
+/// - **Input Handling**: Processes keyboard and mouse events
+/// - **Scene Management**: Transitions between menu, game, and other scenes
+/// - **Rendering**: Displays terrain, units, UI panels, and effects
+/// - **State Synchronization**: Keeps visual state in sync with ScenarioWorld
 ///
 /// # Fields
 ///
@@ -96,6 +126,7 @@ const SCREEN_HEIGHT: f32 = 1080.0;
 /// - `gl_surface`: OpenGL surface for the window
 /// - `hex_grid`: The hexagonal grid system
 /// - `renderer`: Multi-layer renderer for terrain, units, and items
+/// - `game_world`: ScenarioWorld instance (game state, delegated logic)
 /// - `ui_panel`: UI overlay for prompts and unit information (updates on hover)
 /// - `game_world`: Game state including units and objects
 /// - `selected_unit`: Currently selected unit (if any)
@@ -132,7 +163,7 @@ struct GameApp {
     hex_grid: HexGrid,
     renderer: Option<Renderer>,
     ui_panel: Option<UiPanel>,
-    game_world: GameWorld,
+    game_world: ScenarioWorld,
     show_unit_info: bool,
     unit_info_text: Vec<String>,
     cursor_position: (f64, f64),       // Track cursor position for clicks
@@ -175,77 +206,27 @@ struct PickupPrompt {
 }
 
 impl GameApp {
-    /// Creates a new game application with demo units and items.
+    /// Creates a new game application loading map from Maps/test_map.json.
     ///
-    /// Initializes the game world with:
-    /// - A player-controlled human warrior ("Thorin") at position (0, 0)
-    /// - An enemy goblin grunt at position (4, 2)
-    /// - A test iron sword item at position (1, 1) for pickup testing
+    /// Initializes the game world with terrain and any units/items defined in the map.
     ///
     /// # Returns
     ///
     /// A new `GameApp` instance ready to be initialized with a window.
     fn new() -> Self {
-        let mut game_world = GameWorld::new(8); // World radius of 8
+        // Load map JSON from file
+        let map_json = std::fs::read_to_string("Maps/test_map.json")
+            .expect("Failed to read Maps/test_map.json");
 
-        // ========================================
-        // DEMO UNITS - Dwarf Evolution Chain vs Orc Evolution Chain
-        // ========================================
+        // Initialize game world (ScenarioWorld handles game logic)
+        let game_world = ScenarioWorld::new(map_json);
 
-        // Player Team - Dwarf Warriors (all 3 evolution stages)
-        let dwarf_young = units::UnitFactory::create(
-            "Dwarf Young Warrior",
-            Some("Fili".to_string()),
-            Some(HexCoord::new(-2, 0)),
-        )
-        .expect("Failed to create Dwarf Young Warrior");
-        game_world.add_unit(GameUnit::new_with_team(dwarf_young, game::Team::Player));
-
-        let dwarf_warrior = units::UnitFactory::create(
-            "Dwarf Warrior",
-            Some("Thorin".to_string()),
-            Some(HexCoord::new(0, 0)),
-        )
-        .expect("Failed to create Dwarf Warrior");
-        game_world.add_unit(GameUnit::new_with_team(dwarf_warrior, game::Team::Player));
-
-        let dwarf_veteran = units::UnitFactory::create(
-            "Dwarf Veteran Warrior",
-            Some("Dwalin".to_string()),
-            Some(HexCoord::new(2, 0)),
-        )
-        .expect("Failed to create Dwarf Veteran Warrior");
-        game_world.add_unit(GameUnit::new_with_team(dwarf_veteran, game::Team::Player));
-
-        // Enemy Team - Orc Swordsmen (all 3 evolution stages)
-        let orc_young = units::UnitFactory::create(
-            "Orc Young Swordsman",
-            Some("Grishnakh".to_string()),
-            Some(HexCoord::new(-2, 4)),
-        )
-        .expect("Failed to create Orc Young Swordsman");
-        game_world.add_unit(GameUnit::new_with_team(orc_young, game::Team::Enemy));
-
-        let orc_swordsman = units::UnitFactory::create(
-            "Orc Swordsman",
-            Some("Ugluk".to_string()),
-            Some(HexCoord::new(0, 4)),
-        )
-        .expect("Failed to create Orc Swordsman");
-        game_world.add_unit(GameUnit::new_with_team(orc_swordsman, game::Team::Enemy));
-
-        let orc_elite = units::UnitFactory::create(
-            "Orc Elite Swordsman",
-            Some("Azog".to_string()),
-            Some(HexCoord::new(2, 4)),
-        )
-        .expect("Failed to create Orc Elite Swordsman");
-        game_world.add_unit(GameUnit::new_with_team(orc_elite, game::Team::Enemy));
-
-        // Add a test item on the ground for pickup testing
-        let test_sword = items::item_definitions::create_iron_sword();
-        let item_pickup = InteractiveObject::new_item_pickup(HexCoord::new(1, 1), test_sword);
-        game_world.add_interactive_object(item_pickup);
+        // Architecture note: ScenarioWorld is the single source of truth for:
+        // - Unit positions, stats, and inventory
+        // - Turn management and team control
+        // - Combat initiation and resolution (via Combat crate)
+        // - AI execution (via AI crate)
+        // QuestApp reads from ScenarioWorld for rendering and writes player actions to it
 
         Self {
             window: None,
@@ -605,7 +586,7 @@ impl GameApp {
     /// * `y` - Screen Y coordinate of the click
     fn handle_left_click(&mut self, x: f64, y: f64) {
         // Priority 0: Check if clicking on combat confirmation dialog (highest priority)
-        if self.game_world.pending_combat.is_some() {
+        if self.has_pending_combat() {
             if let Some(renderer) = &mut self.renderer {
                 // First check if clicking on an attack option
                 println!("🖱️  Click at ({}, {}) - checking attack buttons", x, y);
@@ -641,7 +622,8 @@ impl GameApp {
                             }
                         }
 
-                        // Execute combat with selected attack
+                        // Delegate combat execution to ScenarioWorld
+                        // (ScenarioWorld uses Combat crate for resolution logic)
                         if let Err(e) = self.game_world.execute_pending_combat() {
                             println!("❌ Combat failed: {}", e);
                         }
@@ -754,11 +736,13 @@ impl GameApp {
                 if self.is_within_attack_range(unit_id, hex_coord)
                     && self.has_enemy_unit(unit_id, hex_coord)
                 {
-                    // Enemy in range - request combat confirmation
+                    // Enemy in range - delegate combat request to ScenarioWorld
+                    // ScenarioWorld creates PendingCombat which QuestApp displays for confirmation
                     if let Err(e) = self.game_world.move_unit(unit_id, hex_coord) {
                         println!("Failed to initiate combat: {}", e);
                     } else {
-                        // Combat request created - show confirmation dialog
+                        // ScenarioWorld created PendingCombat - display confirmation UI
+                        // (Combat execution is deferred until player confirms)
                         if let Some(pending) = &self.game_world.pending_combat {
                             if let Some(renderer) = &mut self.renderer {
                                 use graphics::{AttackOption, CombatConfirmation};
@@ -905,25 +889,35 @@ impl GameApp {
 
     /// Selects a unit and displays its movement range.
     ///
-    /// Updates the UI to show unit information and highlights valid movement
-    /// hexes (excluding hexes occupied by enemy units).
+    /// Queries ScenarioWorld for legal moves and updates UI state to show
+    /// unit information and movement range highlights.
+    ///
+    /// # Architecture
+    ///
+    /// - Queries movement range from ScenarioWorld (game logic)
+    /// - Updates GameSceneState (UI state)
+    /// - Triggers rendering updates (presentation)
     ///
     /// # Arguments
     ///
     /// * `unit_id` - UUID of the unit to select
     fn select_unit(&mut self, unit_id: uuid::Uuid) {
-        // Use exploring state to handle selection
-        let mut ctx = game_scene::ExploringContext {
-            game_world: &mut self.game_world,
-            hex_grid: &self.hex_grid,
-            renderer: self.renderer.as_mut(),
-            ui_panel: self.ui_panel.as_mut(),
-            screen_width: SCREEN_WIDTH,
-            screen_height: SCREEN_HEIGHT,
-        };
+        // Update UI state to track selected unit
+        self.game_state.exploring.set_selected_unit(Some(unit_id));
 
-        self.game_state.exploring.select_unit(unit_id, &mut ctx);
+        // Query ScenarioWorld for legal moves (game logic)
+        let legal_moves = self.game_world.all_legal_moves(unit_id);
+        let movement_coords: Vec<HexCoord> = legal_moves
+            .into_iter()
+            .map(|(coord, _cost)| coord)
+            .collect();
 
+        // Update UI state with movement range
+        self.game_state
+            .exploring
+            .set_movement_range(movement_coords);
+
+        // Update display
         self.show_unit_info = true;
         self.update_unit_info_display(unit_id);
         self.update_highlight_display();
@@ -934,7 +928,7 @@ impl GameApp {
             self.game_state.exploring.movement_range().len()
         );
 
-        // Call the unit's on_click method to show detailed info in console
+        // Show detailed info in console
         self.call_unit_on_click(unit_id);
     }
 
@@ -984,7 +978,8 @@ impl GameApp {
     /// }
     /// ```
     fn is_within_attack_range(&self, unit_id: uuid::Uuid, target_hex: HexCoord) -> bool {
-        if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+        // Query unit from ScenarioWorld
+        if let Some(game_unit) = self.get_unit(unit_id) {
             let unit_pos = game_unit.position();
             let distance = unit_pos.distance(target_hex);
             let attack_range = game_unit.unit().combat_stats().attack_range;
@@ -1100,16 +1095,15 @@ impl GameApp {
 
     /// Calls the unit's detailed information display method.
     ///
-    /// Invokes the `show_details()` method on the specified unit to print
-    /// comprehensive unit information to the console, including stats, equipment,
-    /// and abilities.
+    /// Queries unit from ScenarioWorld and invokes its `show_details()` method
+    /// to print comprehensive unit information to the console.
     ///
     /// # Arguments
     ///
     /// * `unit_id` - UUID of the unit to display details for
     fn call_unit_on_click(&self, unit_id: uuid::Uuid) {
-        // Try to get the unit and call its on_click method
-        if let Some(game_obj) = self.game_world.units.get(&unit_id) {
+        // Query unit from ScenarioWorld
+        if let Some(game_obj) = self.get_unit(unit_id) {
             println!("\n🖱️  CALLING UNIT'S ON_CLICK METHOD:");
             println!("═══════════════════════════════════");
 
@@ -1141,6 +1135,8 @@ impl GameApp {
 
     /// Finds a unit at the specified hex coordinate.
     ///
+    /// Queries ScenarioWorld to find any unit occupying the given hex.
+    ///
     /// # Arguments
     ///
     /// * `hex_coord` - The hex coordinate to search
@@ -1149,16 +1145,44 @@ impl GameApp {
     ///
     /// `Some(unit_id)` if a unit is found at the coordinate, `None` otherwise.
     fn find_unit_at_hex(&self, hex_coord: HexCoord) -> Option<uuid::Uuid> {
-        // Find if there's a unit at the given hex coordinate
-        for (id, obj) in &self.game_world.units {
-            if obj.position() == hex_coord {
-                return Some(*id);
-            }
-        }
-        None
+        // Delegate to ScenarioWorld for unit queries
+        self.game_world
+            .units
+            .iter()
+            .find(|(_, unit)| unit.position() == hex_coord)
+            .map(|(id, _)| *id)
+    }
+
+    // ===== ScenarioWorld Query Helpers =====
+    // These methods encapsulate access to ScenarioWorld state for presentation layer
+
+    /// Gets a unit reference from ScenarioWorld.
+    ///
+    /// Helper method to encapsulate ScenarioWorld access.
+    ///
+    /// # Arguments
+    ///
+    /// * `unit_id` - UUID of the unit to retrieve
+    ///
+    /// # Returns
+    ///
+    /// Reference to the GameUnit if it exists, None otherwise
+    fn get_unit(&self, unit_id: uuid::Uuid) -> Option<&game::GameUnit> {
+        self.game_world.units.get(&unit_id)
+    }
+
+    /// Checks if combat is pending confirmation.
+    ///
+    /// # Returns
+    ///
+    /// true if there is a pending combat awaiting player confirmation
+    fn has_pending_combat(&self) -> bool {
+        self.game_world.pending_combat.is_some()
     }
 
     /// Finds an interactive item at the specified hex coordinate.
+    ///
+    /// Queries ScenarioWorld for interactive objects at the given position.
     ///
     /// # Arguments
     ///
@@ -1168,26 +1192,29 @@ impl GameApp {
     ///
     /// `Some(item_id)` if an item is found at the coordinate, `None` otherwise.
     fn find_item_at_hex(&self, hex_coord: HexCoord) -> Option<uuid::Uuid> {
-        // Find if there's an interactive object (item) at the given hex coordinate
-        for (id, obj) in &self.game_world.interactive_objects {
-            if obj.position() == hex_coord {
-                return Some(*id);
-            }
-        }
-        None
+        // Delegate to ScenarioWorld for object queries
+        self.game_world
+            .interactive_objects
+            .iter()
+            .find(|(_, obj)| obj.position() == hex_coord)
+            .map(|(id, _)| *id)
     }
 
     /// Handles item pickup by a unit.
     ///
-    /// Transfers an item from an interactive object to the unit's inventory
-    /// and attempts to auto-equip it if it's not a consumable.
+    /// Coordinates item pickup between UI and ScenarioWorld:
+    /// 1. Retrieves item from interactive object in ScenarioWorld
+    /// 2. Adds item to unit's inventory
+    /// 3. Attempts auto-equip if not consumable
+    /// 4. Removes interactive object from world
+    /// 5. Updates UI feedback
     ///
     /// # Arguments
     ///
     /// * `unit_id` - UUID of the unit picking up the item
     /// * `item_id` - UUID of the interactive object containing the item
     fn handle_item_pickup(&mut self, unit_id: uuid::Uuid, item_id: uuid::Uuid) {
-        // Get the item from the interactive object
+        // Query ScenarioWorld for item and unit
         if let Some(item_obj) = self.game_world.interactive_objects.get_mut(&item_id) {
             if let Some(item) = item_obj.take_item() {
                 // Add item to unit's inventory and auto-equip
@@ -1239,13 +1266,14 @@ impl GameApp {
 
     /// Updates the unit information display in the UI panel.
     ///
-    /// Retrieves unit data and updates both the cached text display and the
-    /// UI panel with current unit statistics, position, and attributes.
+    /// Synchronizes UI with ScenarioWorld state by querying unit data and
+    /// updating the display panels. This is a pure presentation operation.
     ///
     /// # Arguments
     ///
     /// * `unit_id` - UUID of the unit to display information for
     fn update_unit_info_display(&mut self, unit_id: uuid::Uuid) {
+        // Query unit from ScenarioWorld
         if let Some(game_unit) = self.game_world.units.get(&unit_id) {
             let position = game_unit.position();
             let name = game_unit.name();
@@ -1373,9 +1401,11 @@ impl GameApp {
 
     /// Updates the hex grid with current unit and item positions.
     ///
-    /// Clears all existing unit and item sprites from the hex grid and re-adds
-    /// them based on the current game state. Terrain sprites are preserved.
-    /// This ensures the visual representation stays synchronized with the game world.
+    /// Synchronizes visual representation with ScenarioWorld state.
+    /// Queries all units and interactive objects from ScenarioWorld and updates
+    /// the hex grid sprites accordingly. Terrain sprites are preserved.
+    ///
+    /// This is a presentation-layer operation that ensures rendering matches game state.
     fn update_hex_grid_units(&mut self) {
         // Clear existing unit and item sprites (keep terrain)
         for hex in self.hex_grid.hexagons.values_mut() {
@@ -1383,7 +1413,7 @@ impl GameApp {
             hex.set_item_sprite(None);
         }
 
-        // Add current unit positions as unit sprites on top of terrain
+        // Query ScenarioWorld for current unit positions
         for unit in self.game_world.units.values() {
             let pos = unit.position();
             let sprite = unit.unit().sprite();
@@ -1882,9 +1912,12 @@ impl ApplicationHandler for GameApp {
                             .handle_cursor_move(position.x, position.y);
                     }
                     SceneType::Game => {
+                        // Check combat state first to avoid borrow conflicts
+                        let has_combat = self.has_pending_combat();
+
                         // Update combat confirmation button hover states
                         if let Some(renderer) = &mut self.renderer {
-                            if self.game_world.pending_combat.is_some() {
+                            if has_combat {
                                 renderer
                                     .combat_log_display
                                     .update_button_hover(position.x as f32, position.y as f32);
@@ -1990,14 +2023,14 @@ impl ApplicationHandler for GameApp {
                         // Update movement animation
                         self.update_animation(delta_time);
 
-                        // If it's an AI-controlled team's turn, run AI logic BEFORE updating
-                        // the turn system (which might auto-advance the turn after delay).
-                        // Only execute AI once per team's turn by tracking the team.
+                        // AI execution: Delegate to ScenarioWorld (which uses AI crate)
+                        // QuestApp only tracks which team had AI run to avoid duplicate execution
                         let current_team = self.game_world.current_turn_team();
                         if !self.game_world.is_current_team_player_controlled() {
                             // Check if this is a new AI turn (team changed or first AI turn)
                             if self.last_ai_turn_team != Some(current_team) {
                                 println!("🤖 AI executing for team {:?}", current_team);
+                                // Delegate to ScenarioWorld which uses AI crate for planning
                                 self.game_world.run_ai_for_current_team();
                                 self.last_ai_turn_team = Some(current_team);
                             }
@@ -2006,8 +2039,8 @@ impl ApplicationHandler for GameApp {
                             self.last_ai_turn_team = None;
                         }
 
-                        // Update game state (turn system, AI, etc.)
-                        // The turn system will auto-advance AI turns after the delay
+                        // Update game state (turn system, AI events, etc.)
+                        // ScenarioWorld handles turn advancement, AI action processing
                         self.game_world.update(delta_time);
 
                         // Update unit positions on hex grid before rendering

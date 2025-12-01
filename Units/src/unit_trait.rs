@@ -5,9 +5,9 @@
 //! management, and progression.
 
 use crate::attack::Attack;
+use crate::combat::CombatStats;
 use crate::unit_race::{Race, Terrain};
 use crate::unit_type::UnitType;
-use combat::CombatStats;
 use graphics::HexCoord;
 use graphics::SpriteType;
 use items::{Equipment, Item, ItemId};
@@ -130,6 +130,17 @@ pub trait Unit {
     /// resistances, and other combat-relevant values.
     fn combat_stats(&self) -> &CombatStats {
         &self.base().combat_stats
+    }
+
+    fn get_resistance(&self, damage_type: crate::combat::DamageType) -> u8 {
+        match damage_type {
+            crate::combat::DamageType::Blunt => self.combat_stats().resistances.blunt,
+            crate::combat::DamageType::Pierce => self.combat_stats().resistances.pierce,
+            crate::combat::DamageType::Fire => self.combat_stats().resistances.fire,
+            crate::combat::DamageType::Dark => self.combat_stats().resistances.dark,
+            crate::combat::DamageType::Slash => self.combat_stats().resistances.slash,
+            crate::combat::DamageType::Crush => self.combat_stats().resistances.crush,
+        }
     }
 
     /// Returns a mutable reference to the unit's combat statistics.
@@ -437,14 +448,14 @@ pub trait Unit {
         /// Helper function to convert item damage types to combat damage types.
         fn item_damage_type_to_combat(
             dt: items::item_properties::DamageType,
-        ) -> combat::DamageType {
+        ) -> crate::combat::DamageType {
             match dt {
-                items::item_properties::DamageType::Slash => combat::DamageType::Slash,
-                items::item_properties::DamageType::Pierce => combat::DamageType::Pierce,
-                items::item_properties::DamageType::Blunt => combat::DamageType::Blunt,
-                items::item_properties::DamageType::Fire => combat::DamageType::Fire,
-                items::item_properties::DamageType::Dark => combat::DamageType::Dark,
-                _ => combat::DamageType::Slash,
+                items::item_properties::DamageType::Slash => crate::combat::DamageType::Slash,
+                items::item_properties::DamageType::Pierce => crate::combat::DamageType::Pierce,
+                items::item_properties::DamageType::Blunt => crate::combat::DamageType::Blunt,
+                items::item_properties::DamageType::Fire => crate::combat::DamageType::Fire,
+                items::item_properties::DamageType::Dark => crate::combat::DamageType::Dark,
+                _ => crate::combat::DamageType::Slash,
             }
         }
 

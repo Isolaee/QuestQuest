@@ -37,3 +37,16 @@ pub struct CombatResult {
     /// Number of defender casualties (0 or 1)
     pub defender_casualties: u32,
 }
+
+impl Default for CombatResult {
+    fn default() -> Self {
+        CombatResult {
+            attacker_damage_dealt: 0,
+            defender_damage_dealt: 0,
+            attacker_hit: false,
+            defender_hit: false,
+            attacker_casualties: 0,
+            defender_casualties: 0,
+        }
+    }
+}
