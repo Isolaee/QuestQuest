@@ -1,8 +1,8 @@
 # QuestQuest: Hexagonal Game Engine
 
-A complete Rust-based hexagonal grid game engine with comprehensive unit management system, trait-based architecture, advanced rendering layers, and fully documented codebase.
+A complete Rust-based hexagonal grid game engine with Old scholl turn-based combat. On technical side, project is well tested and aims to be modular and expandable.
 
-**Last Updated:** November 28, 2025  
+**Last Updated:** December 3, 2025  
 **Documentation Status:** ✅ Comprehensive Rust docs across all crates
 
 ## 🏗️ Project Structure
@@ -10,84 +10,23 @@ A complete Rust-based hexagonal grid game engine with comprehensive unit managem
 ```
 QuestQuest/
 ├── AI/                 # GOAP-based AI planning system (NEW!)
-│   ├── src/
-│   │   ├── lib.rs      # AI system entry point
-│   │   ├── planner.rs  # Forward A* GOAP planner
-│   │   ├── action.rs   # Action templates and instances
-│   │   ├── executor.rs # Action execution
-│   │   ├── goals.rs    # Goal definitions
-│   │   └── world_state.rs # World state representation
 │   └── Cargo.toml
 ├── Combat/             # Combat resolution system
-│   ├── src/
-│   │   ├── lib.rs      # Combat mechanics and damage calculation
 │   └── Cargo.toml
 ├── Encyclopedia/       # Dynamic runtime encyclopedia system (NEW!)
-│   ├── src/
-│   │   ├── lib.rs      # Encyclopedia entry point
-│   │   ├── encyclopedia.rs # Main encyclopedia system
-│   │   ├── entries.rs  # Entry types (units, terrain, mechanics)
-│   │   └── formatters.rs # Display formatting
 │   └── Cargo.toml
 ├── Graphics/           # Rendering and hexagonal grid system
-│   ├── src/
-│   │   ├── lib.rs      # Main library entry point
-│   │   ├── main.rs     # Standalone graphics demo
-│   │   ├── core/       # Core game logic
-│   │   │   ├── mod.rs
-│   │   │   ├── camera.rs     # Camera with view culling
-│   │   │   ├── grid.rs       # Hexagonal grid management
-│   │   │   ├── hex_lookup.rs # Hex coordinate lookup
-│   │   │   └── hexagon.rs    # Hexagonal coordinate system
 │   │   ├── math/       # Mathematical utilities
-│   │   │   ├── mod.rs
-│   │   │   └── vec2.rs       # 2D vector operations
 │   │   ├── rendering/  # OpenGL rendering layer
-│   │   │   ├── mod.rs
-│   │   │   ├── renderer.rs   # Multi-layer renderer (terrain/units/items)
-│   │   │   ├── shaders.rs    # Shader management
-│   │   │   ├── texture_manager.rs # Texture loading and binding
-│   │   │   └── vertex_buffer.rs   # Vertex buffer handling
 │   │   └── ui/         # User interface
-│   │       ├── mod.rs
-│   │       ├── text_renderer.rs # Text rendering system
-│   │       └── ui_panel.rs      # UI panel components
 │   └── Cargo.toml
 ├── Units/              # Trait-based unit system with abilities
-│   ├── src/
-│   │   ├── lib.rs      # Unit system library entry
-│   │   ├── ability.rs  # Comprehensive ability system (NEW!)
-│   │   ├── attack.rs   # Attack mechanics
-│   │   ├── base_unit.rs # Base unit data structure
-│   │   ├── team.rs     # Team affiliation system
-│   │   ├── unit_factory.rs # Unit creation factory
-│   │   ├── unit_race.rs  # Race definitions and bonuses
-│   │   ├── unit_registry.rs # Unit type registry
-│   │   ├── unit_trait.rs # Main Unit trait
-│   │   └── unit_type.rs  # Unit type enumeration
-│   ├── docs/           # Comprehensive documentation
-│   │   ├── ABILITIES.md       # Full ability system guide
-│   │   ├── ABILITIES_QUICK_REF.md # Quick reference
-│   │   └── ARCHITECTURE.md    # Units crate architecture
-│   ├── tests/          # Comprehensive test suite
-│   │   └── new_system_tests.rs # Tests for trait-based system
 │   └── Cargo.toml
 ├── Game/               # Game world management
-│   ├── src/
-│   │   ├── lib.rs      # Game world library
-│   │   ├── objects.rs  # Interactive objects
-│   │   └── world.rs    # Game world state
-│   └── Cargo.toml
 ├── QuestApp/           # Main application
-│   ├── src/
-│   │   └── main.rs     # Interactive game window
 │   └── Cargo.toml
-├── example.rs          # Demonstration program
-├── MIGRATION_COMPLETE.md    # Migration documentation
-├── TEST_MIGRATION_STATUS.md # Test migration status
-├── TODO_COMPLETE.md         # Completed TODO items
-├── ITEM_RENDERING_UPDATE.md # Latest rendering update
 └── Cargo.toml          # Workspace configuration
+└── README.md
 ```
 
 ## 🎮 Features
@@ -97,7 +36,7 @@ QuestQuest/
 - **Hexagonal Grid System**: Efficient axial coordinate system with flat-top hexagons
 - **Multi-Layer Rendering**: Separate rendering layers for terrain, units, and items
 - **Camera System**: View frustum culling for performance optimization
-- **Terrain System**: 7 distinct terrain sprites (Forest, Forest2, Grasslands, Haunted Woods, Hills, Mountain, Swamp)
+- **Terrain System**: Terrain system ready for expansion
 - **Sprite Support**: Textured and colored sprite rendering with proper depth ordering
 - **Item Positioning**: Smart item placement (corner positioning when unit present)
 - **UI System**: Text rendering and interactive UI panels
@@ -106,17 +45,8 @@ QuestQuest/
 ### Units Crate (Trait-Based System)
 - **Trait-Based Architecture**: Polymorphic unit system with Unit trait
 - **Factory Pattern**: UnitFactory for creating units by race and class
-- **Comprehensive Ability System**: (NEW!)
-  - **Passive Abilities**: Automatic effects (Always, OnTakeDamage, BelowHealth, etc.)
-  - **Active Abilities**: Player-activated powers with cooldowns and targeting
-  - **Aura Abilities**: Area effects that buff allies or debuff enemies
-  - **Flexible Effects**: Attack/defense bonuses, healing, damage, resistances, movement
-- **Multiple Unit Types**: 
-  - Humans: Warrior, Archer, Mage, Paladin
-  - Elves: Warrior, Archer, Mage, Paladin
-  - Dwarves: Warrior, Archer, Mage, Paladin
-  - Orcs: Warrior, Archer, Mage, Paladin
-- **Combat System**: Separated combat crate with damage types and resistances
+- **Comprehensive Ability System**: Passive, Active and Aura abilites for units
+- **Multiple Unit Types**: Unit system ready for expansion
 - **Equipment System**: Weapons, armor, and accessories with stat bonuses
 - **Item Management**: Inventory system with consumables and equipment
 - **Character Progression**: Experience-based leveling with stat increases
@@ -130,7 +60,7 @@ QuestQuest/
 - **Terrain Bonuses**: Terrain-based hit chance modifiers
 - **Range System**: Melee, Range, and Siege categories
 
-### AI Crate (NEW!)
+### AI Crate
 - **GOAP Planning**: Goal-Oriented Action Planning system
 - **Forward A* Planner**: Efficient pathfinding through action space
 - **Action Templates**: Reusable action definitions
@@ -138,7 +68,7 @@ QuestQuest/
 - **Team Planning**: Multi-unit coordination support
 - **Action Execution**: Runtime action execution system
 
-### Encyclopedia Crate (NEW!)
+### Encyclopedia Crate
 - **Dynamic Generation**: Runtime-generated game encyclopedia
 - **Unit Entries**: Comprehensive unit information and stats
 - **Terrain Guide**: Terrain types and movement effects
@@ -162,9 +92,7 @@ QuestQuest/
 ### Key Features
 - ✅ **Hexagonal Coordinates**: Proper axial coordinate system with distance calculations
 - ✅ **Camera Culling**: Only render hexagons within camera view distance
-- ✅ **Multi-Layer Rendering**: Terrain (z=0.0), Units (z=-0.5), Items (z=-0.6)
-- ✅ **Smart Item Positioning**: Items shift to corner when unit occupies same hex
-- ✅ **Trait Polymorphism**: Units as `Box<dyn Unit>` for flexible gameplay
+- ✅ **Multi-Layer Rendering**: Layers for Terrain, units, items, etc
 - ✅ **Ability System**: Passive, Active, and Aura abilities with flexible effects
 - ✅ **Equipment Bonuses**: Weapons and armor modify unit stats
 - ✅ **Damage Type System**: 6 damage types with resistance calculations
@@ -172,54 +100,15 @@ QuestQuest/
 - ✅ **GOAP AI**: Goal-oriented planning for intelligent unit behavior
 - ✅ **Dynamic Encyclopedia**: Runtime-generated comprehensive game documentation
 - ✅ **Serialization**: Full serde support for save/load functionality
-- ✅ **Comprehensive Tests**: 170+ tests across all crates (100% passing)
+- ✅ **Comprehensive Tests**
 - ✅ **Type Safety**: Strong typing throughout with custom types
 - ✅ **Factory Pattern**: Flexible unit creation with UnitFactory
+- ✅ **Develpemtn Pipeline**: Devpipeline with pre-commit
 
 ## 🧪 Test Coverage
 
-**Total: 170+ tests across all crates, 100% passing**
+**Workspace Status:** Extensive test suite across all crates; use `cargo test --workspace` to verify on your machine.
 
-**Units Crate: 79+ tests**
-- Unit creation and factory patterns
-- Ability system (passive, active, aura)
-- Combat stats and calculations
-- Experience and leveling
-- Equipment and inventory
-- Team affiliation
-- Movement and positioning
-- Damage types and resistances
-
-**AI Crate: 9 tests**
-- GOAP planning algorithms
-- Action templates and instances
-- World state management
-- Goal achievement
-
-**Encyclopedia Crate: 7 tests**
-- Entry generation
-- Search and filtering
-- Display formatting
-
-**Combat Crate: Tests**
-- Combat resolution
-- Damage calculations
-- Resistance modifiers
-
-**Graphics Crate: Tests**
-- Coordinate conversion
-- Rendering validation
-
-**Game Crate: Tests**
-- World management
-- Object interactions
-
-**QuestApp: Tests**
-- Game state management
-- Scene transitions
-- User interactions
-
-**All Tests**: `cargo test --workspace` - ✅ 100% passing
 
 ## 🚀 Running the Project
 
@@ -267,202 +156,13 @@ cargo doc -p items --open
 **🎯 Start Here:** The `questquest` root crate documentation (`cargo doc -p questquest --open`) contains:
 - **Complete project overview** from README
 - **Architecture documentation** from ARCHITECTURE.md
-- **Quick start guide** with examples
 - **Links to all sub-crates**
 - **Design patterns** and data flow diagrams
 
-## 📚 Documentation Overview
+## 📚 Documentation
 
-### Comprehensive Rust Documentation
-**All crates are fully documented with Rust doc comments!**
-
-Each crate includes:
-- � **Crate-level documentation** (`//!`) explaining purpose and features
-- 📝 **Module-level documentation** for all public modules
-- 🔧 **Struct/Enum documentation** for all public types
-- ⚙️ **Function documentation** with parameters, returns, and examples
-- 💡 **Usage examples** embedded in doc comments
-- 🔗 **Cross-references** between related types and functions
-
-### Documentation Coverage by Crate
-
-#### **AI Crate** (`ai`)
-Goal-Oriented Action Planning system for intelligent unit behavior.
-
-**Key Documentation:**
-- `WorldState`: Fact-based world state representation
-- `ActionTemplate`: Reusable action definitions
-- `ActionInstance`: Grounded actions with specific parameters
-- `plan()`: Forward A* GOAP planner
-- `ActionExecutor`: Runtime action execution
-- `Goal`: Goal definitions and achievement conditions
-
-**Core Concepts:**
-- GOAP (Goal-Oriented Action Planning)
-- Forward state-space search
-- Action preconditions and effects
-- Cost-based planning
-- Team coordination
-
-#### **Encyclopedia Crate** (`encyclopedia`)
-Dynamic runtime-generated game encyclopedia.
-
-**Key Documentation:**
-- `Encyclopedia`: Main encyclopedia system
-- `UnitEntry`: Unit statistics and capabilities
-- `TerrainEntry`: Terrain types and effects
-- `MechanicEntry`: Game mechanics documentation
-- Search and filtering system
-- Display formatters
-
-**Core Concepts:**
-- Runtime content generation
-- Automatic unit discovery
-- Comprehensive game documentation
-- Search and navigation
-- Formatted console output
-
-#### **Game Crate** (`game`)
-Manages the game world and all entities within it.
-
-**Key Documentation:**
-- `GameObject` trait: Base interface for all world entities
-- `GameWorld`: Central world management system
-- `TerrainTile`: Hex grid terrain with movement costs
-- `GameUnit`: Wrapper integrating units into the game world
-- `InteractiveObject`: Items, NPCs, and world objects
-- `Team` enum: Unit affiliation system
-- `PendingCombat`: Combat confirmation dialog system
-
-**Core Concepts:**
-- Hex-based world with coordinate system
-- Multi-entity management (terrain, units, objects)
-- Combat initiation and resolution flow
-- Team-based movement validation
-- Position tracking and querying
-
-#### **Combat Crate** (`combat`)
-Turn-based combat system with damage types and resistance.
-
-**Key Documentation:**
-- `CombatStats`: Comprehensive unit combat statistics
-- `DamageType`: Six damage types (Slash, Pierce, Blunt, Crush, Fire, Dark)
-- `Resistances`: Percentage-based damage reduction
-- `RangeCategory`: Melee, Range, and Siege combat
-- `CombatAction`: Available combat actions
-- `CombatResult`: Combat outcome data
-- `resolve_combat()`: Main combat resolution algorithm
-
-**Core Concepts:**
-- Multi-attack system (attacks per round)
-- Alternating turn-based combat
-- Resistance modifiers (0-100%)
-- Counter-attack mechanics
-- Hit chance rolls with terrain modifiers
-
-#### **Units Crate** (`units`)
-Trait-based polymorphic unit system with comprehensive ability support.
-
-**Key Documentation:**
-- `Unit` trait: Core unit interface
-- `BaseUnit`: Shared unit data structure
-- `UnitFactory`: Factory pattern for unit creation
-- `Ability` system: Passive, Active, and Aura abilities
-- `UnitRegistry`: Centralized unit type management
-- `Team`: Unit affiliation system
-- Race implementations (Human, Elf, Dwarf, Orc)
-- Equipment and inventory systems
-- Experience and leveling mechanics
-
-**Core Concepts:**
-- Trait-based polymorphism
-- Three-tier ability system (Passive/Active/Aura)
-- Race and class combinations
-- Equipment stat bonuses
-- Dynamic unit creation
-- Combat stat calculations
-- Team-based mechanics
-
-**Additional Documentation:**
-- `docs/ABILITIES.md`: Complete ability system guide
-- `docs/ABILITIES_QUICK_REF.md`: Quick reference
-- `docs/ARCHITECTURE.md`: Crate architecture
-
-#### **Items Crate** (`items`)
-Equipment and consumable item system.
-
-**Key Documentation:**
-- Item types and properties
-- Equipment system with slots
-- Stat modifiers and bonuses
-- Item definitions and templates
-
-#### **Graphics Crate** (`graphics`)
-OpenGL rendering with hex grid visualization.
-
-**Key Documentation:**
-- Hexagonal coordinate system (axial)
-- Multi-layer rendering architecture
-- Camera system with view culling
-- Texture management
-- Shader system
-- UI components and text rendering
-
-**Core Concepts:**
-- Flat-top hexagon mathematics
-- Three rendering layers (terrain/units/items)
-- Efficient coordinate conversions
-- Depth-based layer ordering
-
-### Documentation Features
-- ✅ **100% Public API Coverage**: Every public item is documented
-- 💡 **Practical Examples**: Real usage patterns in doc comments
-- 🔗 **Type Cross-References**: Links between related types
-- 📊 **Visual Formatting**: Clear sections for Args, Returns, Examples
-- 🧪 **Doc Tests**: Examples verified during `cargo test`
-- 🎯 **Clear Explanations**: Behavior, constraints, and use cases
-- 📝 **Field Documentation**: All struct fields explained
-- ⚠️ **Edge Cases**: Special behaviors and limitations noted
-
-### Documentation Location
-Generated HTML documentation is placed in `target/doc/`:
-```
-target/doc/
-├── questquest/index.html     # 🌟 START HERE: Project overview + architecture
-│   ├── index.html            # Complete README content
-│   └── architecture/         # ARCHITECTURE.md content
-├── game/index.html           # Game world management
-├── combat/index.html         # Combat system
-├── units/index.html          # Unit system
-├── items/index.html          # Item system
-├── graphics/index.html       # Rendering engine
-└── questapp/index.html       # Main application
-```
-
-**🎯 Recommended Reading Order:**
-1. `questquest` - High-level overview and architecture
-2. `game` - Game world and entity management
-3. `combat` - Battle mechanics
-4. `units` - Unit system and factory
-5. `graphics` - Rendering engine
-6. `items` - Equipment system
-
-### Reading the Documentation
-
-1. **Start with Crate-Level Docs**: Read the module overview (`lib.rs`)
-2. **Explore Core Types**: Click through key structs and traits
-3. **Check Examples**: Copy example code from doc comments
-4. **Follow Cross-References**: Navigate between related types
-5. **Read Method Docs**: Understand parameters and return values
-
-### Documentation Best Practices Used
-
-- **Consistent Structure**: All docs follow same format
-- **Examples First**: Show usage before explaining details
-- **Clear Sections**: Args, Returns, Examples clearly marked
-- **Concise Descriptions**: One-line summaries + detailed explanations
-- **Type Safety Notes**: Explain constraints and valid ranges
-- **Integration Examples**: Show how crates work together
+- All crates include Rust doc comments and crate-level overviews.
+- Generate docs with `cargo doc --workspace` (use `--open` to view).
 
 ### Run Applications
 ```bash
@@ -504,15 +204,6 @@ cargo run
 - Camera controls for world navigation
 - Debug mode for development
 
-**What You'll See:**
-- 3 demo units: Thorin (Human Warrior), Legolas (Elf Archer), Gimli (Dwarf Paladin)
-- 1 test item: Iron Sword at position (1,1)
-- Interactive hex grid with terrain
-- Unit sprites (red circles, 60% of hex size)
-- Item sprites (gold circles, 50% size or 25% in corner if unit present)
-- Movement range visualization (blue highlight)
-- Selected unit highlight (yellow)
-
 **Requirements:**
 - OpenGL 4.x compatible graphics card
 - Updated graphics drivers
@@ -535,60 +226,39 @@ cargo run
 🔤 Press ESC to deselect unit
 ```
 
-**Example.rs (Text-based Demo):**
-```
-🎮 QuestQuest: Hexagonal Game Engine Demo
-==========================================
-
-⚔️ INITIAL UNITS:
-📋 Thorin the Bold (Lv.1 Dwarf Warrior):
-   Position: HexCoord { q: 0, r: 0 } | Health: 120/120 | Attack: 2 | Defense: 5 | Range: 1 (Melee)
-   Movement: 2 | Weapon: None | Exp: 0
-
-📋 Legolas Greenleaf (Lv.1 Elf Archer):
-   Position: HexCoord { q: 3, r: -2 } | Health: 80/80 | Attack: 2 | Defense: -1 | Range: 3 (Ranged)
-   Movement: 5 | Weapon: None | Exp: 0
-
-🛡️ AFTER EQUIPPING WEAPONS:
-📋 Legolas Greenleaf (Lv.1 Elf Archer):
-   Position: HexCoord { q: 3, r: -2 } | Health: 80/80 | Attack: 5 | Defense: -1 | Range: 5 (Ranged)
-   Movement: 5 | Weapon: Bow of the Galadhrim | Exp: 0
-
-⚔️ COMBAT SIMULATION:
-Distance from Archer to Warrior: 3
-Can Archer attack Warrior? true
-Combat Result: Hit! Damage dealt: 12
-```
-
 ## 🏛️ Architecture Highlights
 
 ### System Architecture: How Everything Ties Together
 
-QuestQuest uses a layered architecture where each crate has specific responsibilities and well-defined interfaces:
+QuestQuest uses a layered, modular architecture. `questapp` orchestrates the game loop and rendering, `game` owns world state and rules, `graphics` renders, while `units`, `items`, and `combat` provide core data and calculations. `ai` plans actions (GOAP) against the world state, and `encyclopedia` aggregates runtime data for documentation.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        QuestApp                              │
-│              (Main Application Entry Point)                  │
-│  • Window management and event loop                         │
-│  • User input handling (mouse, keyboard)                    │
-│  • Game loop coordination                                   │
-└──────────────────┬──────────────────────────────────────────┘
-                   │
-    ┌──────────────┼──────────────┬──────────────┐
-    │              │              │              │
-┌───▼────┐   ┌────▼─────┐   ┌───▼────┐   ┌────▼─────┐
-│ Game   │   │ Graphics │   │ Units  │   │  Items   │
-│ Crate  │   │  Crate   │   │ Crate  │   │  Crate   │
-└───┬────┘   └────┬─────┘   └───┬────┘   └────┬─────┘
-    │              │              │              │
-    │              │         ┌────▼──────┐       │
-    │              │         │  Combat   │       │
-    │              │         │   Crate   │       │
-    │              │         └───────────┘       │
-    │              │                             │
-    └──────────────┴─────────────────────────────┘
-              Common Types & Traits
+  ┌──────────────────────────────────────────────────────────────┐
+  │                         QuestApp                             │
+  │               (Main Application Entry Point)                 │
+  │  • Window & event loop • Input • Game loop                   │
+  └───────────────┬─────────────────────────────┬───────────────┘
+                  │                             │
+            ┌─────▼─────┐                 ┌─────▼─────┐
+            │    Game   │                 │  Graphics │
+            │    Crate  │                 │    Crate  │
+            └─────┬─────┘                 └─────┬─────┘
+                  │                             │
+             ┌────▼───┐                  ┌──────▼─────┐
+             │  Units │                  │   Items    │
+             └────┬───┘                  └──────┬─────┘
+                  │                             │
+              ┌───▼────┐                        │
+              │ Combat │◄───────────────────────┘
+              └───┬────┘
+                  │
+            ┌─────▼────┐                      ┌──────────────┐
+            │    AI    │ (GOAP plans against  │ Encyclopedia │
+            │   Crate  │  Game world & Units) │    Crate     │
+            └─────┬────┘                      └───────┬──────┘
+                  └────────────┬──────────────────────┘
+                               │
+                  Common Types & Traits (positions, ids)
 ```
 
 ### Data Flow: From User Action to Visual Update
@@ -629,12 +299,7 @@ QuestQuest uses a layered architecture where each crate has specific responsibil
 #### **Game Crate** - World State Management
 **Role:** Central authority for game state
 
-**Responsibilities:**
-- Track all entities (terrain, units, objects)
-- Validate movements and positions
-- Manage combat flow (initiation → confirmation → resolution)
-- Handle team affiliations
-- Process entity interactions
+**Responsibilities:** Track entities, validate movement, manage combat flow, handle teams, process interactions.
 
 **Key Types:**
 - `GameWorld`: Central state container
@@ -651,12 +316,7 @@ QuestQuest uses a layered architecture where each crate has specific responsibil
 #### **Combat Crate** - Battle Mechanics
 **Role:** Isolated combat calculation engine
 
-**Responsibilities:**
-- Turn-based combat resolution
-- Damage calculation with resistances
-- Hit chance rolls
-- Multi-attack sequencing
-- Combat result reporting
+**Responsibilities:** Resolve turn-based combat, calculate damage/resistances, report results.
 
 **Key Types:**
 - `CombatStats`: All combat-related numbers
@@ -672,12 +332,7 @@ QuestQuest uses a layered architecture where each crate has specific responsibil
 #### **Units Crate** - Unit System
 **Role:** Polymorphic unit definitions
 
-**Responsibilities:**
-- Define `Unit` trait interface
-- Implement race/class combinations
-- Handle equipment and inventory
-- Manage experience/leveling
-- Provide combat stats
+**Responsibilities:** Provide `Unit` trait, equipment/inventory, leveling, combat stats.
 
 **Key Types:**
 - `Unit` trait: Core interface
@@ -693,11 +348,7 @@ QuestQuest uses a layered architecture where each crate has specific responsibil
 #### **Items Crate** - Equipment & Consumables
 **Role:** Item definitions and properties
 
-**Responsibilities:**
-- Define item types
-- Equipment stat bonuses
-- Item templates
-- Consumable effects
+**Responsibilities:** Define items, equipment bonuses, templates, consumables.
 
 **Key Types:**
 - `Item`: Core item structure
@@ -711,13 +362,7 @@ QuestQuest uses a layered architecture where each crate has specific responsibil
 #### **Graphics Crate** - Rendering Engine
 **Role:** Visual presentation layer
 
-**Responsibilities:**
-- OpenGL rendering
-- Hexagonal coordinate math
-- Camera management
-- Texture/sprite handling
-- UI rendering
-- Input coordinate conversion
+**Responsibilities:** Render UI/hex grid, manage camera, textures/shaders.
 
 **Key Types:**
 - `HexCoord`: Axial coordinates
@@ -729,85 +374,26 @@ QuestQuest uses a layered architecture where each crate has specific responsibil
 - Standalone rendering
 - Provides types to other crates
 
-### Design Patterns Used
+### Design Principles
 
-#### **Trait-Based Polymorphism**
-```rust
-// Units stored as trait objects for flexibility
-pub struct GameWorld {
-    pub units: HashMap<Uuid, GameUnit>,  // GameUnit contains Box<dyn Unit>
-}
-
-// Any type implementing Unit can be stored
-let warrior: Box<dyn Unit> = Box::new(HumanWarrior::new(...));
-let archer: Box<dyn Unit> = Box::new(ElfArcher::new(...));
-```
-
-#### **Factory Pattern**
-```rust
-// Create units dynamically by race and class
-let unit = UnitFactory::create_unit(
-    Race::Human,
-    UnitClass::Warrior,
-    "Thorin".to_string(),
-    HexCoord::new(0, 0)
-);
-```
-
-#### **Separation of Concerns**
-- **Combat Logic**: Isolated in Combat crate, no game state dependencies
-- **Rendering**: Graphics crate doesn't know about game rules
-- **Game Logic**: Game crate orchestrates but doesn't render
-- **Data Definitions**: Items and Units define structure, not behavior
-
-#### **Dependency Inversion**
-```rust
-// Game depends on Unit trait, not concrete types
-impl GameUnit {
-    pub fn new(unit: Box<dyn Unit>) -> Self { ... }
-    pub fn unit(&self) -> &dyn Unit { ... }
-}
-```
+- Clear separation of concerns across crates.
+- Trait-based polymorphism for units and game entities.
+- Reusable data types for positions, ids, and combat stats.
 
 ### Modular Design
-- **Graphics**: Handles all rendering, hexagonal math, camera systems, and UI
-- **Units**: Trait-based unit system with race/class combinations
-- **Combat**: Separated combat resolution with damage types and resistances
-- **Game**: World management, unit tracking, and interactive objects
-- **Items**: Equipment and consumable definitions
-- **QuestApp**: Main interactive application tying everything together
-- **Clear Separation**: Each crate has well-defined responsibilities
-- **Type Safety**: Custom types prevent coordinate system errors
+- Graphics renders; Game orchestrates; Units/Items/Combat provide data & rules; QuestApp ties UI and loop.
 
 ### Trait-Based Unit System
-- **Unit Trait**: Common interface for all units
-- **BaseUnit**: Shared data structure for common properties
-- **Concrete Types**: Specific implementations per race/class combination
-- **Factory Pattern**: UnitFactory creates units dynamically
-- **Polymorphism**: Units stored as `Box<dyn Unit>` for flexibility
+- `Unit` trait with flexible implementations and factory-based creation.
 
 ### Multi-Layer Rendering
-- **Layer 1: Terrain** (z = 0.0) - Background hexagonal grid
-- **Layer 2: Units** (z = -0.5) - Unit sprites at 60% of hex size
-- **Layer 3: Items** (z = -0.6) - Item sprites with smart positioning
-  - Centered at 50% size when alone
-  - Corner positioned at 25% size when unit present
-- **Depth Testing**: OpenGL depth buffer ensures correct layer ordering
+- Terrain, Units, Items rendered in separate layers with proper depth ordering.
 
-### Hexagonal Mathematics  
-- **Axial Coordinates**: Efficient (q, r) coordinate system
-- **Flat-Top Hexagons**: Horizontal flat edges, vertical pointy edges
-- **Distance Calculation**: Proper hexagonal distance using axial coordinates
-- **Neighbor Finding**: Calculate adjacent hexagons in all 6 directions
-- **Grid Operations**: Convert between screen and grid coordinates
-- **Axial Rounding**: Robust fractional coordinate rounding
+### Hexagonal Mathematics
+- Axial coordinates, neighbor lookup, and screen-to-grid conversions.
 
-### Performance Optimizations
-- **Camera Culling**: Only process hexagons within view distance
-- **Efficient Rendering**: Batch vertex updates and minimize GL calls
-- **Smart Caching**: Cache calculated stats until equipment changes
-- **Memory Management**: Use appropriate data structures for performance
-- **Separate Rendering Layers**: Independent updates for terrain/units/items
+### Performance
+- Camera culling, batched rendering, and smart caching.
 
 ## 🔧 Technical Stack
 
@@ -831,7 +417,7 @@ impl GameUnit {
 8. **questapp** - Main application
 9. **questquest** (root) - Workspace examples
 
-## �️ Development Setup
+## 🛠️ Development Setup
 
 ### Pre-commit Hooks
 
@@ -839,7 +425,7 @@ This project uses [pre-commit](https://pre-commit.com/) to ensure code quality b
 
 1. **Rust Format Check** (`cargo fmt --check`): Ensures code is properly formatted
 2. **Rust Clippy Lints** (`cargo clippy`): Catches common mistakes and enforces best practices
-3. **Rust Tests** (`cargo test --all`): Runs all 31+ tests across all packages
+3. **Rust Tests** (`cargo test --workspace`): Runs tests across the workspace
 
 #### Installation
 
@@ -853,24 +439,6 @@ pre-commit install
 # Optionally, run hooks manually on all files
 pre-commit run --all-files
 ```
-
-#### What Gets Tested
-
-- **Units**: 12 tests covering:
-  - Unit creation with factory
-  - Combat stats and calculations
-  - Experience and leveling
-  - Equipment effects
-  - Combat resolution
-  - Damage types per class
-  - Resistances per class
-  - Terrain effects on hit chance
-  - Movement and positioning
-  - Range categories
-  - Health and damage
-  - Inventory management
-- **Graphics**: Coordinate conversion and rendering
-- **Game**: World management and object interactions
 
 The pre-commit hooks will automatically prevent commits if:
 - Code is not formatted correctly
@@ -937,13 +505,8 @@ To bypass hooks (not recommended): `git commit --no-verify`
 - ✅ Added `set_item_at()` and `remove_item_at()` to HexGrid
 - ✅ Updated QuestApp to use separate item tracking
 
-### Completed Migration
-- ✅ Migrated from monolithic Unit struct to trait-based system
-- ✅ Created 12 concrete unit implementations
-- ✅ Separated combat into dedicated crate
-- ✅ Implemented damage types and resistances
-- ✅ Created comprehensive new test suite (12 tests, 100% passing)
-- ✅ Updated all examples and demos
+### Completed Migration (Summary)
+- Trait-based unit system, separated combat crate, new test suite, updated examples.
 
 ## 🎯 Project Status
 
