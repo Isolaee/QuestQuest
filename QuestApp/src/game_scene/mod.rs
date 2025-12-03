@@ -40,6 +40,7 @@ pub use states::combat::CombatState;
 pub use states::encyclopedia::EncyclopediaState;
 pub use states::exploring::ExploringState;
 pub use states::pickup::PickupState;
+pub use states::submenu::SubmenuState;
 pub use states::GameState;
 
 /// Game scene state manager
@@ -89,6 +90,10 @@ pub struct GameSceneState {
 
     /// Encyclopedia state handler
     pub encyclopedia: EncyclopediaState,
+
+    /// Game submenu state handler (persistent)
+    #[allow(dead_code)]
+    pub submenu: SubmenuState,
 }
 
 impl GameSceneState {
@@ -116,6 +121,7 @@ impl GameSceneState {
             combat: None,
             pickup: None,
             encyclopedia: EncyclopediaState::new(),
+            submenu: SubmenuState::new(),
         }
     }
 
@@ -203,6 +209,9 @@ impl GameSceneState {
             }
             GameState::Animating { .. } => {
                 // Animation state doesn't need special initialization
+            }
+            GameState::GameSubmenu => {
+                // Submenu state is persistent
             }
         }
 

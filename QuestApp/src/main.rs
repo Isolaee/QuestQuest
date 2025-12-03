@@ -446,18 +446,25 @@ impl GameApp {
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
-                // Priority 1: Check if encyclopedia is open, close it
+                // Priority 1: Check if game submenu is open, close it
                 let mut handled = false;
-                if self.encyclopedia_visible() {
+                if self.game_state.current_state == GameState::GameSubmenu {
+                    self.game_state.transition_to(GameState::Exploring);
+                    println!("📋 Game submenu: Closed");
+                    handled = true;
+                }
+
+                // Priority 2: Check if encyclopedia is open, close it
+                if !handled && self.encyclopedia_visible() {
                     self.set_encyclopedia_visible(false);
                     println!("📚 Encyclopedia: Closed");
                     handled = true;
                 }
 
-                // Priority 2: Check if guide is open, close it (now handled by encyclopedia_panel)
+                // Priority 3: Check if guide is open, close it (now handled by encyclopedia_panel)
                 // No-op: All guide/encyclopedia display is now handled by encyclopedia_panel
 
-                // Priority 3: Toggle menu (only if guide/encyclopedia wasn't closed)
+                // Priority 4: Toggle menu (only if guide/encyclopedia wasn't closed)
                 if !handled {
                     if let Some(renderer) = &mut self.renderer {
                         renderer.menu_display.toggle();
@@ -470,7 +477,7 @@ impl GameApp {
                     }
                 }
 
-                // Priority 4: Clear unit selection (only if nothing else was handled)
+                // Priority 5: Clear unit selection (only if nothing else was handled)
                 if !handled {
                     self.clear_selection();
                 }
@@ -868,22 +875,16 @@ impl GameApp {
     ///
     /// * `x` - Screen X coordinate of the click
     /// * `y` - Screen Y coordinate of the click
-    fn handle_right_click(&mut self, x: f64, y: f64) {
-        // --- Player Control Flow: cancel selection or open menu placeholder ---
+    fn handle_right_click(&mut self, _x: f64, _y: f64) {
+        // --- Player Control Flow: unselect unit or open game submenu ---
         if self.selected_unit().is_some() {
-            // Cancel selection
+            // If unit is selected, unselect it
             self.clear_selection();
-            println!("[Right Click] Selection cancelled.");
-        } else if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
-            // No unit selected: open unit menu if unit present (placeholder)
-            if let Some(unit_id) = self.find_unit_at_hex(hex_coord) {
-                println!(
-                    "[Right Click] Would open unit menu for unit {:?} (feature not implemented)",
-                    unit_id
-                );
-            } else {
-                // Do nothing if no unit at hex
-            }
+            println!("[Right Click] Unit unselected.");
+        } else {
+            // If no unit is selected, open game submenu
+            self.game_state.transition_to(GameState::GameSubmenu);
+            println!("[Right Click] Opening game submenu.");
         }
     }
 

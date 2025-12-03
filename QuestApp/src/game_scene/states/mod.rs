@@ -62,6 +62,7 @@ pub mod encyclopedia;
 pub mod exploring;
 pub mod menu;
 pub mod pickup;
+pub mod submenu;
 
 use uuid::Uuid;
 
@@ -122,4 +123,7 @@ pub enum GameState {
     /// May transition to other states when animation completes
     #[allow(dead_code)]
     Animating { unit_id: Uuid },
+
+    /// Game submenu is displayed (for actions like recruiting)
+    GameSubmenu,
 }
