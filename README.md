@@ -164,22 +164,10 @@ cargo doc -p items --open
 - All crates include Rust doc comments and crate-level overviews.
 - Generate docs with `cargo doc --workspace` (use `--open` to view).
 
-### Run Applications
+### Run Application
 ```bash
-# Main interactive game application (recommended!)
+# Launch the main interactive game
 cargo run -p questapp
-
-# Encyclopedia demo - Browse all units, terrain, and mechanics
-cd Encyclopedia
-cargo run --example encyclopedia_demo
-
-# AI planning demo - See GOAP in action
-cd AI
-cargo run --example [example_name]
-
-# Graphics rendering demo (standalone)
-cd Graphics
-cargo run
 ```
 
 ## 🖼️ Interactive Game Window (QuestApp)
@@ -209,22 +197,7 @@ cargo run
 - Updated graphics drivers
 - Windows with proper GPU support
 
-## 🎯 Demo Output Example
-
-**QuestApp (Interactive Game):**
-```
-🎮 Starting QuestQuest Interactive Game Window...
-✅ UI Panel initialized!
-🎮 QuestQuest Game Window Started!
-📍 Units: Thorin at (0,0), Legolas at (2,-1), Gimli at (-2,1)
-🎁 Item: Iron Sword at (1,1) - available for pickup!
-🖱️  RIGHT-CLICK on a unit to select it and show movement range
-🖱️  LEFT-CLICK on blue hexes to move the selected unit
-⌨️  Use arrow keys to move camera
-🔤 Press 'C' to show detailed unit info in console
-🔤 Press 'H' to toggle hover debug mode
-🔤 Press ESC to deselect unit
-```
+ 
 
 ## 🏛️ Architecture Highlights
 
@@ -260,6 +233,16 @@ QuestQuest uses a layered, modular architecture. `questapp` orchestrates the gam
                                │
                   Common Types & Traits (positions, ids)
 ```
+
+### Responsibilities at a Glance
+- QuestApp: Runs window, input, and the main loop.
+- Game: Owns world state and validates actions.
+- Graphics: Renders terrain, units, items, and UI.
+- Units: Provides unit trait, stats, leveling, equipment.
+- Items: Defines equipment, consumables, and modifiers.
+- Combat: Resolves turn-based battles and damage.
+- AI: Plans actions via GOAP against game state.
+- Encyclopedia: Aggregates runtime data for documentation.
 
 ### Data Flow: From User Action to Visual Update
 
