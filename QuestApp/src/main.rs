@@ -446,9 +446,16 @@ impl GameApp {
                 }
             }
             winit::keyboard::PhysicalKey::Code(winit::keyboard::KeyCode::Escape) => {
-                // Priority 1: Check if game submenu is open, close it
+                // Priority 1: Check if recruitment is open, close it
                 let mut handled = false;
-                if self.game_state.current_state == GameState::GameSubmenu {
+                if self.game_state.current_state == GameState::RecruitUnit {
+                    self.game_state.transition_to(GameState::Exploring);
+                    println!("🎖️ Recruitment: Closed");
+                    handled = true;
+                }
+
+                // Priority 2: Check if game submenu is open, close it
+                if !handled && self.game_state.current_state == GameState::GameSubmenu {
                     self.game_state.transition_to(GameState::Exploring);
                     println!("📋 Game submenu: Closed");
                     handled = true;
@@ -648,7 +655,55 @@ impl GameApp {
             return;
         }
 
-        // Priority 1: Check if clicking on menu buttons (highest priority)
+        // Priority 1: Check if clicking on submenu (highest priority when submenu is active)
+        if self.game_state.current_state == GameState::GameSubmenu {
+            if let Some(renderer) = &mut self.renderer {
+                if let Some(submenu) = &renderer.submenu_panel {
+                    if let Some(item_index) = submenu.get_item_at_position(x as f32, y as f32) {
+                        // Item clicked - handle action
+                        if item_index == 0 {
+                            // "Recruit" clicked
+                            println!("🎖️ Recruit clicked - opening recruitment");
+                            self.game_state.transition_to(GameState::RecruitUnit);
+                            return;
+                        }
+                    } else if !submenu.contains_point(x as f32, y as f32) {
+                        // Clicked outside submenu - close it
+                        self.game_state.transition_to(GameState::Exploring);
+                        return;
+                    }
+                }
+            }
+            return; // Don't process other clicks when submenu is active
+        }
+
+        // Priority 2: Handle recruitment clicks
+        if self.game_state.current_state == GameState::RecruitUnit {
+            if let Some(renderer) = &self.renderer {
+                if let Some(panel) = &renderer.recruitment_panel {
+                    if let Some(index) = panel.get_unit_at_position(x as f32, y as f32, 7) {
+                        let human_units = [
+                            units::UnitType::HumanNoble,
+                            units::UnitType::HumanSquire,
+                            units::UnitType::HumanKnight,
+                            units::UnitType::HumanPrince,
+                            units::UnitType::HumanGrandKnight,
+                            units::UnitType::HumanKing,
+                            units::UnitType::HumanKnightCommander,
+                        ];
+
+                        if index < human_units.len() {
+                            let unit_type = human_units[index];
+                            self.spawn_recruited_unit(unit_type);
+                            self.game_state.transition_to(GameState::Exploring);
+                        }
+                    }
+                }
+            }
+            return; // Don't process other clicks when recruiting
+        }
+
+        // Priority 3: Check if clicking on menu buttons
         if let Some(renderer) = &mut self.renderer {
             if renderer.menu_display.active {
                 if let Some(action) = renderer.menu_display.get_button_action(x as f32, y as f32) {
@@ -875,7 +930,7 @@ impl GameApp {
     ///
     /// * `x` - Screen X coordinate of the click
     /// * `y` - Screen Y coordinate of the click
-    fn handle_right_click(&mut self, _x: f64, _y: f64) {
+    fn handle_right_click(&mut self, x: f64, y: f64) {
         // --- Player Control Flow: unselect unit or open game submenu ---
         if self.selected_unit().is_some() {
             // If unit is selected, unselect it
@@ -883,6 +938,11 @@ impl GameApp {
             println!("[Right Click] Unit unselected.");
         } else {
             // If no unit is selected, open game submenu
+            // Store the hex coordinate where the submenu was opened for spawning units there
+            if let Some(hex_coord) = self.screen_to_hex_coord(x, y) {
+                // Store recruit position in submenu state
+                self.game_state.submenu.set_recruit_position(hex_coord);
+            }
             self.game_state.transition_to(GameState::GameSubmenu);
             println!("[Right Click] Opening game submenu.");
         }
@@ -1341,6 +1401,56 @@ impl GameApp {
                     inventory,
                 };
                 ui_panel.set_unit_info(display_info);
+            }
+        }
+    }
+
+    /// Spawns a recruited unit at the stored recruit position with the same team as selected unit
+    fn spawn_recruited_unit(&mut self, unit_type: units::UnitType) {
+        // Get the spawn position from where the recruit menu was opened
+        let spawn_position = self
+            .game_state
+            .submenu
+            .recruit_position()
+            .unwrap_or_else(|| HexCoord::new(0, 0));
+
+        // Determine team: use selected unit's team, or default to Player
+        let team = if let Some(unit_id) = self.selected_unit() {
+            if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                game_unit.team()
+            } else {
+                game::objects::Team::Player
+            }
+        } else {
+            // Check if there's a unit at the spawn position to inherit team from
+            if let Some(unit_id) = self.find_unit_at_hex(spawn_position) {
+                if let Some(game_unit) = self.game_world.units.get(&unit_id) {
+                    game_unit.team()
+                } else {
+                    game::objects::Team::Player
+                }
+            } else {
+                game::objects::Team::Player
+            }
+        };
+
+        // Create the unit using the factory
+        let unit_type_str = unit_type.as_str();
+        match units::UnitFactory::create(unit_type_str, None, Some(spawn_position)) {
+            Ok(unit) => {
+                // Create a GameUnit with inherited or player team
+                let game_unit = game::objects::GameUnit::new_with_team(unit, team);
+
+                // Add to the game world
+                let unit_id = self.game_world.add_unit(game_unit);
+
+                println!(
+                    "🎖️ Recruited {} at {:?} for team {:?} (ID: {})",
+                    unit_type_str, spawn_position, team, unit_id
+                );
+            }
+            Err(e) => {
+                println!("❌ Failed to recruit unit: {}", e);
             }
         }
     }
@@ -2055,22 +2165,79 @@ impl ApplicationHandler for GameApp {
                             if let Some(ui_panel) = &mut self.ui_panel {
                                 ui_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT, renderer);
                             }
+                        }
 
-                            // Render UI overlay
-                            self.render_ui();
+                        // Render UI overlay (needs separate borrow)
+                        self.render_ui();
 
-                            // Render encyclopedia panel if visible
-                            if self.encyclopedia_visible() {
-                                if let Some(encyclopedia_panel) = &mut self.encyclopedia_panel {
-                                    encyclopedia_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT);
+                        // Render encyclopedia panel if visible
+                        if self.encyclopedia_visible() {
+                            if let Some(encyclopedia_panel) = &mut self.encyclopedia_panel {
+                                encyclopedia_panel.render(SCREEN_WIDTH, SCREEN_HEIGHT);
+                            }
+                        }
+
+                        // Render game submenu if active
+                        if self.game_state.current_state == GameState::GameSubmenu {
+                            if let Some(renderer) = &mut self.renderer {
+                                // Create submenu panel if it doesn't exist
+                                if renderer.submenu_panel.is_none() {
+                                    let submenu_x = self.cursor_position.0 as f32;
+                                    let submenu_y = self.cursor_position.1 as f32;
+                                    if let Ok(panel) = graphics::SubmenuPanel::new(
+                                        submenu_x,
+                                        submenu_y,
+                                        vec!["Recruit".to_string()],
+                                    ) {
+                                        renderer.submenu_panel = Some(panel);
+                                    }
+                                }
+
+                                // Render the submenu
+                                if let Some(submenu) = &mut renderer.submenu_panel {
+                                    submenu.render(SCREEN_WIDTH, SCREEN_HEIGHT);
                                 }
                             }
+                        } else if let Some(renderer) = &mut self.renderer {
+                            // Clear submenu when not in submenu state
+                            renderer.submenu_panel = None;
+                        }
 
-                            if let (Some(gl_context), Some(gl_surface)) =
-                                (&self.gl_context, &self.gl_surface)
-                            {
-                                gl_surface.swap_buffers(gl_context).unwrap();
+                        // Render recruitment UI if in recruit state
+                        if self.game_state.current_state == GameState::RecruitUnit {
+                            if let Some(renderer) = &mut self.renderer {
+                                // Create recruitment panel if it doesn't exist
+                                if renderer.recruitment_panel.is_none() {
+                                    if let Ok(panel) =
+                                        graphics::RecruitmentPanel::new(SCREEN_WIDTH, SCREEN_HEIGHT)
+                                    {
+                                        renderer.recruitment_panel = Some(panel);
+                                    }
+                                }
+
+                                // Render the recruitment panel
+                                if let Some(panel) = &mut renderer.recruitment_panel {
+                                    let human_units = [
+                                        ("Human Noble", 0),
+                                        ("Human Squire", 1),
+                                        ("Human Knight", 2),
+                                        ("Human Prince", 3),
+                                        ("Human Grand Knight", 4),
+                                        ("Human King", 5),
+                                        ("Human Knight Commander", 6),
+                                    ];
+                                    panel.render(SCREEN_WIDTH, SCREEN_HEIGHT, &human_units);
+                                }
                             }
+                        } else if let Some(renderer) = &mut self.renderer {
+                            // Clear recruitment panel when not in recruit state
+                            renderer.recruitment_panel = None;
+                        }
+
+                        if let (Some(gl_context), Some(gl_surface)) =
+                            (&self.gl_context, &self.gl_surface)
+                        {
+                            gl_surface.swap_buffers(gl_context).unwrap();
                         }
                     }
                     _ => {

@@ -464,6 +464,8 @@ pub struct Renderer {
     pub texture_manager: TextureManager,
     // pub guide_display: GuideDisplay, // Now handled in EncyclopediaPanel
     pub menu_display: MenuDisplay,
+    pub submenu_panel: Option<crate::ui::SubmenuPanel>,
+    pub recruitment_panel: Option<crate::ui::RecruitmentPanel>,
     pub effects_display: EffectsDisplay,
     pub combat_log_display: CombatLogDisplay,
     pub text_renderer: TextRenderer,
@@ -521,6 +523,8 @@ impl Renderer {
             texture_manager,
             // guide_display: GuideDisplay::new(),
             menu_display: MenuDisplay::new(),
+            submenu_panel: None,
+            recruitment_panel: None,
             effects_display: EffectsDisplay::new(),
             combat_log_display: CombatLogDisplay::new(window_width, window_height),
             text_renderer,

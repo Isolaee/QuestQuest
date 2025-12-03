@@ -126,4 +126,7 @@ pub enum GameState {
 
     /// Game submenu is displayed (for actions like recruiting)
     GameSubmenu,
+
+    /// Recruit unit state - player is selecting which unit to recruit
+    RecruitUnit,
 }

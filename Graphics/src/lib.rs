@@ -36,5 +36,6 @@ pub use rendering::{
     setup_dynamic_hexagons, AttackOption, CombatConfirmation, MenuAction, Renderer,
 };
 pub use ui::{
-    AttackDisplayInfo, EncyclopediaCategory, EncyclopediaPanel, UiPanel, UnitDisplayInfo,
+    AttackDisplayInfo, EncyclopediaCategory, EncyclopediaPanel, RecruitmentPanel, SubmenuPanel,
+    UiPanel, UnitDisplayInfo,
 };

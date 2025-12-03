@@ -213,6 +213,9 @@ impl GameSceneState {
             GameState::GameSubmenu => {
                 // Submenu state is persistent
             }
+            GameState::RecruitUnit => {
+                // Recruit state doesn't need special initialization
+            }
         }
 
         self.current_state = new_state;

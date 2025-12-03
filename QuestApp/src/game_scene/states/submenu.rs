@@ -3,6 +3,8 @@
 //! Handles the right-click game submenu that appears when no unit is selected.
 //! Currently provides access to actions like recruiting units.
 
+use graphics::HexCoord;
+
 /// Game submenu state handler
 ///
 /// The submenu provides contextual actions that can be performed during gameplay.
@@ -12,6 +14,8 @@
 pub struct SubmenuState {
     /// Currently selected menu item (for keyboard navigation)
     selected_item: usize,
+    /// Hex coordinate where the submenu was opened (for spawning units)
+    recruit_position: Option<HexCoord>,
 }
 
 /// Available submenu items
@@ -36,7 +40,20 @@ impl SubmenuState {
     /// let submenu = SubmenuState::new();
     /// ```
     pub fn new() -> Self {
-        Self { selected_item: 0 }
+        Self {
+            selected_item: 0,
+            recruit_position: None,
+        }
+    }
+
+    /// Sets the position where recruitment should occur
+    pub fn set_recruit_position(&mut self, position: HexCoord) {
+        self.recruit_position = Some(position);
+    }
+
+    /// Gets the stored recruit position
+    pub fn recruit_position(&self) -> Option<HexCoord> {
+        self.recruit_position
     }
 
     /// Gets all available menu items
