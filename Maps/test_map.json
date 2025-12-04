@@ -20,6 +20,16 @@
       "Goal": "Survive"
     }
   ],
+  "Objectives": [
+    {
+      "Type": "DefeatAllEnemies",
+      "Team": "Player"
+    },
+    {
+      "Type": "DefeatAllEnemies",
+      "Team": "Enemy"
+    }
+  ],
   "Map": [
     {"HexCoord": {"q": 0, "r": 0}, "SpriteType": "Grasslands", "Unit": ["Human Squire", "Player"], "Item": null, "Structure": null},
     
