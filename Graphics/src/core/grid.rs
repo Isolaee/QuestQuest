@@ -41,6 +41,88 @@ impl HexGrid {
             grid_radius,
         }
     }
+
+    /// Create an empty `HexGrid` with no hexagons.
+    ///
+    /// Use `add_hex` or `add_hex_with_sprite` to populate the grid with only
+    /// the tiles you need. This is useful when loading maps from JSON files
+    /// where you only want to render the tiles defined in the file.
+    pub fn empty() -> Self {
+        Self {
+            hexagons: HashMap::new(),
+            camera: Camera::new(),
+            hex_size: 0.2,
+            grid_radius: 0,
+        }
+    }
+
+    /// Create a `HexGrid` from a list of coordinates with their sprites.
+    ///
+    /// Only the specified coordinates will have hexagons created for them.
+    /// This is the recommended way to create a grid from map data.
+    ///
+    /// # Arguments
+    ///
+    /// * `tiles` - Iterator of (HexCoord, SpriteType) pairs defining the map
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let tiles = vec![
+    ///     (HexCoord::new(0, 0), SpriteType::Grasslands),
+    ///     (HexCoord::new(1, 0), SpriteType::Forest),
+    /// ];
+    /// let grid = HexGrid::from_tiles(tiles);
+    /// ```
+    pub fn from_tiles<I>(tiles: I) -> Self
+    where
+        I: IntoIterator<Item = (HexCoord, SpriteType)>,
+    {
+        let hex_size = 0.2;
+        let mut hexagons = HashMap::new();
+
+        for (coord, sprite) in tiles {
+            let mut hexagon = Hexagon::new(coord, hex_size);
+            hexagon.set_sprite(sprite);
+            hexagons.insert(coord, hexagon);
+        }
+
+        Self {
+            hexagons,
+            camera: Camera::new(),
+            hex_size,
+            grid_radius: 0, // Not applicable for custom grids
+        }
+    }
+
+    /// Add a single hexagon at the specified coordinate.
+    ///
+    /// If a hexagon already exists at this coordinate, it will be replaced.
+    pub fn add_hex(&mut self, coord: HexCoord) {
+        let hexagon = Hexagon::new(coord, self.hex_size);
+        self.hexagons.insert(coord, hexagon);
+    }
+
+    /// Add a single hexagon with a specific terrain sprite.
+    ///
+    /// If a hexagon already exists at this coordinate, it will be replaced.
+    pub fn add_hex_with_sprite(&mut self, coord: HexCoord, sprite: SpriteType) {
+        let mut hexagon = Hexagon::new(coord, self.hex_size);
+        hexagon.set_sprite(sprite);
+        self.hexagons.insert(coord, hexagon);
+    }
+
+    /// Remove a hexagon from the grid.
+    ///
+    /// Returns the removed hexagon if it existed.
+    pub fn remove_hex(&mut self, coord: HexCoord) -> Option<Hexagon> {
+        self.hexagons.remove(&coord)
+    }
+
+    /// Clear all hexagons from the grid.
+    pub fn clear(&mut self) {
+        self.hexagons.clear();
+    }
 }
 
 impl Default for HexGrid {
@@ -103,6 +185,13 @@ impl HexGrid {
         }
     }
 
+    /// Set a structure sprite at a coordinate (preserving terrain sprite).
+    pub fn set_structure_at(&mut self, coord: HexCoord, structure_sprite: SpriteType) {
+        if let Some(hex) = self.hexagons.get_mut(&coord) {
+            hex.set_structure_sprite(Some(structure_sprite));
+        }
+    }
+
     /// Remove unit sprite at a coordinate.
     pub fn remove_unit_at(&mut self, coord: HexCoord) {
         if let Some(hex) = self.hexagons.get_mut(&coord) {
@@ -114,6 +203,13 @@ impl HexGrid {
     pub fn remove_item_at(&mut self, coord: HexCoord) {
         if let Some(hex) = self.hexagons.get_mut(&coord) {
             hex.set_item_sprite(None);
+        }
+    }
+
+    /// Remove structure sprite at a coordinate.
+    pub fn remove_structure_at(&mut self, coord: HexCoord) {
+        if let Some(hex) = self.hexagons.get_mut(&coord) {
+            hex.set_structure_sprite(None);
         }
     }
 
@@ -129,6 +225,14 @@ impl HexGrid {
         self.hexagons
             .get(&coord)
             .map(|hex| hex.has_unit())
+            .unwrap_or(false)
+    }
+
+    /// Check if there's a structure at the specified coordinate.
+    pub fn has_structure_at(&self, coord: HexCoord) -> bool {
+        self.hexagons
+            .get(&coord)
+            .map(|hex| hex.has_structure())
             .unwrap_or(false)
     }
 

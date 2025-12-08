@@ -56,4 +56,4 @@ pub use structure_factory::StructureFactory;
 pub use structure_stats::StructureStats;
 pub use structure_trait::{Structure, StructureId};
 pub use structure_type::{StructureCategory, StructureType};
-pub use structure_units::StoneWall;
+pub use structure_units::{House, StoneWall};

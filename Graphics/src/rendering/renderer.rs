@@ -499,6 +499,11 @@ impl Renderer {
                 .load_unit_sprites()
                 .map_err(|e| format!("Failed to load unit sprites: {}", e))?;
 
+            // Load all structure textures
+            texture_manager
+                .load_structure_sprites()
+                .map_err(|e| format!("Failed to load structure sprites: {}", e))?;
+
             // Set up texture uniforms
             gl::UseProgram(shader_program);
 
@@ -547,7 +552,11 @@ impl Renderer {
             // Clear screen and enable depth testing for proper layering
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
             gl::Enable(gl::DEPTH_TEST);
-            gl::DepthFunc(gl::LESS);
+            gl::DepthFunc(gl::LEQUAL); // Use LEQUAL to allow same-depth overlays
+
+            // Enable alpha blending for transparent sprites
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
 
             if !visible_hexagons.is_empty() {
                 // Bind all textures
@@ -557,6 +566,9 @@ impl Renderer {
 
                 // LAYER 1: Render terrain (bottom layer, z = 0.0)
                 self.render_terrain_layer(&visible_hexagons, hex_grid);
+
+                // LAYER 1.5: Render structures (on top of terrain, z = -0.3)
+                self.render_structure_sprites_layer(&visible_hexagons, hex_grid);
 
                 // LAYER 2: Render units (middle layer, z = -0.5)
                 self.render_unit_sprites_layer(&visible_hexagons, hex_grid);
@@ -899,6 +911,81 @@ impl Renderer {
         }
         if text_count > 0 {
             println!("📝 Rendered {} text overlays", text_count);
+        }
+    }
+
+    unsafe fn render_structure_sprites_layer(
+        &self,
+        visible_hexagons: &[&Hexagon],
+        hex_grid: &HexGrid,
+    ) {
+        // Build vertices for structures only
+        let mut vertices = Vec::new();
+
+        for hex in visible_hexagons {
+            if let Some(structure_sprite) = hex.structure_sprite {
+                let center_x = hex.world_pos.x - hex_grid.camera.position.x;
+                let center_y = hex.world_pos.y - hex_grid.camera.position.y;
+                let texture_id = structure_sprite.get_texture_id();
+                let sprite_color = structure_sprite.get_color_tint();
+
+                // Scale factor for structures (70% of hex size - slightly larger than units)
+                let scale_factor = 0.7;
+                let small_hex_size = hex_grid.hex_size * scale_factor;
+
+                // Center vertex (z = -0.3 to render on top of terrain but below units)
+                vertices.extend_from_slice(&[
+                    center_x,
+                    center_y,
+                    -0.3, // position with depth
+                    0.5,
+                    0.5,        // uv
+                    texture_id, // texture id
+                    sprite_color[0],
+                    sprite_color[1],
+                    sprite_color[2], // RGB color
+                ]);
+
+                // Outer vertices
+                for i in 0..=6 {
+                    let angle = (i as f32) * std::f32::consts::PI / 3.0;
+                    let x = center_x + small_hex_size * angle.cos();
+                    let y = center_y + small_hex_size * angle.sin();
+                    let u = 0.5 + 0.4 * angle.cos();
+                    let v = 1.0 - (0.5 + 0.4 * angle.sin());
+
+                    vertices.extend_from_slice(&[
+                        x,
+                        y,
+                        -0.3, // position with depth
+                        u,
+                        v,          // uv
+                        texture_id, // texture id
+                        sprite_color[0],
+                        sprite_color[1],
+                        sprite_color[2], // RGB color
+                    ]);
+                }
+            }
+        }
+
+        if vertices.is_empty() {
+            return;
+        }
+
+        // Upload and draw structure sprites
+        gl::BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer.vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER,
+            (vertices.len() * std::mem::size_of::<f32>()) as GLsizeiptr,
+            vertices.as_ptr() as *const _,
+            gl::DYNAMIC_DRAW,
+        );
+
+        let hex_count = vertices.len() / (8 * 9); // 8 vertices, 9 floats each
+        for i in 0..hex_count {
+            let vertex_offset = (i * 8) as GLint;
+            gl::DrawArrays(gl::TRIANGLE_FAN, vertex_offset, 8);
         }
     }
 

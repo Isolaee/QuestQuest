@@ -142,8 +142,8 @@ impl SpriteType {
             SpriteType::Item => Some("item_sprites/sword.png"),
             SpriteType::DwarfWarrior => Some("unit_sprites/dwarf_warrior.png"),
             SpriteType::OrcWarrior => Some("unit_sprites/orc_warrior.png"),
-            SpriteType::House => None, // Not yet implemented
-            SpriteType::Wall => None,  // Not yet implemented
+            SpriteType::House => Some("structure_sprites/house.png"),
+            SpriteType::Wall => Some("structure_sprites/wall.png"),
         }
     }
 
@@ -183,6 +183,11 @@ impl SpriteType {
     /// Get all unit sprite types (with textures).
     pub fn all_units() -> [SpriteType; 2] {
         [SpriteType::DwarfWarrior, SpriteType::OrcWarrior]
+    }
+
+    /// Get all structure sprite types (with textures).
+    pub fn all_structures() -> [SpriteType; 2] {
+        [SpriteType::House, SpriteType::Wall]
     }
 
     /// Get a deterministic pseudo-random terrain sprite given a seed.
@@ -279,10 +284,11 @@ pub struct Hexagon {
     pub coord: HexCoord,
     pub world_pos: Vec2,
     pub color: [f32; 3],
-    pub sprite: SpriteType,              // Base terrain sprite
-    pub unit_sprite: Option<SpriteType>, // Optional unit sprite on top
-    pub item_sprite: Option<SpriteType>, // Optional item sprite on top
-    pub highlight: HighlightType,        // Highlight state
+    pub sprite: SpriteType,                   // Base terrain sprite
+    pub structure_sprite: Option<SpriteType>, // Optional structure sprite (rendered on terrain)
+    pub unit_sprite: Option<SpriteType>,      // Optional unit sprite on top
+    pub item_sprite: Option<SpriteType>,      // Optional item sprite on top
+    pub highlight: HighlightType,             // Highlight state
     pub text_overlay: Option<String>, // Optional text to display on the tile (e.g., defense value)
 }
 
@@ -307,11 +313,17 @@ impl Hexagon {
             world_pos,
             color: base_color,
             sprite,
-            unit_sprite: None, // No unit by default
-            item_sprite: None, // No item by default
+            structure_sprite: None, // No structure by default
+            unit_sprite: None,      // No unit by default
+            item_sprite: None,      // No item by default
             highlight: HighlightType::None,
             text_overlay: None, // No text overlay by default
         }
+    }
+
+    /// Set structure sprite (rendered on top of terrain, below units)
+    pub fn set_structure_sprite(&mut self, structure_sprite: Option<SpriteType>) {
+        self.structure_sprite = structure_sprite;
     }
 
     /// Set unit sprite (rendered on top of terrain)
@@ -349,14 +361,21 @@ impl Hexagon {
         self.text_overlay = None;
     }
 
-    /// Get the display sprite (unit takes priority if present)
+    /// Get the display sprite (unit takes priority, then structure, then terrain)
     pub fn get_display_sprite(&self) -> SpriteType {
-        self.unit_sprite.unwrap_or(self.sprite)
+        self.unit_sprite
+            .or(self.structure_sprite)
+            .unwrap_or(self.sprite)
     }
 
     /// Check if hex has a unit
     pub fn has_unit(&self) -> bool {
         self.unit_sprite.is_some()
+    }
+
+    /// Check if hex has a structure
+    pub fn has_structure(&self) -> bool {
+        self.structure_sprite.is_some()
     }
 
     /// Get the final display color (blends terrain tint and highlights)

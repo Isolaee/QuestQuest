@@ -8,6 +8,7 @@ use log::warn;
 use serde_json::Value;
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
+use units::structures::{Structure, StructureFactory};
 use units::UnitFactory;
 use uuid::Uuid;
 
@@ -305,7 +306,52 @@ impl ScenarioWorld {
 
             if let Some(s) = cell.structure {
                 if !s.is_null() {
-                    let id = match s.get("id") {
+                    // Handle string format: "House" or array format: ["House", "Player"]
+                    let structure_value = if s.is_string() {
+                        // Simple string format: "House"
+                        if let Some(structure_type) = s.as_str() {
+                            serde_json::json!({
+                                "type": structure_type,
+                                "team": "Neutral"
+                            })
+                        } else {
+                            continue;
+                        }
+                    } else if s.is_array() {
+                        // Array format: ["House", "Player"]
+                        if let Some(arr) = s.as_array() {
+                            if arr.len() >= 2 {
+                                if let (Some(structure_type), Some(team_name)) =
+                                    (arr[0].as_str(), arr[1].as_str())
+                                {
+                                    serde_json::json!({
+                                        "type": structure_type,
+                                        "team": team_name
+                                    })
+                                } else {
+                                    continue;
+                                }
+                            } else if arr.len() == 1 {
+                                if let Some(structure_type) = arr[0].as_str() {
+                                    serde_json::json!({
+                                        "type": structure_type,
+                                        "team": "Neutral"
+                                    })
+                                } else {
+                                    continue;
+                                }
+                            } else {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        // Object format (legacy)
+                        s
+                    };
+
+                    let id = match structure_value.get("id") {
                         Some(Value::String(strid)) => {
                             Uuid::parse_str(strid).unwrap_or_else(|_| Uuid::new_v4())
                         }
@@ -318,7 +364,7 @@ impl ScenarioWorld {
                         }
                         _ => Uuid::new_v4(),
                     };
-                    structures.push((id, pos, s));
+                    structures.push((id, pos, structure_value));
                 }
             }
         }
@@ -585,10 +631,70 @@ impl ScenarioWorld {
         interactive_objects
     }
 
-    /// Populate interactive objects from parsed structures.
+    /// Populate structures from parsed structure data.
+    ///
+    /// Returns a HashMap of boxed Structure trait objects indexed by UUID.
+    /// Supports structure types: House, StoneWall (Wall)
+    pub fn populate_structures(
+        parsed_structures: Vec<(Uuid, HexCoord, Value)>,
+    ) -> HashMap<Uuid, Box<dyn Structure>> {
+        let mut structures: HashMap<Uuid, Box<dyn Structure>> = HashMap::new();
+
+        for (_id, pos, v) in parsed_structures {
+            if !v.is_object() {
+                warn!("Skipping structure at {:?}: not an object", pos);
+                continue;
+            }
+            let obj = v.as_object().unwrap();
+
+            // Get structure type
+            let type_name = obj
+                .get("type")
+                .and_then(|s| s.as_str())
+                .or_else(|| obj.get("name").and_then(|s| s.as_str()))
+                .unwrap_or("House");
+
+            // Get team
+            let team = obj
+                .get("team")
+                .and_then(|t| t.as_str())
+                .map(|s| match s {
+                    "Enemy" => units::Team::Enemy,
+                    "Player" => units::Team::Player,
+                    _ => units::Team::Neutral,
+                })
+                .unwrap_or(units::Team::Neutral);
+
+            // Create structure based on type
+            let structure: Option<Box<dyn Structure>> = match type_name {
+                "House" => Some(StructureFactory::create_house(pos, team)),
+                "Wall" | "StoneWall" | "Stone Wall" => {
+                    Some(StructureFactory::create_stone_wall(pos, team))
+                }
+                other => {
+                    warn!(
+                        "Unknown structure type '{}' at {:?}, defaulting to House",
+                        other, pos
+                    );
+                    Some(StructureFactory::create_house(pos, team))
+                }
+            };
+
+            if let Some(s) = structure {
+                let structure_id = s.id();
+                structures.insert(structure_id, s);
+            }
+        }
+
+        structures
+    }
+
+    /// Populate interactive objects from parsed structures (legacy compatibility).
     ///
     /// Returns a HashMap of InteractiveObject indexed by UUID.
-    pub fn populate_structures(
+    /// Use `populate_structures` for proper Structure trait objects.
+    #[deprecated(note = "Use populate_structures() for proper Structure objects")]
+    pub fn populate_structures_as_interactive_objects(
         parsed_structures: Vec<(Uuid, HexCoord, Value)>,
     ) -> HashMap<Uuid, InteractiveObject> {
         let mut interactive_objects = HashMap::new();
@@ -600,8 +706,9 @@ impl ScenarioWorld {
             }
             let obj = v.as_object().unwrap();
             let name = obj
-                .get("name")
+                .get("type")
                 .and_then(|s| s.as_str())
+                .or_else(|| obj.get("name").and_then(|s| s.as_str()))
                 .unwrap_or("House")
                 .to_string();
             let desc = obj
@@ -609,7 +716,14 @@ impl ScenarioWorld {
                 .and_then(|s| s.as_str())
                 .unwrap_or("")
                 .to_string();
-            let io = InteractiveObject::new(pos, name, desc, SpriteType::House);
+
+            // Map structure type to sprite
+            let sprite = match name.as_str() {
+                "Wall" | "StoneWall" | "Stone Wall" => SpriteType::Wall,
+                _ => SpriteType::House,
+            };
+
+            let io = InteractiveObject::new(pos, name, desc, sprite);
             let io_id = io.id();
             interactive_objects.insert(io_id, io);
         }

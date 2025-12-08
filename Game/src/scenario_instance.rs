@@ -40,6 +40,7 @@ use ai::{
 use graphics::HexCoord;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use units::structures::Structure;
 use uuid::Uuid;
 
 // Local constants used by AI action cost calculations (match world.rs defaults)
@@ -74,6 +75,9 @@ pub struct ScenarioWorld {
     /// All interactive objects in the world, indexed by UUID
     pub interactive_objects: HashMap<Uuid, InteractiveObject>,
 
+    /// All structures in the world, indexed by UUID
+    pub structures: HashMap<Uuid, Box<dyn Structure>>,
+
     /// Pending combat awaiting player confirmation
     pub pending_combat: Option<PendingCombat>,
     /// Queue of AI events emitted by executors (start/complete). Protected by mutex
@@ -92,6 +96,7 @@ impl ScenarioWorld {
         let terrain: HashMap<HexCoord, TerrainTile>;
         let units: HashMap<Uuid, GameUnit>;
         let interactive_objects: HashMap<Uuid, InteractiveObject>;
+        let structures: HashMap<Uuid, Box<dyn Structure>>;
 
         // Parse the map JSON
         match ScenarioWorld::parse_map_json(&map_json) {
@@ -99,17 +104,18 @@ impl ScenarioWorld {
                 terrain = parsed.terrain;
                 units = ScenarioWorld::populate_units(parsed.units);
 
-                // Combine items and structures into interactive_objects
-                let mut items = ScenarioWorld::populate_items(parsed.items);
-                let structures = ScenarioWorld::populate_structures(parsed.structures);
-                items.extend(structures);
-                interactive_objects = items;
+                // Items become interactive objects
+                interactive_objects = ScenarioWorld::populate_items(parsed.items);
+
+                // Structures are now proper Structure trait objects
+                structures = ScenarioWorld::populate_structures(parsed.structures);
             }
             Err(e) => {
                 eprintln!("Failed to parse map JSON: {}", e);
                 terrain = HashMap::new();
                 units = HashMap::new();
                 interactive_objects = HashMap::new();
+                structures = HashMap::new();
             }
         }
 
@@ -123,6 +129,7 @@ impl ScenarioWorld {
             terrain,
             units,
             interactive_objects,
+            structures,
             pending_combat: None,
             ai_event_queue: Arc::new(Mutex::new(Vec::new())),
             turn_system,
@@ -1004,6 +1011,52 @@ impl ScenarioWorld {
     /// Returns a reference to all terrain tiles in the world.
     pub fn terrain(&self) -> &HashMap<HexCoord, TerrainTile> {
         &self.terrain
+    }
+
+    // ===== Structure Accessors =====
+
+    /// Returns a reference to a structure by ID.
+    pub fn get_structure(&self, id: Uuid) -> Option<&dyn Structure> {
+        self.structures.get(&id).map(|s| s.as_ref())
+    }
+
+    /// Returns a mutable reference to a structure by ID.
+    pub fn get_structure_mut(&mut self, id: Uuid) -> Option<&mut Box<dyn Structure>> {
+        self.structures.get_mut(&id)
+    }
+
+    /// Returns a reference to the structure at the specified position, if any.
+    pub fn get_structure_at_position(&self, position: HexCoord) -> Option<&dyn Structure> {
+        self.structures
+            .values()
+            .find(|s| s.position() == position)
+            .map(|s| s.as_ref())
+    }
+
+    /// Returns a mutable reference to the structure at the specified position, if any.
+    pub fn get_structure_at_position_mut(
+        &mut self,
+        position: HexCoord,
+    ) -> Option<&mut Box<dyn Structure>> {
+        self.structures
+            .values_mut()
+            .find(|s| s.position() == position)
+    }
+
+    /// Returns a reference to all structures in the world.
+    pub fn structures(&self) -> &HashMap<Uuid, Box<dyn Structure>> {
+        &self.structures
+    }
+
+    /// Adds a structure to the world.
+    pub fn add_structure(&mut self, structure: Box<dyn Structure>) {
+        let id = structure.id();
+        self.structures.insert(id, structure);
+    }
+
+    /// Removes a structure from the world by ID.
+    pub fn remove_structure(&mut self, id: Uuid) -> Option<Box<dyn Structure>> {
+        self.structures.remove(&id)
     }
 
     /// Updates the world state (called each frame).

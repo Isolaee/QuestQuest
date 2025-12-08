@@ -228,11 +228,20 @@ impl GameApp {
         // - AI execution (via AI crate)
         // QuestApp reads from ScenarioWorld for rendering and writes player actions to it
 
+        // Create hex grid from the terrain defined in the map JSON
+        // Only tiles declared in the JSON will be rendered
+        let hex_grid = HexGrid::from_tiles(
+            game_world
+                .terrain
+                .iter()
+                .map(|(coord, tile)| (*coord, tile.sprite_type())),
+        );
+
         Self {
             window: None,
             gl_context: None,
             gl_surface: None,
-            hex_grid: HexGrid::new(),
+            hex_grid,
             renderer: None,
             ui_panel: None,
             game_world,
@@ -1510,18 +1519,38 @@ impl GameApp {
         }
     }
 
-    /// Updates the hex grid with current unit and item positions.
+    /// Updates the hex grid with current unit, structure, and item positions.
     ///
     /// Synchronizes visual representation with ScenarioWorld state.
-    /// Queries all units and interactive objects from ScenarioWorld and updates
-    /// the hex grid sprites accordingly. Terrain sprites are preserved.
+    /// Queries all units, structures, and interactive objects from ScenarioWorld
+    /// and updates the hex grid sprites accordingly. Terrain sprites are preserved.
     ///
     /// This is a presentation-layer operation that ensures rendering matches game state.
     fn update_hex_grid_units(&mut self) {
-        // Clear existing unit and item sprites (keep terrain)
+        // Clear existing unit, structure, and item sprites (keep terrain)
         for hex in self.hex_grid.hexagons.values_mut() {
             hex.set_unit_sprite(None);
+            hex.set_structure_sprite(None);
             hex.set_item_sprite(None);
+        }
+
+        // Query ScenarioWorld for current structure positions
+        for structure in self.game_world.structures.values() {
+            let pos = structure.position();
+            // Map structure type to sprite
+            let sprite = match structure.structure_type() {
+                units::structures::StructureType::House => SpriteType::House,
+                units::structures::StructureType::StoneWall => SpriteType::Wall,
+                units::structures::StructureType::WoodenWall => SpriteType::Wall,
+                units::structures::StructureType::Watchtower => SpriteType::House, // TODO: Add watchtower sprite
+                units::structures::StructureType::Gate => SpriteType::Wall,
+                units::structures::StructureType::Barracks => SpriteType::House,
+                units::structures::StructureType::Arsenal => SpriteType::House,
+                units::structures::StructureType::Barricade => SpriteType::Wall,
+                units::structures::StructureType::Trench => SpriteType::Wall,
+                units::structures::StructureType::Spikes => SpriteType::Wall,
+            };
+            self.hex_grid.set_structure_at(pos, sprite);
         }
 
         // Query ScenarioWorld for current unit positions
